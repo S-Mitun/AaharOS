@@ -53,7 +53,7 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 
 ## Known gaps / risks
 - `make` is not installed on this Windows machine yet; until it is, run the `docker compose …` lines from the Makefile.
-- CI has never run: there is no GitHub remote yet. The README badge has an `OWNER/REPO` placeholder.
+- CI runs on GitHub (S-Mitun/AaharOS) from the first push.
 - Hosting provider for the demo URL not chosen (MP17; needs the user's account; free-tier limits to be documented).
 - The 7-day plan is tight. Correctness first: no differentiator ships while a benchmark row is red.
 - Alembic is not initialised yet (MP02). `make migrate`, `seed-benchmark`, `integrity`, `e2e`, `sim`, `ml-eval` exit 1 with "not built yet".
