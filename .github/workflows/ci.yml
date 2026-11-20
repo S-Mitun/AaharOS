@@ -10,6 +10,26 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Database tests (migrations, triggers, RLS) need a real PostgreSQL 16; they must not be skipped in CI.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aahar
+          POSTGRES_PASSWORD: change-me-demo
+          POSTGRES_DB: aaharos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aahar -d aaharos"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      AAHAR_MIGRATION_DATABASE_URL: postgresql+psycopg://aahar:change-me-demo@localhost:5432/aaharos
+      AAHAR_DATABASE_URL: postgresql+psycopg://aahar_app:change-me-demo@localhost:5432/aaharos
+      AAHAR_TEST_DATABASE_URL: postgresql+psycopg://aahar:change-me-demo@localhost:5432/aaharos_test
+      AAHAR_REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -20,6 +40,8 @@ jobs:
       - run: ruff format --check . ../benchmark
       - run: lint-imports
       - run: mypy
+      - name: Migrations apply, and models match them
+        run: alembic upgrade head && alembic check
       - run: pytest
 
   benchmark:

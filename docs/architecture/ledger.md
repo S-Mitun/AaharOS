@@ -70,7 +70,11 @@ WAC pool after: 160 kg, ₹6,900.00 → **₹43.125/kg** (assertion 16).
 
 ### J2 Step 2: issue to batch B-001 (source: material issue MI-1 → run B-001)
 
-| Item | RAW_STORE | WIP (lot B-001) | Value at WAC |
+Raw-material lines carry **no lot**: a lot belongs to one item (MP02 enforces it with a (lot, item, org) FK),
+and B-001 is a murukku lot. Which run a WIP balance belongs to comes from the journal's source (the material
+issue names the run).
+
+| Item | RAW_STORE | WIP | Value at WAC |
 |---|---:|---:|---:|
 | Flour | −40 kg | +40 kg | 1,725.00 (40/160 × 6,900) |
 | Cooking oil | −10.5 L | +10.5 L | 1,470.00 (10.5/30 × 4,200) |
@@ -82,15 +86,15 @@ Balances: **flour 120 kg** (₹5,175.00), **oil 19.5 L** (₹2,730.00), spice 3.
 
 | # | Item | Location | Lot | Qty | Value |
 |---|---|---|---|---:|---:|
-| 1 | Flour | WIP | B-001 | −40 kg | −1,725.00 |
-| 2 | Flour | PRODUCTION | B-001 | +40 kg | +1,725.00 |
-| 3–4 | Cooking oil | WIP → PRODUCTION | B-001 | ∓10.5 L | ∓1,470.00 |
-| 5–6 | Spice mix | WIP → PRODUCTION | B-001 | ∓1.2 kg | ∓240.00 |
+| 1 | Flour | WIP | – | −40 kg | −1,725.00 |
+| 2 | Flour | PRODUCTION | – | +40 kg | +1,725.00 |
+| 3–4 | Cooking oil | WIP → PRODUCTION | – | ∓10.5 L | ∓1,470.00 |
+| 5–6 | Spice mix | WIP → PRODUCTION | – | ∓1.2 kg | ∓240.00 |
 | 7 | Pouch 200 g | PACK_STORE | – | −194 | −485.00 |
-| 8 | Pouch 200 g | PRODUCTION | B-001 | +188 | +485.00 |
-| 9 | Pouch 200 g | SCRAP | B-001 | +6 | 0.00 |
+| 8 | Pouch 200 g | PRODUCTION | – | +188 | +485.00 |
+| 9 | Pouch 200 g | SCRAP | – | +6 | 0.00 (`SCRAP_IN`) |
 | 10 | Carton 20 | PACK_STORE | – | −9 | −135.00 |
-| 11 | Carton 20 | PRODUCTION | B-001 | +9 | +135.00 |
+| 11 | Carton 20 | PRODUCTION | – | +9 | +135.00 |
 | 12 | Murukku 200 g | PRODUCTION | B-001 | −188 | −4,055.00 |
 | 13 | Murukku 200 g | FG_STORE | B-001 | +188 | +4,055.00 |
 
@@ -146,6 +150,11 @@ full run cost, split between what was sold and what is on hand. A value-only tru
 
 ### Step 9: reports
 No stock lines. Reports read journals, lines, invoices and payments; nothing is re-typed.
+
+**Proven in MP02:** `backend/tests/db/test_ledger_guards.py::test_nit_journals_balance_and_project` posts
+J0, J1, J2, J3, J5 and J8 exactly as above against PostgreSQL. Every journal passes the deferred balance trigger
+and the projection shows flour 120 kg / ₹5,175.00, oil 19.5 L / ₹2,730.00, pouches 306, FG 88 / ₹2,740.64,
+CUSTOMER ₹4,556.86, WIP 0, and B-001 = ₹5,855.00.
 
 ## 4. Value rules
 

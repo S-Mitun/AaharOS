@@ -50,7 +50,7 @@ web-build:
 	$(WEB) npm run build
 
 migrate:
-	@echo not built yet - MP02: Alembic migrations && exit 1
+	$(API) alembic upgrade head
 
 seed-benchmark:
 	@echo not built yet - MP05: BENCHMARK tenant seed && exit 1

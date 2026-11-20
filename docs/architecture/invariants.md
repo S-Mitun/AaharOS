@@ -49,3 +49,26 @@ must use.
 | P4 | RBAC on every route; the auditor can never mutate. | SVC: `require(perm)` dependency | `identity:test_route_role_matrix`, `identity:test_auditor_403_all_mutations` |
 | P5 | No float in money or quantity paths. | SVC: `core.money` rejects float · CI grep gate · oracle loader yields Decimal | `test_core:test_float_is_rejected` (exists), CI `grep -rn "float(" backend/app/modules` |
 | P6 | ML / analytics / LLM never write ledger, invoice, payment or run tables. | DB: analytics role has SELECT only on views | `analytics:test_role_is_read_only` (MP16) |
+
+## Implemented in MP02 (database layer)
+
+The DB-layer guards above now exist (migration `0003_guards.py`, RLS in `0004_rls_and_grants.py`, ADR-0009).
+The actual test names, all in `backend/tests/db/`:
+
+| Invariant | Guard | Tests |
+|---|---|---|
+| L1, L2 (value per journal) | deferred constraint triggers, SQLSTATE AH001 | `test_ledger_guards.py::test_unbalanced_journal_rejected`, `::test_unbalanced_value_rejected`, `::test_journal_without_lines_rejected`, `::test_nit_journals_balance_and_project` |
+| Line roles (ADR-0002) | CHECK `sign_matches_role`; AH005 for value-only misuse | `::test_line_sign_must_match_role`, `::test_value_only_line_outside_true_up_rejected` |
+| S1 | `inventory_balances` CHECK `store_not_negative` (per line) | `::test_store_cannot_go_negative` |
+| S3 | projection trigger; app role has SELECT only | `::test_balanced_journal_posts_and_projects`, `::test_app_cannot_write_balances` |
+| S4 | `source_type`, `source_id` NOT NULL + CHECK list; adjustments need reason + approver | `::test_adjustment_needs_reason` |
+| D1 | no UPDATE/DELETE privilege (42501) and immutability triggers (AH002) | `::test_app_role_cannot_update_or_delete_stock_lines`, `::test_stock_line_update_or_delete_rejected_even_for_owner`, `test_document_guards.py::test_posted_invoice_update_rejected`, `::test_invoice_cancel_needs_reason_and_is_final`, `::test_invoice_line_is_insert_only`, `::test_receipt_lines_frozen_once_posted`, `test_ledger_guards.py::test_reversal_mirrors_and_restores_balance` |
+| D2 | run and BOM-version triggers | `test_document_guards.py::test_run_snapshot_frozen_and_completed_run_locked`, `::test_recipe_lines_frozen_once_version_is_active` |
+| D3 | `aahar_next_doc_number()` | `::test_doc_numbers_are_gapless_after_rollback`, `::test_parallel_doc_numbers_are_distinct_and_consecutive` |
+| D5 | allocation trigger, AH004 | `::test_over_allocation_rejected`, `::test_invoice_with_payments_cannot_be_cancelled` |
+| D6 (backstop) | CHECK `regime_follows_pos` | `::test_invoice_regime_must_follow_place_of_supply` |
+| D7 | EXCLUDE no-overlap on `settings` and `tax_rules` | `::test_overlapping_tax_rules_rejected` |
+| P1 | period-lock triggers, AH003 | `::test_post_into_locked_period_rejected` |
+| P2 | RLS on 61 tables + composite FKs | `test_rls.py` (7 tests, incl. `::test_every_org_scoped_table_has_rls`) |
+| Lots | (lot, item, org) composite FK | `test_ledger_guards.py::test_lot_must_belong_to_the_lines_item` |
+| Schema | migrations up / down one / up; full down and up; models = migrations | `test_migrations.py` (3 tests) |

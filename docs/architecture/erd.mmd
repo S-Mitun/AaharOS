@@ -1,6 +1,9 @@
-%% AaharOS entity-relationship model (MP01). Every business table also carries organization_id (FK, RLS),
-%% created_at / created_by; omitted below except where it is part of a key. Money: NUMERIC(14,2) rupees
-%% (final choice in ADR-0008, MP02). Quantities: NUMERIC(18,6) in the item's base unit (g, mL, piece).
+%% AaharOS entity-relationship model (MP01, corrected in the MP02 review). Every business table also carries
+%% organization_id (FK, RLS), created_at / created_by; omitted below except where it is part of a key.
+%% UK on a code or number means unique PER ORGANIZATION (each benchmark replay is a new tenant, ADR-0006).
+%% Money: NUMERIC(14,2) rupees (ADR-0008). Quantities: NUMERIC(18,6) in the item's base unit (g, mL, piece).
+%% Stock and money children use composite FKs (id, organization_id); a line's lot FK is (lot, item, org).
+%% The implemented schema is backend/migrations/versions/0002_schema.py; this diagram is the readable view.
 erDiagram
   %% ---------- identity, tenancy, config ----------
   ORGANIZATIONS ||--o{ MEMBERSHIPS : has
@@ -14,6 +17,7 @@ erDiagram
   ORGANIZATIONS ||--o{ NUMBER_SEQUENCES : numbers
   ORGANIZATIONS ||--o{ PERIOD_LOCKS : closes
   ORGANIZATIONS ||--o{ AUDIT_LOG : records
+  ORGANIZATIONS ||--|| AUDIT_CHAIN_HEADS : "chain head, locked per write"
 
   ORGANIZATIONS {
     uuid id PK
@@ -53,7 +57,7 @@ erDiagram
     text key "tolerance_pct, eway_threshold, fssai_no ..."
     jsonb value
     date effective_from
-    date effective_to "null = open"
+    date effective_to "null = open; EXCLUDE: no overlap per (org, key)"
   }
   NUMBER_SEQUENCES {
     uuid organization_id PK, FK
@@ -63,13 +67,14 @@ erDiagram
   }
   PERIOD_LOCKS {
     uuid organization_id PK, FK
-    text period PK "2026-11"
+    date period PK "first day of the month, e.g. 2026-11-01"
     timestamptz locked_at
     uuid locked_by FK
+    text reason
   }
   AUDIT_LOG {
-    bigint seq PK "per organization"
-    uuid organization_id FK
+    uuid organization_id PK, FK
+    bigint seq PK "gapless per organization"
     uuid actor_id FK
     text action
     text entity_type
@@ -77,6 +82,11 @@ erDiagram
     jsonb summary "before/after, no secrets"
     bytea prev_hash
     bytea hash "sha256(prev_hash || canonical_json)"
+  }
+  AUDIT_CHAIN_HEADS {
+    uuid organization_id PK, FK
+    bigint last_seq
+    bytea last_hash
   }
   IDEMPOTENCY_KEYS {
     uuid organization_id PK, FK
@@ -113,7 +123,7 @@ erDiagram
   }
   ITEMS {
     uuid id PK
-    text code UK "flour, pouch_200g, murukku_200g"
+    text code UK "per org: flour, pouch_200g, murukku_200g"
     text kind "RAW PACK BULK FG"
     text base_uom FK
     text stock_uom FK "kg, L, piece, packet"
@@ -181,13 +191,13 @@ erDiagram
 
   LOCATIONS {
     uuid id PK
-    text code UK "RAW_STORE PACK_STORE WIP FG_STORE ..."
+    text code UK "per org: RAW_STORE PACK_STORE WIP FG_STORE ..."
     text kind "STORE | VIRTUAL"
   }
   LOTS {
     uuid id PK
     uuid item_id FK
-    text lot_no UK "B-001, OPEN-LOT"
+    text lot_no UK "per (org, item): B-001, OPEN-LOT"
     date mfg_date
     date best_before
     text source_type "production_run | purchase_receipt | opening"
@@ -198,28 +208,32 @@ erDiagram
     text kind "OPENING RECEIPT ISSUE RUN_COMPLETION DISPATCH COST_TRUE_UP ADJUSTMENT RETURN REVERSAL"
     text source_type "NOT NULL"
     uuid source_id "NOT NULL"
+    date posting_date "business date (IST); its month is checked against PERIOD_LOCKS"
     timestamptz posted_at
-    text period "2026-11, checked against PERIOD_LOCKS"
-    uuid reverses_journal_id FK
-    uuid idempotency_key
+    uuid reverses_journal_id FK "UK: reversed at most once"
+    text reason "required for ADJUSTMENT and REVERSAL"
+    uuid approved_by FK "required for ADJUSTMENT"
+    uuid idempotency_key "UK per org"
   }
   STOCK_LINES {
     uuid id PK
     uuid journal_id FK
     uuid item_id FK
     uuid location_id FK
-    uuid lot_id FK "nullable"
+    uuid lot_id FK "nullable; must be a lot of this item"
     numeric qty_base "signed"
     numeric value "signed rupees"
-    text line_role "e.g. SCRAP_QTY_ONLY, VALUE_ONLY"
+    text line_role "IN, OUT, SCRAP_IN (value 0), VALUE_ONLY (qty 0)"
+    timestamptz posted_at "copied from the journal, indexed"
   }
   INVENTORY_BALANCES {
-    uuid item_id PK, FK
-    uuid location_id PK, FK
-    uuid lot_id PK, FK
-    numeric qty_base "projection, rebuildable"
+    uuid id PK
+    uuid item_id FK "UK (org, item, location, lot) NULLS NOT DISTINCT"
+    uuid location_id FK
+    uuid lot_id FK "nullable"
+    text location_kind "copied; STORE rows never negative"
+    numeric qty_base "trigger-maintained projection (ADR-0009)"
     numeric value
-    numeric reserved_base "FG_STORE only"
   }
   RESERVATIONS {
     uuid id PK
@@ -388,6 +402,9 @@ erDiagram
   INVOICE_LINES ||--|{ INVOICE_TAX_LINES : taxed
   TAX_RULES ||--o{ INVOICE_TAX_LINES : "rate from"
   INVOICES ||--o{ CREDIT_NOTES : "corrected by"
+  CREDIT_NOTES ||--|{ CREDIT_NOTE_LINES : has
+  INVOICE_LINES ||--o{ CREDIT_NOTE_LINES : "credited by"
+  CREDIT_NOTE_LINES ||--|{ CREDIT_NOTE_TAX_LINES : taxed
   INVOICES ||--o{ DISPATCHES : shipped
   DISPATCHES ||--|{ DISPATCH_LINES : has
   LOTS ||--o{ DISPATCH_LINES : "picked (FEFO)"
@@ -453,7 +470,7 @@ erDiagram
   }
   INVOICES {
     uuid id PK
-    text invoice_no UK "AHR/26-27/000001, per org+FY"
+    text invoice_no UK "per org, max 16 chars: AHR/26-27/000001"
     date invoice_date
     uuid customer_id FK
     text supplier_state "snapshot"
@@ -486,8 +503,26 @@ erDiagram
     uuid id PK
     text credit_note_no UK
     uuid invoice_id FK
+    date note_date
     text reason
+    numeric taxable
+    numeric tax_total
     numeric total
+  }
+  CREDIT_NOTE_LINES {
+    uuid id PK
+    uuid credit_note_id FK
+    uuid invoice_line_id FK
+    int qty
+    numeric rate
+    numeric taxable
+  }
+  CREDIT_NOTE_TAX_LINES {
+    uuid id PK
+    uuid credit_note_line_id FK
+    text tax "CGST SGST IGST"
+    numeric rate_pct
+    numeric amount
   }
   DISPATCHES {
     uuid id PK
@@ -508,8 +543,8 @@ erDiagram
     uuid customer_id FK
     date received_on
     numeric amount
-    text mode "CASH UPI BANK"
-    numeric unallocated "advance"
+    text mode "CASH UPI BANK CHEQUE"
+    text payment_no UK "per org; advance = amount minus allocations, never stored"
   }
   PAYMENT_ALLOCATIONS {
     uuid id PK
