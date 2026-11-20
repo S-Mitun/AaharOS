@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP00 done / next: MP01
+## Status: MP01 done (design approved 2026-11-21) / next: MP02
 
 ## Benchmark scoreboard: 0/26
 All 26 assertions exist as named strict xfails ("not built yet (MPxx)"). Oracle integrity: 10/10 checks pass
@@ -16,8 +16,19 @@ Red items and the MP that turns them green:
 - MP11: 26 integrity
 - MP12: 23 shortage attribution, 24 runway
 
+## Done in MP01 (design only; no code, no migrations)
+- `docs/architecture/erd.mmd`: 64 entities with keys and cardinalities (renders in Mermaid 11).
+- `docs/architecture/invariants.md`: the 4 conservation laws + 22 invariants, each with where it is enforced and its test id.
+- `docs/architecture/ledger.md`: locations, journal kinds, the journal table for every NIT step with quantities and
+  values, value and rounding rules. Replayed with `Decimal` before writing: every journal balances per item and in
+  value, no store goes negative, B-001 = ₹3,114.36 sold + ₹2,740.64 on hand = ₹5,855.00, COGS A ₹4,556.86.
+- `docs/architecture/bom.md`: recipe vs pack spec, drivers, formulas, 200 g / 500 g / mixed-split examples,
+  the zero-code 500 g change.
+- ADR-0002 to ADR-0007, Accepted on approval (2026-11-21). `docs/architecture/open-questions.md`: Q1–Q8 with recommendations.
+- CI actions bumped (checkout v5, setup-python v6, setup-node v5) to clear the Node 20 deprecation warnings.
+
 ## Done in MP00
-- Repo initialised (`git init -b main`, nothing committed). Source docs placed byte-identical (sha256 checked):
+- Repo initialised and pushed to GitHub (S-Mitun/AaharOS); first CI run green. Source docs placed byte-identical (sha256 checked):
   `CLAUDE.md`, `docs/MASTER_PACK.md`, `docs/PROBLEM_STATEMENT.md`, `benchmark/expected_results.yaml`,
   `docs/reference/MASTER_PACK_v1.md`.
 - Backend skeleton: `app/core` kernel (config, db, money, Explained, errors, oracle loader), 21 module packages with
@@ -34,6 +45,11 @@ Red items and the MP that turns them green:
   added `judge` module, everything in Docker.
 - Commands: one Makefile, all targets run in Docker; Windows needs `winget install ezwinports.make` once.
 - Web styling: plain CSS with tokens (no Tailwind yet). Revisit only if a later MP needs it.
+- MP01 (accepted, see ADRs 0002–0007 and open-questions.md): real `WIP` location between issue and completion;
+  scrap carries quantity, not value; WAC as a pooled (qty, value) with no rounded unit cost; late run costs via a
+  value-only true-up; FG lots at actual cost, FEFO; a new BENCHMARK tenant per replay (no deletes); money as
+  NUMERIC(14,2) (to confirm in ADR-0008, MP02).
+- Commits use the GitHub no-reply email (repo-local git config) because the account blocks pushes exposing a private email.
 - Host ports: web **5180**, API **8180**, Postgres **5442** (Vite `strictPort`). Other local projects use
   AgriVision 4280-81, 5000, 5280-81, 6379, 8080, 8100-01 and Nexora 5173, 8000. Container-internal ports are unchanged.
 
@@ -60,5 +76,6 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - Web dev server prints React Router v7 future-flag warnings (harmless).
 
 ## Exact next step
-Run MP01 in plan mode: ERD (`docs/architecture/erd.mmd`), invariants, ledger table for all 9 NIT steps, BOM doc,
-ADRs 0002–0007. No migrations.
+Run MP02: SQLAlchemy models + Alembic migrations for the ERD, ADR-0008 (money as NUMERIC(14,2), per Q1), the deferred
+zero-sum trigger (qty per item and value per journal), immutability and period-lock triggers, RLS with the `app.org_id`
+GUC, number sequences, and migration tests (upgrade, downgrade one step, upgrade; unbalanced journal rejected).

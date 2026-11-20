@@ -2,7 +2,8 @@
 
 *Every gram traced. Every rupee explained.* This page is the map: what lives where, which way dependencies point,
 and the four pipelines that move work, code, benchmark results and data through the project.
-Detailed designs (ERD, invariants, ledger, BOM) arrive in MP01 under `docs/architecture/`.
+Detailed designs (MP01): [ERD](erd.mmd) · [invariants](invariants.md) · [ledger](ledger.md) · [BOM](bom.md) ·
+[open questions](open-questions.md).
 
 ## 1. System view
 

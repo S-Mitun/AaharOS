@@ -1,0 +1,567 @@
+%% AaharOS entity-relationship model (MP01). Every business table also carries organization_id (FK, RLS),
+%% created_at / created_by; omitted below except where it is part of a key. Money: NUMERIC(14,2) rupees
+%% (final choice in ADR-0008, MP02). Quantities: NUMERIC(18,6) in the item's base unit (g, mL, piece).
+erDiagram
+  %% ---------- identity, tenancy, config ----------
+  ORGANIZATIONS ||--o{ MEMBERSHIPS : has
+  USERS ||--o{ MEMBERSHIPS : "belongs via"
+  ROLES ||--o{ MEMBERSHIPS : grants
+  ROLES ||--o{ ROLE_PERMISSIONS : has
+  PERMISSIONS ||--o{ ROLE_PERMISSIONS : "is in"
+  USERS ||--o{ SALESMAN_CUSTOMER_ASSIGNMENTS : "is assigned"
+  CUSTOMERS ||--o{ SALESMAN_CUSTOMER_ASSIGNMENTS : "is served by"
+  ORGANIZATIONS ||--o{ SETTINGS : configures
+  ORGANIZATIONS ||--o{ NUMBER_SEQUENCES : numbers
+  ORGANIZATIONS ||--o{ PERIOD_LOCKS : closes
+  ORGANIZATIONS ||--o{ AUDIT_LOG : records
+
+  ORGANIZATIONS {
+    uuid id PK
+    text name
+    text kind "LIVE | BENCHMARK | SIM"
+    text state_code "33 = Tamil Nadu"
+    text gstin "DEMO"
+  }
+  USERS {
+    uuid id PK
+    text email UK
+    text password_hash "argon2id"
+    text language "en | ta"
+  }
+  ROLES {
+    text code PK "SALESMAN ADMIN PRODUCTION OWNER AUDITOR"
+  }
+  PERMISSIONS {
+    text code PK "e.g. run.post"
+  }
+  ROLE_PERMISSIONS {
+    text role_code PK, FK
+    text permission_code PK, FK
+  }
+  MEMBERSHIPS {
+    uuid organization_id PK, FK
+    uuid user_id PK, FK
+    text role_code FK
+  }
+  SALESMAN_CUSTOMER_ASSIGNMENTS {
+    uuid user_id PK, FK
+    uuid customer_id PK, FK
+    int route_order
+  }
+  SETTINGS {
+    uuid id PK
+    text key "tolerance_pct, eway_threshold, fssai_no ..."
+    jsonb value
+    date effective_from
+    date effective_to "null = open"
+  }
+  NUMBER_SEQUENCES {
+    uuid organization_id PK, FK
+    text doc_type PK "INVOICE CREDIT_NOTE ..."
+    text fy PK "26-27"
+    bigint next_value "locked FOR UPDATE"
+  }
+  PERIOD_LOCKS {
+    uuid organization_id PK, FK
+    text period PK "2026-11"
+    timestamptz locked_at
+    uuid locked_by FK
+  }
+  AUDIT_LOG {
+    bigint seq PK "per organization"
+    uuid organization_id FK
+    uuid actor_id FK
+    text action
+    text entity_type
+    uuid entity_id
+    jsonb summary "before/after, no secrets"
+    bytea prev_hash
+    bytea hash "sha256(prev_hash || canonical_json)"
+  }
+  IDEMPOTENCY_KEYS {
+    uuid organization_id PK, FK
+    uuid key PK "client UUIDv7"
+    bytea request_hash
+    int response_status
+    jsonb response_body
+  }
+
+  %% ---------- units, items, BOM ----------
+  UOMS ||--o{ UOM_CONVERSIONS : "from"
+  UOMS ||--o{ ITEMS : "base unit of"
+  ITEMS ||--o{ RECIPE_LINES : "used in"
+  ITEMS ||--o{ PACK_SPEC_LINES : "used in"
+  RECIPES ||--o{ RECIPE_VERSIONS : versions
+  RECIPE_VERSIONS ||--o{ RECIPE_LINES : has
+  PACK_SPECS ||--o{ PACK_SPEC_VERSIONS : versions
+  PACK_SPEC_VERSIONS ||--o{ PACK_SPEC_LINES : has
+  RECIPES ||--o{ PACK_SPECS : "bulk packed by"
+  ITEMS ||--o| PACK_SPECS : "FG item of"
+
+  UOMS {
+    text code PK "g kg mL L piece packet carton"
+    text dimension "MASS VOLUME COUNT"
+    numeric to_base "kg = 1000 g"
+  }
+  UOM_CONVERSIONS {
+    uuid id PK
+    text from_uom FK
+    text to_uom FK
+    numeric factor
+    uuid pack_spec_version_id FK "carton = 20 packets, scoped"
+    uuid item_id FK "density, if ever needed"
+  }
+  ITEMS {
+    uuid id PK
+    text code UK "flour, pouch_200g, murukku_200g"
+    text kind "RAW PACK BULK FG"
+    text base_uom FK
+    text stock_uom FK "kg, L, piece, packet"
+    bool lot_tracked
+    text hsn "FG only, verify with CA"
+  }
+  RECIPES {
+    uuid id PK
+    text name "Murukku dough and fry"
+    uuid bulk_item_id FK
+  }
+  RECIPE_VERSIONS {
+    uuid id PK
+    uuid recipe_id FK
+    int version
+    text status "DRAFT ACTIVE RETIRED"
+    numeric bulk_yield_g "40000 per batch"
+    date effective_from
+  }
+  RECIPE_LINES {
+    uuid id PK
+    uuid recipe_version_id FK
+    uuid item_id FK
+    numeric qty_base "per batch"
+    text driver "PER_BATCH"
+    numeric tolerance_pct "null = org default"
+  }
+  PACK_SPECS {
+    uuid id PK
+    uuid recipe_id FK
+    uuid fg_item_id FK
+    text name "Murukku 200 g"
+  }
+  PACK_SPEC_VERSIONS {
+    uuid id PK
+    uuid pack_spec_id FK
+    int version
+    text status
+    numeric net_g "200"
+    int shelf_life_days
+    int units_per_carton "20"
+  }
+  PACK_SPEC_LINES {
+    uuid id PK
+    uuid pack_spec_version_id FK
+    uuid item_id FK
+    numeric qty_per_good_unit "pouch 1, carton 0.05"
+    text driver "PER_GOOD_UNIT"
+    numeric tolerance_pct
+  }
+
+  %% ---------- ledger ----------
+  STOCK_JOURNALS ||--|{ STOCK_LINES : "has (sum qty per item = 0, sum value = 0)"
+  LOCATIONS ||--o{ STOCK_LINES : at
+  ITEMS ||--o{ STOCK_LINES : of
+  LOTS ||--o{ STOCK_LINES : "lot of"
+  ITEMS ||--o{ LOTS : has
+  STOCK_JOURNALS |o--o| STOCK_JOURNALS : "reverses"
+  ITEMS ||--o{ INVENTORY_BALANCES : "projected per"
+  LOCATIONS ||--o{ INVENTORY_BALANCES : "projected at"
+  ITEMS ||--o{ RESERVATIONS : reserved
+  ORDER_LINES ||--o{ RESERVATIONS : holds
+  ITEMS ||--o| ITEM_COST_STATE : "WAC pool"
+  ITEMS ||--o{ VALUATION_LAYERS : "FIFO layers"
+
+  LOCATIONS {
+    uuid id PK
+    text code UK "RAW_STORE PACK_STORE WIP FG_STORE ..."
+    text kind "STORE | VIRTUAL"
+  }
+  LOTS {
+    uuid id PK
+    uuid item_id FK
+    text lot_no UK "B-001, OPEN-LOT"
+    date mfg_date
+    date best_before
+    text source_type "production_run | purchase_receipt | opening"
+    uuid source_id
+  }
+  STOCK_JOURNALS {
+    uuid id PK
+    text kind "OPENING RECEIPT ISSUE RUN_COMPLETION DISPATCH COST_TRUE_UP ADJUSTMENT RETURN REVERSAL"
+    text source_type "NOT NULL"
+    uuid source_id "NOT NULL"
+    timestamptz posted_at
+    text period "2026-11, checked against PERIOD_LOCKS"
+    uuid reverses_journal_id FK
+    uuid idempotency_key
+  }
+  STOCK_LINES {
+    uuid id PK
+    uuid journal_id FK
+    uuid item_id FK
+    uuid location_id FK
+    uuid lot_id FK "nullable"
+    numeric qty_base "signed"
+    numeric value "signed rupees"
+    text line_role "e.g. SCRAP_QTY_ONLY, VALUE_ONLY"
+  }
+  INVENTORY_BALANCES {
+    uuid item_id PK, FK
+    uuid location_id PK, FK
+    uuid lot_id PK, FK
+    numeric qty_base "projection, rebuildable"
+    numeric value
+    numeric reserved_base "FG_STORE only"
+  }
+  RESERVATIONS {
+    uuid id PK
+    uuid order_line_id FK
+    uuid item_id FK
+    uuid location_id FK
+    numeric qty_base
+    text status "ACTIVE CONSUMED RELEASED"
+  }
+  ITEM_COST_STATE {
+    uuid item_id PK, FK
+    numeric qty_base "pooled store qty"
+    numeric value "pooled value; WAC = value / qty"
+  }
+  VALUATION_LAYERS {
+    uuid id PK
+    uuid item_id FK
+    uuid receipt_line_id FK
+    numeric qty_remaining
+    numeric unit_cost "sensitivity only, never posts"
+  }
+
+  %% ---------- procurement ----------
+  SUPPLIERS ||--o{ PURCHASE_RECEIPTS : sends
+  PURCHASE_RECEIPTS ||--|{ PURCHASE_RECEIPT_LINES : has
+  ITEMS ||--o{ PURCHASE_RECEIPT_LINES : received
+  PURCHASE_RECEIPTS ||--o| STOCK_JOURNALS : "posts"
+
+  SUPPLIERS {
+    uuid id PK
+    text name "DEMO"
+    text state_code
+    text gstin "DEMO"
+  }
+  PURCHASE_RECEIPTS {
+    uuid id PK
+    text receipt_no UK
+    uuid supplier_id FK
+    text supplier_invoice_ref
+    date received_on
+    text status "DRAFT POSTED REVERSED"
+  }
+  PURCHASE_RECEIPT_LINES {
+    uuid id PK
+    uuid receipt_id FK
+    uuid item_id FK
+    numeric qty_entered
+    text uom_entered FK
+    numeric qty_base
+    numeric rate "per stock uom"
+    numeric value
+    numeric freight "kept separate, ADR-0004"
+    numeric accepted_base
+    numeric rejected_base
+    text lot_no
+  }
+
+  %% ---------- production and costing ----------
+  RECIPE_VERSIONS ||--o{ PRODUCTION_RUNS : "run of"
+  PRODUCTION_RUNS ||--|{ RUN_PACK_LINES : packs
+  PACK_SPEC_VERSIONS ||--o{ RUN_PACK_LINES : "packed as"
+  PRODUCTION_RUNS ||--o{ MATERIAL_ISSUES : "issued to"
+  MATERIAL_ISSUES ||--|{ MATERIAL_ISSUE_LINES : has
+  RUN_PACK_LINES ||--|| LOTS : creates
+  PRODUCTION_RUNS ||--o{ RUN_COSTS : incurs
+  PRODUCTION_RUNS ||--o{ VARIANCE_RESULTS : explains
+  PRODUCTION_RUNS ||--o{ FILL_WEIGHT_SAMPLES : sampled
+  PRODUCTION_RUNS ||--o{ OIL_SESSIONS : fries
+  STANDARD_COST_CARDS ||--|{ STANDARD_COST_LINES : has
+  PACK_SPEC_VERSIONS ||--o{ STANDARD_COST_CARDS : costed
+
+  PRODUCTION_RUNS {
+    uuid id PK
+    text run_no UK "B-001"
+    uuid recipe_version_id FK
+    numeric batch_multiplier
+    jsonb recipe_snapshot "frozen at start"
+    jsonb pack_snapshot "frozen at start"
+    text status "DRAFT IN_PROGRESS COMPLETED REVERSED"
+    text cost_status "PROVISIONAL FINAL"
+    numeric scrap_g "process scrap, reason"
+    uuid operator_id FK
+  }
+  MATERIAL_ISSUES {
+    uuid id PK
+    uuid run_id FK
+    text direction "ISSUE | RETURN"
+    timestamptz posted_at
+  }
+  MATERIAL_ISSUE_LINES {
+    uuid id PK
+    uuid issue_id FK
+    uuid item_id FK
+    numeric qty_base
+    numeric value "WAC at issue"
+  }
+  RUN_PACK_LINES {
+    uuid id PK
+    uuid run_id FK
+    uuid pack_spec_version_id FK
+    numeric bulk_allocated_g
+    int expected_units "bulk / net"
+    int good_units
+    jsonb packaging_actual "pouch 194, carton 9"
+    jsonb damage "pouch 6, reason SEAL_FAILURE"
+    uuid lot_id FK
+  }
+  RUN_COSTS {
+    uuid id PK
+    uuid run_id FK
+    text kind "LABOUR GAS_POWER OTHER"
+    numeric amount
+    text basis "DIRECT"
+  }
+  VARIANCE_RESULTS {
+    uuid id PK
+    uuid run_id FK
+    uuid item_id FK "null for yield"
+    text kind "YIELD USAGE_BATCH USAGE_FLEX PRICE"
+    numeric standard
+    numeric actual
+    numeric pct
+    bool flagged
+    numeric inr_impact
+    text direction "FAVOURABLE UNFAVOURABLE"
+  }
+  STANDARD_COST_CARDS {
+    uuid id PK
+    uuid pack_spec_version_id FK
+    int version
+    numeric per_unit "28.85"
+    date effective_from
+  }
+  STANDARD_COST_LINES {
+    uuid id PK
+    uuid card_id FK
+    uuid item_id FK
+    numeric std_qty_base
+    numeric std_rate
+  }
+  FILL_WEIGHT_SAMPLES {
+    uuid id PK
+    uuid run_id FK
+    numeric gross_g
+    numeric net_g
+  }
+  OIL_SESSIONS {
+    uuid id PK
+    uuid run_id FK
+    numeric fresh_ml
+    numeric topup_ml
+    numeric discard_ml
+    numeric tpc_pct "optional"
+  }
+
+  %% ---------- sales, tax, billing, dispatch, collections ----------
+  CUSTOMERS ||--o{ SALES_ORDERS : places
+  USERS ||--o{ SALES_ORDERS : "takes (salesman)"
+  SALES_ORDERS ||--|{ ORDER_LINES : has
+  SALES_ORDERS ||--o{ ORDER_STATUS_HISTORY : "moves through"
+  PRICE_LISTS ||--|{ PRICE_LIST_ITEMS : has
+  PRICE_LISTS ||--o{ SALES_ORDERS : "priced by (version captured)"
+  ITEMS ||--o{ ORDER_LINES : ordered
+  SALES_ORDERS ||--o{ INVOICES : billed
+  INVOICES ||--|{ INVOICE_LINES : has
+  INVOICE_LINES ||--|{ INVOICE_TAX_LINES : taxed
+  TAX_RULES ||--o{ INVOICE_TAX_LINES : "rate from"
+  INVOICES ||--o{ CREDIT_NOTES : "corrected by"
+  INVOICES ||--o{ DISPATCHES : shipped
+  DISPATCHES ||--|{ DISPATCH_LINES : has
+  LOTS ||--o{ DISPATCH_LINES : "picked (FEFO)"
+  DISPATCHES ||--o| STOCK_JOURNALS : posts
+  CUSTOMERS ||--o{ PAYMENTS : pays
+  PAYMENTS ||--o{ PAYMENT_ALLOCATIONS : "allocated by"
+  INVOICES ||--o{ PAYMENT_ALLOCATIONS : settles
+
+  CUSTOMERS {
+    uuid id PK
+    text name "DEMO Retailer A"
+    text kind "RETAILER DISTRIBUTOR"
+    text state_code "33 TN, 29 KA"
+    text gstin "DEMO, null = unregistered"
+    numeric credit_limit
+    int payment_terms_days
+  }
+  PRICE_LISTS {
+    uuid id PK
+    int version
+    uuid customer_id FK "null = default"
+    date effective_from
+  }
+  PRICE_LIST_ITEMS {
+    uuid price_list_id PK, FK
+    uuid item_id PK, FK
+    numeric price_ex_tax "50.00"
+  }
+  SALES_ORDERS {
+    uuid id PK
+    text order_no UK
+    uuid customer_id FK
+    uuid salesman_id FK
+    uuid price_list_id FK "captured version"
+    text status "SUBMITTED APPROVED PART_APPROVED REJECTED INVOICED DISPATCHED CANCELLED"
+    uuid idempotency_key UK
+  }
+  ORDER_LINES {
+    uuid id PK
+    uuid order_id FK
+    uuid item_id FK
+    int qty_requested
+    int qty_approved
+    int qty_backordered
+    numeric price_captured
+    numeric price_final
+    text amend_reason
+  }
+  ORDER_STATUS_HISTORY {
+    uuid id PK
+    uuid order_id FK
+    text from_status
+    text to_status
+    uuid actor_id FK
+    text reason
+  }
+  TAX_RULES {
+    uuid id PK
+    text hsn
+    numeric rate_pct "5"
+    date effective_from
+    date effective_to
+  }
+  INVOICES {
+    uuid id PK
+    text invoice_no UK "AHR/26-27/000001, per org+FY"
+    date invoice_date
+    uuid customer_id FK
+    text supplier_state "snapshot"
+    text place_of_supply "snapshot"
+    text customer_gstin "snapshot"
+    text regime "INTRA (CGST+SGST) | INTER (IGST)"
+    numeric taxable
+    numeric tax_total
+    numeric round_off
+    numeric total
+    text status "POSTED CANCELLED"
+  }
+  INVOICE_LINES {
+    uuid id PK
+    uuid invoice_id FK
+    uuid item_id FK
+    text hsn "snapshot"
+    int qty
+    numeric rate
+    numeric taxable
+  }
+  INVOICE_TAX_LINES {
+    uuid id PK
+    uuid invoice_line_id FK
+    text tax "CGST SGST IGST"
+    numeric rate_pct
+    numeric amount "per line, ROUND_HALF_UP"
+  }
+  CREDIT_NOTES {
+    uuid id PK
+    text credit_note_no UK
+    uuid invoice_id FK
+    text reason
+    numeric total
+  }
+  DISPATCHES {
+    uuid id PK
+    text dispatch_no UK
+    uuid invoice_id FK
+    bool eway_required "mock adapter"
+    text eway_reason
+  }
+  DISPATCH_LINES {
+    uuid id PK
+    uuid dispatch_id FK
+    uuid reservation_id FK
+    uuid lot_id FK
+    int qty
+  }
+  PAYMENTS {
+    uuid id PK
+    uuid customer_id FK
+    date received_on
+    numeric amount
+    text mode "CASH UPI BANK"
+    numeric unallocated "advance"
+  }
+  PAYMENT_ALLOCATIONS {
+    uuid id PK
+    uuid payment_id FK
+    uuid invoice_id FK
+    numeric amount "sum <= payment.amount"
+  }
+
+  %% ---------- transport, alerts, exports (stretch / support) ----------
+  VEHICLES ||--o{ TRIPS : runs
+  TRIPS ||--|{ TRIP_STOPS : visits
+  DISPATCHES ||--o{ TRIP_STOPS : "delivered on"
+  TRIPS ||--o{ TRANSPORT_COSTS : costs
+
+  VEHICLES {
+    uuid id PK
+    text name
+    int capacity_cartons
+  }
+  TRIPS {
+    uuid id PK
+    date trip_date
+    numeric planned_km
+    numeric actual_km
+  }
+  TRIP_STOPS {
+    uuid id PK
+    uuid trip_id FK
+    uuid dispatch_id FK
+    int seq
+  }
+  TRANSPORT_COSTS {
+    uuid id PK
+    uuid trip_id FK
+    text kind "FUEL DRIVER TOLL FIXED"
+    numeric amount
+  }
+  ALERTS {
+    uuid id PK
+    text kind "VARIANCE LOW_STOCK SHORTAGE OVERDUE"
+    text source_type
+    uuid source_id
+  }
+  OUTBOX_EVENTS {
+    uuid id PK
+    text topic
+    jsonb payload
+    timestamptz published_at
+  }
+  EXPORT_JOBS {
+    uuid id PK
+    text report
+    jsonb filters
+    text status
+  }
