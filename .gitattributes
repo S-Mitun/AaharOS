@@ -1,0 +1,6 @@
+# LF everywhere so Docker, shell and hash checks behave the same on Windows, Linux and macOS.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.xlsx binary

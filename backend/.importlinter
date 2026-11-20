@@ -1,0 +1,23 @@
+[importlinter]
+root_package = app
+
+# Lower layers never import upper layers. Siblings separated by ":" may import each other;
+# cross-module calls still go through service.py (checked in review, see docs/architecture/overview.md).
+[importlinter:contract:module-layers]
+name = Business modules respect the L1-L7 layering
+type = layers
+containers = app.modules
+layers =
+    judge : reports : planning : traceability : analytics
+    costing : billing : dispatch : collections : transport
+    production : sales : procurement : tax
+    recipe : valuation
+    ledger
+    catalog : uom
+    identity : audit
+
+[importlinter:contract:core-is-kernel]
+name = The shared kernel (app.core) never imports business modules
+type = forbidden
+source_modules = app.core
+forbidden_modules = app.modules

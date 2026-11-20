@@ -1,0 +1,32 @@
+# Install once: pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(backend|benchmark|analytics)/
+      - id: ruff-format
+        files: ^(backend|benchmark|analytics)/
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: detect-private-key
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy --strict (backend)
+        entry: bash -c "cd backend && mypy"
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+      - id: web-lint
+        name: eslint + prettier (apps/web)
+        entry: bash -c "cd apps/web && npm run lint"
+        language: system
+        pass_filenames: false
+        files: ^apps/web/

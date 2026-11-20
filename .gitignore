@@ -1,0 +1,34 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.import_linter_cache/
+
+# node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# generated outputs
+benchmark/results/
+analytics/data/raw/
+analytics/data/generated/
+exports/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

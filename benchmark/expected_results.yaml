@@ -1,0 +1,124 @@
+# AaharOS benchmark oracle — NIT Trichy Section 5
+# This file is the single source of truth for every benchmark assertion.
+# Tests, the CLI runner and Judge Mode all read from here. NEVER edit "inputs" or "nit_expected".
+# All figures were independently recomputed with Python Decimal (no floats).
+
+version: 1
+timezone: Asia/Kolkata
+factory_state: Tamil Nadu
+gst_rate_percent: 5          # exercise assumption (also the post-22-Sep-2025 rate for pre-packaged namkeen; verify HSN with CA)
+variance_tolerance_percent: 3
+
+inputs:
+  bom_murukku_200g_per_batch:
+    expected_good_output_packets: 200
+    lines:
+      - { item: flour,        qty: 40,   unit: kg,    driver: PER_BATCH }
+      - { item: cooking_oil,  qty: 10,   unit: L,     driver: PER_BATCH }
+      - { item: spice_mix,    qty: 1.2,  unit: kg,    driver: PER_BATCH }
+      - { item: pouch_200g,   qty: 200,  unit: piece, driver: PER_GOOD_UNIT }   # 1 per good packet
+      - { item: carton_20,    qty: 10,   unit: piece, driver: PER_GOOD_UNIT }   # 1 per 20 good packets
+  opening_stock:
+    flour:        { qty: 100, unit: kg,    rate: 42.00 }
+    cooking_oil:  { qty: 30,  unit: L,     rate: 140.00 }
+    spice_mix:    { qty: 5,   unit: kg,    rate: 200.00 }
+    pouch_200g:   { qty: 500, unit: piece, rate: 2.50 }
+    carton_20:    { qty: 30,  unit: piece, rate: 15.00 }
+    murukku_200g: { qty: 50,  unit: packet, rate: null }   # NIT gives no cost -> assumption A1 below
+  steps:
+    1_purchase:   { item: flour, qty: 60, unit: kg, rate: 45.00 }
+    2_issue:      { flour: 40, cooking_oil: 10.5, spice_mix: 1.2 }
+    3_output:     { good_packets: 188, damaged_pouches: 6, cartons_used: 9 }
+    4_order_A:    { salesman: Salesman A, customer: Retailer A, state: Tamil Nadu, qty: 150 }
+    5_invoice_A:  { dispatch_qty: 150 }
+    6_order_B:    { salesman: Salesman B, customer: Distributor B, state: Karnataka, qty: 120 }
+    7_payment_A:  { amount: 4000.00 }
+    8_run_costs:  { labour: 1200.00, gas_power: 600.00 }
+  selling_price_ex_tax: 50.00
+
+nit_expected:            # the table NIT will check — must match exactly
+  flour_closing_kg: 120
+  oil_closing_L: 19.5
+  pouches_closing: 306
+  fg_after_run_packets: 238
+  fg_after_dispatch_A_packets: 88
+  yield_variance_percent: -6.00          # flagged
+  oil_variance_percent: 5.00             # flagged
+  invoice_A: { taxable: 7500.00, cgst: 187.50, sgst: 187.50, total: 7875.00 }
+  outstanding_A: 3875.00
+  distributor_B: { requested: 120, available: 88, shortage: 32, tax_regime: IGST }
+
+aaharos_expected:        # our extended, documented figures
+  spice_closing_kg: 3.8
+  cartons_closing: 21
+  flour_wac_after_purchase: 43.125
+  run_cost:
+    flour: 1725.00         # 40 x 43.125
+    oil: 1470.00           # 10.5 x 140
+    spice: 240.00          # 1.2 x 200
+    pouches: 485.00        # 194 x 2.50 (188 good + 6 damaged)
+    cartons: 135.00        # 9 x 15
+    materials_total: 4055.00
+    labour: 1200.00
+    gas_power: 600.00
+    total: 5855.00
+    cost_per_good_packet: 31.14          # 5855 / 188 = 31.143617..., displayed to paise, stored to 6 dp
+  valuation_sensitivity:                 # same run, different flour valuation
+    WAC:  { total: 5855.00, per_packet: 31.14 }
+    FIFO: { total: 5810.00, per_packet: 30.90 }
+    LAST: { total: 5930.00, per_packet: 31.54 }
+  standard_cost:                          # standard card = opening rates, full yield (assumption A2)
+    materials_per_batch: 3970.00
+    total_per_batch: 5770.00
+    per_packet: 28.85
+    standard_cost_of_188: 5423.80
+  variance_waterfall:                     # actual 5855.00 - standard 5423.80 = 431.20 U
+    total_unfavourable: 431.20
+    yield_loss: 307.20                    # 12 packets x 25.60 batch-input standard cost per packet
+    oil_usage: 70.00                      # 0.5 L x 140
+    flour_price: 45.00                    # (43.125 - 42) x 40
+    pouch_damage: 15.00                   # (194 - 188) x 2.50
+    carton_usage: -6.00                   # (9 - 9.4) x 15  (favourable; 8 loose packets uncartoned)
+  flexible_standard_variances:
+    pouch_vs_good_output_percent: 3.19    # 194 vs 188 -> flagged (batch view: -3.00, NOT flagged)
+    carton_vs_good_output_percent: -4.26  # 9 vs 9.4 -> favourable, informational
+  packing:
+    run_output: { full_cartons: 9, loose_packets: 8 }
+    dispatch_A: { full_cartons: 7, loose_packets: 10 }
+    remaining:  { full_cartons: 4, loose_packets: 8 }
+  fefo_dispatch_A:                        # assumption A3: lot-level FEFO
+    from_opening_lot: 50
+    from_batch_B001: 100
+    remaining_batch_B001: 88
+  fg_value_split_of_run:                  # value conservation: 3114.36 + 2740.64 = 5855.00
+    dispatched_100: 3114.36
+    remaining_88: 2740.64
+  gross_margin_invoice_A:                 # opening lot valued at standard 28.85 (assumption A1)
+    cogs: 4556.86
+    gross_margin: 2943.14
+    gross_margin_percent: 39.24
+  shortage_attribution_B:
+    shortage: 32
+    caused_by_this_runs_yield_loss: 12    # with 200 good packets, shortage would have been 20
+  distributor_B_options:
+    full_120: { taxable: 6000.00, igst: 300.00, total: 6300.00, eway_bill_required: false }   # < Rs 50,000 inter-state threshold
+    partial_88: { taxable: 4400.00, igst: 220.00, total: 4620.00, backorder: 32 }
+  material_runway_after_run:              # standard batches possible with remaining stock
+    flour: 3.00
+    cooking_oil: 1.95                     # binding
+    spice_mix: 3.17
+    pouch_200g: 1.53                      # binding
+    carton_20: 2.10
+    max_full_batches: 1
+  mass_balance:
+    expected_packed_kg: 40.0
+    good_packed_kg: 37.6
+    unexplained_gap_kg: 2.4               # until fill-weight samples / scrap weights are recorded
+
+assumptions:
+  A1: Opening 50 finished packets have no NIT cost; valued at standard cost 28.85/packet.
+  A2: Standard cost card uses opening purchase rates and BOM quantities at full yield.
+  A3: Finished goods are lot-tracked; dispatch picks First-Expiry-First-Out (opening lot first).
+  A4: Labour and gas/power are direct run costs, assigned 100% to this run.
+  A5: Carton is both a consumed packaging item and a packing unit (1 carton = 20 packets).
+  A6: Retailer A and Distributor B are GST-registered (fictional GSTINs) -> GSTR-1 Table 4A.
