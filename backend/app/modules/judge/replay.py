@@ -102,6 +102,7 @@ DEMO_PROFILE: Final[dict[str, str]] = {
     "org.address": "DEMO address, Tiruchirappalli, Tamil Nadu 620001",
     "org.upi_vpa": "demo-not-real@aaharos",
 }
+B2CL_THRESHOLD_DEMO: Final = Decimal("100000.00")  # MP11: GSTR-1 table 5 cut-off (verify the current figure)
 EWAY_THRESHOLD_DEMO: Final = Decimal("50000.00")  # Rule 138; the intra-state figure varies by state: verify
 
 
@@ -275,6 +276,7 @@ def setup_section5_tax(
         tax.EWAY_THRESHOLDS["INTER"]: EWAY_THRESHOLD_DEMO,
         tax.EWAY_THRESHOLDS["INTRA"]: EWAY_THRESHOLD_DEMO,
         tax.ROUND_TO_RUPEE: "false",
+        "gst.b2cl_threshold": B2CL_THRESHOLD_DEMO,
     }
     for key, value in settings.items():
         tax.put_setting(

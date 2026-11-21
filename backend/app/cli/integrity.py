@@ -10,21 +10,20 @@ run put into its lots and SCRAP equals its materials and its run costs.
 
 import sys
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app import db_models as _db_models  # noqa: F401 - registers every table for the ORM
 from app.core.config import get_settings
+from app.core.db import get_engine, org_scope
 from app.modules.audit import service as audit
 from app.modules.billing import service as billing
 from app.modules.ledger import service as ledger
 from app.modules.procurement import service as procurement
 from app.modules.production import service as production
+from app.modules.reports import gst
 
-NOT_BUILT = (
-    ("Law 3 mass balance per run", "MP11"),
-    ("Law 4 tax: lines = GST summary = export", "MP11"),
-)
+NOT_BUILT = (("Law 3 mass balance per run", "MP11"),)
 
 
 def run(session: Session) -> tuple[bool, list[str]]:
@@ -100,6 +99,18 @@ def run(session: Session) -> tuple[bool, list[str]]:
         lines.append(
             "PASS  invoice tax: every invoice's lines and tax lines add up to its header (law 4, per document)"
         )
+
+    law4: list[dict[str, str]] = []
+    for org in session.execute(text("SELECT DISTINCT organization_id FROM invoices")).scalars():
+        with Session(get_engine()) as scoped:  # as aahar_app, so row-level security keeps each organization apart
+            org_scope(scoped, org)
+            law4 += [{"organization_id": str(org), **row} for row in gst.law4(scoped)]
+    ok = ok and not law4
+    if law4:
+        lines.append(f"FAIL  law 4 tax: {len(law4)} (month, tax) where tax lines, GST summary and export differ")
+        lines.extend(f"        {row}" for row in law4[:20])
+    else:
+        lines.append("PASS  law 4 tax: every month's invoice tax lines = GST summary = GSTR-1 export")
 
     gaps = production.mass_balance_gaps(session)
     lines.append(f"INFO  mass balance: {len(gaps)} completed runs show an unexplained gap (reported, not failed)")

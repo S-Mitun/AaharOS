@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.db import org_scope
 from app.core.oracle import load_oracle
 from app.modules.judge.replay import replay_stock
+from app.modules.reports import gst
 from app.modules.reports import service as reports
 from tests.db.conftest import BACKEND, Tenant, add_member, login_client
 
@@ -118,3 +119,89 @@ def test_formats_through_the_api(nit: Any, api_app: Any) -> None:
     assert client.get("/api/reports/stock-summary?date_from=2026-11-01&date_to=2026-11-21").status_code == 200
     assert client.get("/api/reports/nonsense").status_code == 422
     assert client.get("/api/reports").json()["reports"][0]["name"] == "sales-register"
+
+
+# ---------- module 2: GST summary, export, law 4 ----------
+
+
+def test_gst_summary_and_export_for_nit(nit: Any, app_engine: Engine) -> None:
+    with scoped(app_engine, nit) as s:
+        summary = gst.gst_summary(s, DAY)
+        export = gst.gstr1_export(s, DAY)
+        assert gst.law4(s) == []
+    rows = {(r["table"], r["description"][:3]): r for r in summary.rows}
+    b2b = rows[("4A", "B2B")]
+    assert (b2b["documents"], b2b["taxable"], b2b["cgst"], b2b["sgst"], b2b["igst"]) == (
+        "1",
+        "7500.00",
+        "187.50",
+        "187.50",
+        "0.00",
+    )
+    gstr3b = next(r for r in summary.rows if r["table"] == "3B 3.1(a)")
+    assert (gstr3b["taxable"], gstr3b["total"]) == ("7500.00", "7875.00")
+    assert export["_notice"].startswith("DEMO GSTR-1") and export["fp"] == "112026"
+    (party,) = export["b2b"]
+    assert party["ctin"] == "33DEMOA0000A1Z0" and party["inv"][0]["val"] == "7875.00"
+    assert party["inv"][0]["itms"][0]["itm_det"]["camt"] == "187.50"
+    assert export["hsn"]["data"][0]["hsn_sc"] == "21069099"
+
+
+def test_export_totals_catch_a_changed_file() -> None:
+    det = {"rt": "5", "txval": "7500.00", "iamt": "0.00", "camt": "187.50", "samt": "187.50", "csamt": "0.00"}
+    export: dict[str, Any] = {
+        "b2b": [{"ctin": "X", "inv": [{"itms": [{"num": 1, "itm_det": det}]}]}],
+        "b2cl": [],
+        "b2cs": [],
+        "cdnr": [
+            {
+                "ctin": "X",
+                "nt": [{"itms": [{"num": 1, "itm_det": {**det, "txval": "300.00", "camt": "7.50", "samt": "7.50"}}]}],
+            }
+        ],
+        "cdnur": [],
+    }
+    assert gst.export_totals(export) == {
+        "taxable": D("7200.00"),
+        "igst": D(0),
+        "cgst": D("180.00"),
+        "sgst": D("180.00"),
+    }
+
+
+def test_law4_holds_with_a_credit_note_and_a_cancelled_invoice(nit: Any, app_engine: Engine) -> None:
+    """Runs last in this file: it adds documents to the NIT tenant."""
+    import uuid as _uuid
+
+    from app.modules.billing import service as billing
+    from app.modules.billing.domain import CreditLineIn
+    from app.modules.reports import gst
+    from app.modules.sales import service as sales
+
+    with scoped(app_engine, nit) as s:
+        org = nit.organization_id
+        billing.post_credit_note(
+            s,
+            organization_id=org,
+            actor_id=None,
+            invoice_id=nit.invoice_a_id,
+            reason="DEMO: festival discount",
+            lines=[CreditLineIn(1, 150, D("2.00"))],
+            note_date=DAY,
+        )
+        b = nit.order_ids["6_order_B"]
+        sales.approve_order(s, organization_id=org, actor_id=None, order_id=b, partial=True)  # 88 held
+        inv_b = billing.create_invoice(s, organization_id=org, actor_id=None, order_id=b, invoice_date=DAY)
+        billing.cancel_invoice(s, organization_id=org, actor_id=None, invoice_id=inv_b.invoice_id, reason="DEMO: wrong")
+        s.commit()
+        assert gst.law4(s) == []
+        summary = gst.gst_summary(s, DAY)
+        export = gst.gstr1_export(s, DAY)
+    cdnr = next(r for r in summary.rows if "(CDNR)" in r["description"])
+    assert (cdnr["documents"], cdnr["taxable"], cdnr["cgst"]) == ("1", "-300.00", "-7.50")
+    gstr3b = next(r for r in summary.rows if r["table"] == "3B 3.1(a)")
+    assert (gstr3b["taxable"], gstr3b["cgst"], gstr3b["igst"]) == ("7200.00", "180.00", "0.00")  # B's IGST cancelled
+    table13 = next(r for r in summary.rows if r["table"] == "13" and r["description"].startswith("Invoices"))
+    assert table13["documents"] == "1" and "(1 cancelled)" in table13["description"]
+    assert export["cdnr"][0]["nt"][0]["itms"][0]["itm_det"]["txval"] == "300.00"
+    assert _uuid.UUID(str(nit.invoice_a_id))

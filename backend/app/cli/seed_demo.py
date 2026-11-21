@@ -12,11 +12,13 @@ owner bypasses row-level security and the services rely on it.
 import os
 import sys
 import uuid
+from datetime import date
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app import db_models as _db_models  # noqa: F401 - registers every table for the ORM
+from app.core import effective_settings
 from app.core.config import get_settings
 from app.core.db import get_engine, org_scope
 from app.core.errors import NotFoundError
@@ -26,12 +28,14 @@ from app.modules.catalog import service as catalog
 from app.modules.identity import service as identity
 from app.modules.identity.domain import hash_password
 from app.modules.judge.replay import (
+    B2CL_THRESHOLD_DEMO,
     CREDIT_LIMITS,
     EXTRA_ITEMS,
     ITEMS,
     PAYMENT_TERMS_DAYS,
     PRICE_LIST_CODE,
     RECIPE,
+    SETTINGS_FROM,
     post_section5_opening,
     setup_section5,
     setup_section5_bom,
@@ -169,6 +173,16 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
                     msme_terms=True,
                 )
                 added.append(f"payment terms {code}")
+    if effective_settings.value_on(app_session, "gst.b2cl_threshold", date.today()) is None:  # MP11
+        tax.put_setting(
+            app_session,
+            organization_id=org_id,
+            actor_id=None,
+            key="gst.b2cl_threshold",
+            value=B2CL_THRESHOLD_DEMO,
+            effective_from=SETTINGS_FROM,
+        )
+        added.append("GSTR-1 B2CL threshold")
     for code, limit in CREDIT_LIMITS.items():  # MP09: only where no limit was ever set
         customer_id = sales.customer_id_by_code(app_session, code)
         if customer_id is not None and sales.credit_limit_of(app_session, customer_id) == 0:

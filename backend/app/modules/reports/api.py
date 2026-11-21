@@ -1,6 +1,7 @@
 """Report routes (MP11): the catalogue, and each report as JSON (the screen), CSV, XLSX or a printable page.
 Read-only, `report.read` (admin, production, owner, auditor)."""
 
+import json
 import uuid
 from datetime import date
 from typing import Annotated, Any, Literal
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.modules.identity.service import Principal, require
-from app.modules.reports import domain, service
+from app.modules.reports import domain, gst, service
 from app.modules.reports.domain import Report
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -75,6 +76,22 @@ def sales_register(
     format: Format = "json",
 ) -> Any:
     return render(service.sales_register(session, date_from, date_to, customer_id, item_id), format)
+
+
+@router.get("/gst-summary")
+def gst_summary(_principal: Reader, session: DbSession, month: date | None = None, format: Format = "json") -> Any:
+    return render(gst.gst_summary(session, month), format)
+
+
+@router.get("/gstr1-export")
+def gstr1_export(_principal: Reader, session: DbSession, month: date) -> Any:
+    """The month's GSTR-1-shaped JSON, for review only (never filed, never sent)."""
+    body = gst.gstr1_export(session, month)
+    return Response(
+        json.dumps(body, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="GSTR1_{body["fp"]}_DEMO.json"'},
+    )
 
 
 @router.get("/{name}")

@@ -34,7 +34,7 @@ class ReportError(DomainError):
     """A report request that cannot be answered."""
 
 
-def _org_name(session: Session) -> str:
+def org_name(session: Session) -> str:
     org = scoped_org(session)
     if org is None:
         raise ReportError("no_organization", "reports need an organization")
@@ -99,7 +99,7 @@ def sales_register(
     return Report(
         name="sales-register",
         title="Sales register",
-        organization=_org_name(session),
+        organization=org_name(session),
         filters=_filters(frm, to, customer=customer_id, item=item_id),
         columns=SALES_COLUMNS,
         rows=rows,
@@ -123,7 +123,7 @@ def purchase_register(session: Session, date_from: date | None = None, date_to: 
     return Report(
         name="purchase-register",
         title="Purchase register",
-        organization=_org_name(session),
+        organization=org_name(session),
         filters=_filters(frm, to),
         columns=[
             Column("received_on", "Date", "date"),
@@ -155,7 +155,7 @@ def stock_summary(session: Session, date_from: date | None = None, date_to: date
     return Report(
         name="stock-summary",
         title="Stock summary",
-        organization=_org_name(session),
+        organization=org_name(session),
         filters=_filters(frm, to),
         columns=[
             Column("store", "Store"),
@@ -214,7 +214,7 @@ def stock_ledger(
     return Report(
         name="stock-ledger",
         title="Stock ledger",
-        organization=_org_name(session),
+        organization=org_name(session),
         filters=_filters(frm, to, item=item_id),
         columns=[
             Column("posting_date", "Date", "date"),
@@ -271,7 +271,7 @@ def production_report(session: Session, date_from: date | None = None, date_to: 
     return Report(
         name="production",
         title="Production report",
-        organization=_org_name(session),
+        organization=org_name(session),
         filters=_filters(frm, to),
         columns=[
             Column("run_no", "Batch"),
@@ -331,7 +331,7 @@ def receivables_ageing(session: Session, as_of: date | None = None) -> Report:
     return Report(
         name="receivables-ageing",
         title="Receivables ageing",
-        organization=_org_name(session),
+        organization=org_name(session),
         filters={"as_of": on.isoformat()},
         columns=[
             Column("customer", "Customer"),
@@ -365,6 +365,7 @@ REPORTS: Final[dict[str, Callable[..., Report]]] = {
 def catalogue() -> list[dict[str, str]]:
     titles = {
         "sales-register": "Sales register (by customer and product, net of credit notes)",
+        "gst-summary": "GST summary for a month (GSTR-1 tables 4A, 5, 7, 9B, 12, 13 and GSTR-3B 3.1)",
         "purchase-register": "Purchase register",
         "stock-summary": "Stock summary (opening, in, out, closing by quantity and value)",
         "production": "Production report (planned vs actual, yield, waste, variance in rupees)",
