@@ -58,8 +58,11 @@ seed-demo:
 seed-benchmark:
 	$(API) python -m app.cli.seed_benchmark
 
+# MP08 (G8): a fresh SIM scratch tenant with its own DEMO logins, then the Playwright container against the dev stack
+# (`make up` first). The tenant file holds a random per-run password and is git-ignored.
 e2e:
-	@echo not built yet - MP08: Playwright && exit 1
+	docker compose run --rm -T api python -m app.cli.seed_e2e > e2e/.tenant.json
+	docker compose --profile e2e run --rm e2e
 
 integrity:
 	$(API) python -m app.cli.integrity

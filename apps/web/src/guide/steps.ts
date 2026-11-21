@@ -121,13 +121,15 @@ export const STEPS: GuideStep[] = [
     who: { role: "Salesman", login: "Salesman A" },
     screen: "salesOrder",
     actions: [
-      "Log in as Salesman A on a phone (or make the browser narrow).",
-      "My customers today → Retailer A → Murukku 200 g × {inputs.steps.4_order_A.qty} → Submit.",
-      "No network? The order says “Saved on phone” and sends itself later. It only says “Received by factory” after the server confirms.",
+      "Sign in → tap “Salesman A” → type the DEMO password. You land on Today. (On a laptop, make the window narrow to see the phone layout.)",
+      "Today → DEMO Retailer A → New order.",
+      "Type {inputs.steps.4_order_A.qty} in the packets box (or tap “+1 carton” to add 20 at a time) → Save order.",
+      "The order opens with its number and “Received by factory”. No network? It says “Saved on phone” and sends itself when the network is back: it never says “Received” before the factory confirms.",
     ],
     expect: [
       { label: "Packets ordered", key: "inputs.steps.4_order_A.qty", unit: "packets" },
-      { label: "Status after submit", text: "Received by factory" },
+      { label: "Order value ex-tax", key: "nit_expected.invoice_A.taxable", unit: "INR" },
+      { label: "Status after Save", text: "Received by factory" },
     ],
     why: "No phone call, no WhatsApp, no re-typing: the order reaches the factory directly.",
     assertions: [],
@@ -174,7 +176,7 @@ export const STEPS: GuideStep[] = [
     who: { role: "Salesman", login: "Salesman B, then Factory admin" },
     screen: "orderInbox",
     actions: [
-      "As Salesman B: Distributor B (Karnataka) → {inputs.steps.6_order_B.qty} packets → Submit.",
+      "Sign in as Salesman B: Today → DEMO Distributor B (Karnataka) → New order → {inputs.steps.6_order_B.qty} packets → Save order. The stock hint already warns it is short.",
       "As Admin, open the order. The card shows the shortage and three options: send what is available and backorder the rest, wait for the next batch, or reject.",
       "Do not invoice it: stock can never go below zero.",
     ],

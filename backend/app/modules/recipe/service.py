@@ -495,6 +495,23 @@ def active_pack_spec_version(session: Session, pack_spec_code: str) -> uuid.UUID
     return found
 
 
+def units_per_carton(session: Session, fg_item_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """Packets per carton from each finished good's ACTIVE pack spec version (MP08, G2: the carton-aware stepper).
+    A finished good with no ACTIVE pack spec is left out."""
+    if not fg_item_ids:
+        return {}
+    rows = session.execute(
+        select(PackSpec.fg_item_id, PackSpecVersion.units_per_carton)
+        .join(PackSpecVersion, PackSpecVersion.pack_spec_id == PackSpec.id)
+        .where(PackSpec.fg_item_id.in_(set(fg_item_ids)), PackSpecVersion.status == domain.ACTIVE)
+        .order_by(PackSpec.code)
+    ).tuples()
+    out: dict[uuid.UUID, int] = {}
+    for item_id, per_carton in rows:
+        out.setdefault(item_id, per_carton)
+    return out
+
+
 # ---------- read models ----------
 
 

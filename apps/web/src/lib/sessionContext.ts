@@ -11,7 +11,7 @@ export interface Me {
 export interface SessionState {
   me: Me | null;
   loading: boolean;
-  signIn: (email: string, password: string, organizationCode?: string) => Promise<void>;
+  signIn: (email: string, password: string, organizationCode?: string) => Promise<Me>;
   signOut: () => Promise<void>;
 }
 

@@ -56,6 +56,9 @@ services:
       context: apps/web
     environment:
       API_PROXY_TARGET: http://api:8000
+      # file events do not cross a Windows bind mount: poll so edits reload the page
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
     ports:
       - "${WEB_PORT:-5180}:5180"
@@ -66,6 +69,22 @@ services:
     depends_on:
       - api
 
+  # MP08 (G8): Playwright from the official image, against the dev stack (`make e2e`). Not started by `make up`.
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.49.1-jammy
+    profiles: ["e2e"]
+    working_dir: /workspace/e2e
+    environment:
+      BASE_URL: http://web:5180
+      CI: "1"
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npx playwright test"]
+    volumes:
+      - ./e2e:/workspace/e2e
+      - e2e_node_modules:/workspace/e2e/node_modules
+    depends_on:
+      - web
+
 volumes:
   pgdata:
   web_node_modules:
+  e2e_node_modules:

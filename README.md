@@ -34,11 +34,18 @@ make seed-benchmark  # a fresh BENCHMARK tenant with NIT section 5 master data a
 make benchmark   # 26-row scoreboard against benchmark/expected_results.yaml
 make test        # backend tests (unit + PostgreSQL)
 make integrity   # audit hash chain, law 1 per journal, balances rebuilt from the ledger (laws 2-4 arrive in MP11)
+make e2e         # Playwright (official image, ~2 GB once) on a fresh scratch tenant: online, offline, duplicate, repeat-order time, stale price
 ```
 
-Then open http://localhost:5180. The **Start here** page explains the system and the **Guided tour** walks you
-through NIT's nine benchmark steps: who does each step, where to click, what to type, and the number you should see.
-A **Guide** button on every page brings you back to the right step.
+Then open http://localhost:5180 (the only frontend; the API is http://localhost:8180, Swagger at `/docs`). The
+**Start here** page explains the system and the **Guided tour** walks you through NIT's nine benchmark steps: who does
+each step, where to click, what to type, and the number you should see. A **Guide** button on every page brings you
+back to the right step. The sidebar lists every screen by role; a screen not built yet says which stage builds it.
+
+**Try the salesman app in one minute:** Sign in → tap **Salesman A** → password `change-me-demo` (local default) →
+**Today** → DEMO Retailer A → **New order** → type 150 → **Save order**. The order opens as **Received by factory**
+with its number (SO/26-27/…) and ₹7,500.00 ex-tax. Turn the network off (browser dev tools → Offline) and save
+another: it says **Saved on phone**, then sends itself when you go back online.
 
 ## Test logins
 
@@ -55,7 +62,8 @@ Set your own before exposing the app anywhere.
 | Owner | `owner@aaharos-demo.invalid` | Everything, including staff and reopening a closed month |
 
 The full permission matrix and the session design are in [docs/security.md](docs/security.md). The API is live from
-MP03 (`POST /api/auth/login`); the role screens arrive with MP08 onwards.
+MP03 (`POST /api/auth/login`); the salesman app is live from MP08 (a salesman lands on **Today**); the other role
+screens arrive with their MPs. The sign-in page has one-tap buttons that fill each DEMO email.
 
 ## Stack (and why)
 PostgreSQL gives exact NUMERIC arithmetic, real transactions and constraint triggers, so the ledger's correctness is
@@ -66,7 +74,8 @@ tablet and desktop from one codebase and supports offline order capture with no 
 ## Repository map
 | Path | What |
 |---|---|
-| `apps/web` | React + TypeScript web app (Start here, guided tour; role apps later) |
+| `apps/web` | React + TypeScript PWA, one app for every role: Start here, guided tour, salesman app (MP08), Where profit leaks |
+| `e2e` | Playwright scenarios (`make e2e`) |
 | `backend/app` | FastAPI modular monolith: `core/` kernel + 21 modules in 7 layers |
 | `benchmark/` | NIT oracle, 26 assertions, oracle-integrity checks, scoreboard runner |
 | `analytics/` | Simulator and analytics (MP16), read-only |

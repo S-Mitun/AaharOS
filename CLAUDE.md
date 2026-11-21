@@ -50,7 +50,7 @@ Modules talk through `service.py` interfaces, never by importing another module'
 - `make seed-benchmark`: a fresh BENCHMARK tenant with Section 5 master data and opening stock (older tenants kept, ADR-0006)
 - `make benchmark`: run the 9 NIT steps and print the scoreboard against the oracle
 - `make test`: backend unit + integration tests
-- `make e2e`: Playwright tests
+- `make e2e`: Playwright (own compose service, profile `e2e`) on a fresh SIM scratch tenant from `app.cli.seed_e2e`; needs `make up`
 - `make integrity`: audit hash chain, law 1 per journal, balance rebuild diff, receipt values, S6 run WIP, law 2 per run (built); laws 3-4 in MP11
 - `make sim`: generate the synthetic 24-month dataset (fixed seed)
 - `make ml-eval`: backtests vs baselines + planted-truth recovery report

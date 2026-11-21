@@ -14,6 +14,8 @@
   - J2 step 2 as a real material issue for B-001 at WAC (production -> valuation)
   - J3 step 3 as the real `complete_run` of B-001: 188 good, 194 pouches used (6 damaged), 9 cartons
   - J8 step 8: labour 1,200 and gas/power 600 as run costs (value-only true-ups), then the costs finalised
+  - (MP08) steps 4 and 6 as SUBMITTED orders priced from the DEMO general price list v1 (Retailer A 150, Distributor
+    B 120), ready for approval in MP09. BENCHMARK tenants have no logins, so the orders carry no salesman.
 """
 
 import uuid
@@ -41,6 +43,7 @@ from app.modules.production.service import RunAnalysis
 from app.modules.recipe import service as recipes
 from app.modules.recipe.domain import PackLineIn, RecipeLineIn
 from app.modules.sales import service as sales
+from app.modules.sales.domain import OrderLineIn
 from app.modules.uom.domain import BASE_UNIT, from_base, to_base, unit
 from app.modules.valuation import service as valuation
 from app.modules.valuation.service import OpeningLine
@@ -90,6 +93,7 @@ class Section5:
     customer_ids: dict[str, uuid.UUID]
     recipe_version_id: uuid.UUID
     pack_versions: dict[str, uuid.UUID]  # pack spec code -> its ACTIVE version
+    price_list_id: uuid.UUID | None = None  # MP08: the DEMO general price list v1
 
 
 @dataclass
@@ -102,6 +106,7 @@ class StockReplay:
     receipt_no: str = ""
     flour_wac_after_purchase: Explained | None = None
     flour_issue_sensitivity: dict[str, dict[str, Any]] = field(default_factory=dict)
+    orders: dict[str, str] = field(default_factory=dict)  # step -> SO number (MP08)
     closing: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, store) -> qty in stock unit
     closing_value: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, location) -> rupees
     run_id: uuid.UUID | None = None
@@ -181,7 +186,30 @@ def setup_section5(
         for code, name, kind, state, gstin in CUSTOMERS
     }
     recipe_version, pack_versions = setup_section5_bom(session, oracle, organization_id, ids, actor_id)
-    return Section5(organization_id, ids, stock_units, supplier, customers, recipe_version, pack_versions)
+    price_list = setup_section5_price_list(session, oracle, organization_id, ids, actor_id)
+    return Section5(organization_id, ids, stock_units, supplier, customers, recipe_version, pack_versions, price_list)
+
+
+PRICE_LIST_CODE: Final = "GENERAL"
+
+
+def setup_section5_price_list(
+    session: Session,
+    oracle: dict[str, Any],
+    organization_id: uuid.UUID,
+    ids: dict[str, uuid.UUID],
+    actor_id: uuid.UUID | None = None,
+) -> uuid.UUID:
+    """MP08 (G1): the DEMO general price list v1 with the 200 g pack at the inputs' `selling_price_ex_tax`. The
+    inputs give no 500 g price, so the 500 g pack is not on it."""
+    return sales.create_price_list(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        code=PRICE_LIST_CODE,
+        effective_from=SETTINGS_FROM,
+        items={ids[FINISHED]: Decimal(str(oracle["inputs"]["selling_price_ex_tax"])).quantize(Decimal("0.01"))},
+    )
 
 
 def _cartons_per_batch(bom: dict[str, Any]) -> Decimal:
@@ -415,6 +443,20 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
             incurred_on=POSTING_DATE,
         ).journal_id
     production.finalise_costs(session, organization_id=org, actor_id=None, run_id=run_id)
+
+    # MP08: steps 4 and 6 as SUBMITTED orders at the price list's price; approval, invoices and dispatch are MP09-MP10.
+    assert s5.price_list_id is not None
+    price = Decimal(str(inputs["selling_price_ex_tax"])).quantize(Decimal("0.01"))
+    for step, customer in (("4_order_A", "RET-A"), ("6_order_B", "DIST-B")):
+        replay.orders[step] = sales.receive_order(
+            session,
+            organization_id=org,
+            actor_id=None,
+            customer_id=s5.customer_ids[customer],
+            price_list_id=s5.price_list_id,
+            lines=[OrderLineIn(ids[FINISHED], int(steps[step]["qty"]), price)],
+            order_date=POSTING_DATE,
+        ).order_no
 
     session.commit()
     replay.run = production.run_analysis(session, run_id)

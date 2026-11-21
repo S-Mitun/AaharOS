@@ -27,6 +27,23 @@ def replay(app_engine: Engine) -> Any:
         return replay_stock(s, oracle)
 
 
+def test_steps_4_and_6_are_submitted_orders(replay: Any, app_engine: Engine) -> None:
+    """MP08: the two orders exist, SUBMITTED, priced from the price list, numbered SO/26-27/000001 and 000002."""
+    assert replay.orders == {"4_order_A": "SO/26-27/000001", "6_order_B": "SO/26-27/000002"}
+    with Session(app_engine) as s:
+        org_scope(s, replay.organization_id)
+        rows = s.execute(
+            text(
+                "SELECT o.order_no, o.status, c.code, l.qty_requested, l.price_captured FROM sales_orders o"
+                " JOIN customers c ON c.id = o.customer_id JOIN order_lines l ON l.order_id = o.id ORDER BY o.order_no"
+            )
+        ).all()
+    assert [tuple(r) for r in rows] == [
+        ("SO/26-27/000001", "SUBMITTED", "RET-A", 150, D("50.00")),
+        ("SO/26-27/000002", "SUBMITTED", "DIST-B", 120, D("50.00")),
+    ]
+
+
 def test_closing_values_equal_the_ledger_design(replay: Any) -> None:
     v = replay.closing_value
     assert v[("flour", "RAW_STORE")] == D("5175.00")

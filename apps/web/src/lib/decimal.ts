@@ -41,6 +41,22 @@ export function sharePercent(value: string, max: string): number {
   return Number((a * 100n) / b);
 }
 
+function fromHundredths(v: bigint): string {
+  const neg = v < 0n;
+  const digits = (neg ? -v : v).toString().padStart(3, "0");
+  return `${neg ? "-" : ""}${digits.slice(0, -2)}.${digits.slice(-2)}`;
+}
+
+/** Whole packets × a rupee price, exactly: ("150", "50.00") -> "7500.00". */
+export function packetsTimesPrice(qty: string, price: string): string {
+  return fromHundredths(BigInt(qty) * toHundredths(price));
+}
+
+/** Sum of rupee amounts, exactly, to paise. */
+export function sumRupees(values: string[]): string {
+  return fromHundredths(values.reduce((acc, v) => acc + toHundredths(v), 0n));
+}
+
 export function isNegative(text: string): boolean {
   return /^-/.test(text) && /[1-9]/.test(text);
 }

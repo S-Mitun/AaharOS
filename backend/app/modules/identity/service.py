@@ -371,6 +371,33 @@ def assigned_customer_ids(user_id: uuid.UUID) -> Select[tuple[uuid.UUID]]:
     return select(SalesmanCustomerAssignment.customer_id).where(SalesmanCustomerAssignment.user_id == user_id)
 
 
+def route_order(session: Session, user_id: uuid.UUID) -> dict[uuid.UUID, int | None]:
+    """A salesman's assigned customers and their place on the day's route (MP08 Today screen)."""
+    rows = session.execute(
+        select(SalesmanCustomerAssignment.customer_id, SalesmanCustomerAssignment.route_order).where(
+            SalesmanCustomerAssignment.user_id == user_id
+        )
+    ).tuples()
+    return dict(rows.all())
+
+
+def is_assigned(session: Session, user_id: uuid.UUID, customer_id: uuid.UUID) -> bool:
+    return (
+        session.execute(
+            select(SalesmanCustomerAssignment.customer_id).where(
+                SalesmanCustomerAssignment.user_id == user_id, SalesmanCustomerAssignment.customer_id == customer_id
+            )
+        ).first()
+        is not None
+    )
+
+
+def display_names(session: Session, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+    if not user_ids:
+        return {}
+    return dict(session.execute(select(User.id, User.display_name).where(User.id.in_(user_ids))).tuples().all())
+
+
 # ---------- who am I, members ----------
 
 

@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP07 done, not committed (branch feat/mp07-costing, from 3ec11ba) / MP08 next
+## Status: MP08 done, not committed (branch feat/mp08-salesman-pwa from feat/mp07-costing) / MP09 next
 
 ## Benchmark scoreboard: 12/26
 - **Green:**
@@ -14,6 +14,8 @@
   - J0 opening, valued; J1 as a purchase receipt
   - run B-001 created and started; J2 a real material issue at WAC; J3 the real `complete_run`
   - J8 step 8: labour and gas as run costs (value-only true-ups), then the costs finalised (B-001 FINAL, ₹5,855.00)
+  - (MP08) steps 4 and 6 as SUBMITTED orders SO/26-27/000001 (Retailer A, 150) and 000002 (Distributor B, 120) at the
+    DEMO general price list v1 (₹50.00 = `selling_price_ex_tax`); no row changes (13 is MP09)
 - Oracle integrity: 10/10 checks pass (the sha256 guard on `inputs` + `nit_expected` included). No green row turned
   red.
 
@@ -22,6 +24,59 @@ Red items and the MP that turns them green:
 - MP10: 5, 8–12, 14, 21, 22, 25
 - MP11: 26 integrity
 - MP12: 23 shortage attribution, 24 runway
+
+## Done in MP08 (one app shell, the salesman PWA, the offline outbox, the orders API)
+- **Gate met:**
+  - one frontend (:5180) with every role's screens in its grouped sidebar and the tour first; one API (:8180)
+  - `make e2e` (run as its two commands): **5/5 Playwright scenarios pass** on a fresh SIM tenant: online order; offline
+    order → reconnect → exactly one server order; a duplicate send (reply dropped) replayed with the same key, one
+    order; a stale price flagged (v2 published while offline); repeat-order time printed: **373 ms** (automated
+    taps, dev stack; no target claimed, a human's time is not measured)
+  - benchmark **12/26**, oracle 10/10, no green row turned red; `make integrity` OK
+- **Checks run:** backend **496 passed** (was 431; full suite incl. 500 state-machine examples, 3 min 18 s), ruff
+  check / format clean, mypy --strict clean (121 files), import-linter 2/2 kept, `alembic check` clean (0009 applied
+  to the dev DB), float grep clean; web **55 passed** (was 26), typecheck / lint (no warnings) / build clean (the build
+  emits `sw.js` and the manifest). Checked live on :5180 as Salesman A (DEMO factory): Today → New order → 150 →
+  Save → SO/26-27/000001, "Received by factory", ₹7,500.00; phone width (375 px) bottom tabs and Menu button.
+- **New tests:** `sales/tests/test_domain.py` (17, one property: totals = Σ qty × price exactly),
+  `tests/db/test_sales.py` (12), `test_replay.py` (+1: steps 4 and 6 orders), generated RBAC cases for 7 new routes,
+  `src/sales/sync.test.ts` (backoff, ACK, retryable vs refused, 401 pause, exactly-once, UUIDv7),
+  `src/shell/registry.test.tsx` (every registry entry has a route and a sidebar link, role filtering, Coming page),
+  `src/sales/sales.test.tsx` (save-first then Received only after ACK, repeat last order, Needs attention).
+- **Decisions G1–G9 (approved; [ADR-0015](adr/0015-orders-prices-and-the-offline-outbox.md)):** G1 server prices,
+  stale flagged not refused, price list items append-only; G2 whole packets, carton-aware stepper; G3 SO numbers on
+  receipt; G4 UUIDv7 Idempotency-Key; G5 Dexie outbox + backoff sync + PWA shell; G6 minimal cache wiped at logout;
+  G7 salesman lands on `/sales`; G8 Playwright in its own compose service on a fresh SIM tenant; G9 one web app with a
+  grouped sidebar from one registry and the tour first.
+- **Backend:**
+  - migration 0009: `price_list_items` insert-only (trigger + grants, AH002)
+  - `sales.domain` (pure): price list in force (customer list first, `known_at` for receipt-time answers), the order
+    plan (whole positive packets, each item once, price = list price), exact totals (`Explained`), the stale rule,
+    the request hash, `SO/26-27/000001`, new-price-list rules
+  - `sales.service`: price lists (publish a version, list, in force), `catalog_for` (FG prices, packets per carton
+    from the ACTIVE pack spec, available-today quantities for `stock.read`), `place_order` (assignment check) →
+    `receive_order` (one savepoint: price check, key claim, number, order + lines, SUBMITTED history row with the
+    stale note, audit, stored response), `get_order` (lines, timeline, stale detail with current prices),
+    `list_orders` (row filter, `days`), `last_order`, `summary` ("ordered, not invoiced")
+  - helpers: `catalog.names_for`, `recipe.units_per_carton`, `identity.route_order` / `is_assigned` / `display_names`
+  - `python -m app.cli.seed_e2e`: a fresh SIM tenant with SALESMAN / ADMIN / OWNER logins and a random password
+  - `make seed-demo` tops up an older DEMO factory (MP06 items, recipe, pack specs, card, tolerance; price list)
+- **API** (all in the generated route × role tests): `POST /api/orders` (`order.create`, Idempotency-Key),
+  `GET /api/orders?days=`, `GET /api/orders/{id}`, `GET /api/sales/catalog?customer_id=`,
+  `GET /api/sales/customers/{id}/last-order`, `GET /api/sales/summary` (`order.read`), `GET /api/price-lists`
+  (`customer.read`), `POST /api/price-lists` (`price.manage`); `GET /api/customers` now carries `route_order`.
+- **Seeds and replay:** DEMO general price list v1 (`murukku_200g` ₹50.00) in `setup_section5`; the replay posts steps 4
+  and 6 as SUBMITTED orders.
+- **Web (one app, G9):** `src/guide/screens.ts` is the registry (group, icon, description, permission) for the sidebar,
+  `src/routes.tsx` and the tour; `src/shell/` (AppShell with a Menu button at phone width, grouped Sidebar, Coming
+  page, sign-in Gate, Sign-out with the unsent-orders dialog); `src/sales/` (Today, order screen with generated DEMO
+  pouch art, carton-aware stepper, last quantity, available-today hint, sticky estimated total; My orders with Needs
+  attention / On this phone / With the factory; order detail with the timeline and the confirmed `Explained` total;
+  Summary; bottom tabs at phone width); the outbox (Dexie) and `sync.ts` (pure engine); the PWA manifest and service
+  worker (production build); the sign-in page has one-tap DEMO login buttons and lands each role on its home; tour
+  steps 4 and 6 rewritten to the real clicks; 48 px touch targets.
+- **Dev stack:** the web container polls for file changes (`CHOKIDAR_USEPOLLING`): edits on the Windows host were not
+  reaching Vite in Docker before.
 
 ## Done in MP07 (costing, the waterfall, Explain-this-number)
 - **Gate met:**
@@ -442,6 +497,9 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP08: [ADR-0015](adr/0015-orders-prices-and-the-offline-outbox.md): G1 server prices and stale flag, G2 whole
+  packets, G3 SO numbers on receipt, G4 UUIDv7 keys, G5 outbox + sync + PWA, G6 device cache wiped at logout, G7
+  role landing, G8 Playwright on a SIM tenant, G9 one app with one screen registry.
 - MP07: [ADR-0014](adr/0014-costing-true-up-and-waterfall.md): F1 run costs after completion as true-ups, F2
   cumulative spread, F3 explicit FINAL, F4 append-only cards by run date, F5 waterfall rules, F6 as-of-issue
   sensitivity, F7 overheads deferred, F8 a plain sign-in.
@@ -477,7 +535,7 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - CI runs on GitHub (S-Mitun/AaharOS) from the first push.
 - Hosting provider for the demo URL not chosen (MP17; needs the user's account; free-tier limits to be documented).
 - The 7-day plan is tight. Correctness first: no differentiator ships while a benchmark row is red.
-- `e2e`, `sim`, `ml-eval` still exit 1 with "not built yet". `migrate`, `seed-demo`, `seed-benchmark`,
+- `sim`, `ml-eval` still exit 1 with "not built yet". `e2e` works since MP08 (needs `make up`). `migrate`, `seed-demo`, `seed-benchmark`,
   `benchmark` (needs a migrated DB since MP04) and `integrity` (audit chain, law 1, balance rebuild, receipt
   values) work.
 - Web dev server prints React Router v7 future-flag warnings (harmless).
@@ -503,8 +561,6 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **Run reversal not built:** `run.reverse` is in the matrix, but no route or service reverses a completed run yet.
 - **Runs are numbered at DRAFT:** deleting a DRAFT run leaves a gap in B-numbers (run numbers are not tax documents;
   material-issue numbers stay gapless).
-- **The dev DB's DEMO factory has no recipe yet:** `make seed-demo` adds master data on its first run only, and the
-  DEMO factory was seeded in MP05. Fresh databases get the recipe, pack specs and tolerance.
 - **Mass balance is reported, not yet a pass/fail law:** the rule for an acceptable gap is MP11.
 - **Only the 200 g pack has a standard cost card:** the inputs give no rate for `pouch_500g`, so 500 g runs show
   their run cost but no waterfall (the page says why). Add a card through `POST /api/standard-cost-cards`.
@@ -513,9 +569,17 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **Overheads are not absorbed** (F7): costing is direct cost; MP11 reports absorbed overheads.
 - **The dispatch in `test_costing.py` is a test stand-in** (a raw DISPATCH journal); MP10 builds the real dispatch,
   replays step 5 before step 8, and turns assertion 22 green.
-- **Sign-in only, no role shells yet:** `/sign-in` and `/leaks` work for any role with `report.read`; MP08 adds the
-  role home screens.
-- **No login screen yet.** (Superseded in MP07 by the plain `/sign-in`; MP08 builds the role shells.) The API supports login; the web app gets its login and role shells with MP08.
+- **Only the salesman shell is built (MP08):** other roles land on `/leaks`; their shells come with MP09 (inbox),
+  MP10 (invoices), MP11 (reports). Unbuilt screens show an honest "Coming in MPxx" page.
+- **ADMIN cannot create orders** (`order.create` is SALESMAN and OWNER): an order phoned in to the factory is an MP09
+  decision.
+- **Stale orders are flagged, not resolved:** the admin chooses the price at approval (MP09). The flag is computed on
+  read from versions known at receipt (no column).
+- **The service worker is in the production build only;** the Vite dev server does not register it, so "opens with no
+  network" holds for the hosted demo (MP17), not for :5180. Offline order capture works on :5180 once the app is
+  loaded.
+- **E2E tenants accumulate** (one SIM organization per `make e2e`, ADR-0006: no deletes).
+- **BENCHMARK replay orders carry no salesman** (BENCHMARK tenants have no logins).
 - **CSRF:** relies on SameSite cookies plus the CORS allow-list; there is no CSRF token (docs/security.md).
 - **Multiple tabs:** two tabs refreshing with the same refresh token at the same instant revoke the session (safe,
   and the user re-logs in).
@@ -525,28 +589,143 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   `AAHAR_AUTH_SECRET` must be set outside dev/test; the app refuses to start with the DEMO default.
 - `erd.mmd` was edited for the MP02 fixes but not re-rendered (no Mermaid renderer available locally). The
   authoritative schema is `0002_schema.py`.
-- The dev DB is migrated to head (0007) and seeded with the DEMO logins.
+- The dev DB is migrated to head (0009) and seeded with the DEMO logins; `make seed-demo` (MP08) topped up the DEMO
+  factory with the recipe, pack specs, card, tolerance and price list GENERAL v1.
 - Host Python on this Windows machine defaults to cp1252 and CRLF. Scripted file edits must use UTF-8 and LF
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-1. The user reviews MP07 and commits on branch `feat/mp07-costing` (proposed message below).
-2. Then MP08 (salesman PWA with an offline outbox), plan first.
+Run MP09 (order inbox, approval with reservations, Distributor B's shortage → row 13) in a fresh session: read the MP09
+section of docs/MASTER_PACK.md, show the plan (it touches stock reservations) and wait for approval.
 
-Proposed commit message:
-```
-feat(costing): MP07 run costs, standard cards, the variance waterfall and Explain-this-number
+Before starting:
+- The user commits MP08 first (see the proposed message in the session that built it). Then branch
+  `feat/mp09-order-inbox` from `feat/mp08-salesman-pwa`.
+- One frontend and one backend, both in Docker: web http://localhost:5180 (Vite, proxies `/api`, polls for edits), API
+  http://localhost:8180 (Swagger at `/docs`). `docker compose up -d api web` starts them; both reload on code changes.
+- Everything runs in Docker: `docker compose run --rm -T api <cmd>` and `docker compose run --rm -T --no-deps web npm
+  run <test|lint|typecheck|build>`. Never run two pytest invocations at once. `make e2e` needs the stack up.
+- Host Python is cp1252 / CRLF: write files as UTF-8 with LF. Long heredocs break in the Bash tool; write files with the
+  editor tools.
+- MP09 inherits from MP08: SUBMITTED orders with `price_list_id`, the stale flag (`get_order.stale_detail`), the
+  `order_status_history` trail, the Admin group's "Order inbox" registry entry (`orderInbox`, flip `built`), and
+  `ledger.reserve` / `available_to_promise`.
 
-- production: run costs on completed runs as value-only COST_TRUE_UP journals spread over
-  wherever the lot is (ledger.md J8), explicit FINAL, costing facts, law 2 per run
-- costing: standard cost cards (append-only, migration 0008), run cost and cost per good unit,
-  the waterfall (price, usage, yield, conversion; exact, explicit rounding), FIFO/LAST as of issue
-- replay: step 8 labour + gas recorded and finalised on B-001 (5,855.00)
-- web: <Num> with the "Explain this number" popover, Where profit leaks, a plain sign-in
-- benchmark 12/26 (17, 18, 19 green); 431 backend + 26 web tests (ADR-0014)
+### Record: the MP08 plan as approved (implemented above)
+**Approved MP08 plan** (approved by the user on 2026-11-21, G1–G8 as recommended, G9 added; salesman PWA with an offline outbox; the orders API). MP08 turns no benchmark row green on its
+own (13 is MP09), so the gate is the Playwright scenarios; the scoreboard must stay 12/26.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-```
+What exists: `customers`, `price_lists` (versioned, optional customer, effective-dated), `price_list_items`,
+`sales_orders` (with `price_list_id`, `captured_at` and a unique `idempotency_key`), `order_lines` (whole packets,
+`price_captured`), insert-only `order_status_history`, salesman → customer assignments with `route_order`, the salesman
+row filter, `order.create` / `order.read` in the matrix, and `ledger.available_to_promise`. No price list is seeded, and
+there is no order-taking code, no PWA and no Playwright yet (`make e2e` exits 1).
+
+Decisions (approved):
+- **G1. Prices come from the server's price list, never from the phone; a stale price is flagged, not refused.**
+  - The price in force for a customer on a date: its customer-specific list if one is in force, else the general
+    list's highest version in force.
+  - The phone sends the price list version it showed and the price per line. The server takes `price_captured` from
+    that version; a different price is refused (`price_mismatch`), so a tampered phone cannot set prices.
+  - If that version is no longer the one in force when the order arrives (a new version came out while the phone was
+    offline), the order is accepted and flagged **stale**, with the current price shown alongside; the admin decides
+    in MP09.
+  - Price list versions are append-only: migration 0009 makes `price_list_items` insert-only, so a captured price can
+    always be traced to the list it came from. A new version is how prices change (`POST /api/price-lists`,
+    `price.manage`).
+- **G2. Orders are in whole packets.** The carton-aware stepper (tap = +1 packet, long-press = +1 carton) uses the
+  units per carton of the item's ACTIVE pack spec, sent with the catalog; the order stores packets only.
+- **G3. Numbers and dates.** `SO/26-27/000001`, gapless per financial year, given when the factory **receives** the
+  order. `order_date` = the factory's business date on receipt; `captured_at` = when it was saved on the phone (shown
+  as "saved on phone at").
+- **G4. Idempotency.** The phone makes a UUIDv7 key when the order is saved and sends it as `Idempotency-Key`; it is
+  also stored on the order (already unique). A replay returns the original order (200, `replayed`); the same key with a
+  different order is 409 and lands in the conflict view.
+- **G5. The outbox and sync.**
+  - Dexie (IndexedDB), one new dependency (`dexie@4.0.10`), plus `vite-plugin-pwa@0.21.1` for the manifest and a
+    service worker that caches the app shell, so the app opens with no network.
+  - States: Saved on phone → Sending → Received by factory (only after the server's 201/200 with an order no.) →
+    Approved / Rejected (read from the server; approval itself is MP09).
+  - Sync runs on app start, on the browser's `online` event, and on a timer with exponential backoff (2 s doubling to
+    5 min, with jitter). The Background Sync API is not used: Safari lacks it, and in-app sync covers the brief.
+  - Network errors and 5xx keep the order as "Saved on phone" for a retry; a 4xx (other than 401 / 408 / 429) moves it
+    to **Needs attention** with the server's reason, where it can be discarded, or edited and re-sent with a new key; a
+    401 pauses sync until the salesman signs in again (the outbox is kept).
+- **G6. Minimal device cache, wiped at logout.** Only the assigned customers, the priced catalog, the last order per
+  customer and the salesman's own orders of the last 30 days are cached. Logout deletes the whole IndexedDB database.
+  If unsent orders exist, logout first says how many and offers "Send now" or "Delete them and log out".
+  *Alternative:* block logout until the outbox is empty.
+- **G7. Role shells after sign-in.** A SALESMAN lands on a mobile-first `/sales` shell (Today · My orders · Summary).
+  Other roles keep today's pages; their shells come with their MPs (inbox MP09, reports MP11). The "Available today"
+  hint shows quantities only (✓ in stock / ⚠ partial), from `stock.read`, never values. Product pictures are generated
+  DEMO illustrations (no photos).
+- **G8. Playwright in its own compose service** from the official image `mcr.microsoft.com/playwright:v1.49.1-jammy`
+  (a one-time image pull of about 2 GB), run against the dev stack by `make e2e`. Each run creates its own fresh
+  scratch tenant with DEMO logins, so it never touches the DEMO factory. The time-to-submit for a repeat order is
+  measured and printed as measured (no target is claimed until it is met). *Alternative:* run Playwright on the host
+  (needs Node and the browsers installed on Windows).
+- **G9 (added by the user). One web app and one backend, with the guided tour first, the way Nexora's workspace shell
+  works** (`nexora-ai-learning-platform/frontend/src/app/shell`: `AppShell`, a grouped `Sidebar`, one `nav.ts`
+  registry, and a `ModulePage` for hubs that are not built yet).
+  - http://localhost:5180 is the only frontend server and http://localhost:8180 the only API. Every role's screens
+    live in this one React app; there is no second frontend.
+  - The first page anyone sees is the guided tour (Start here + the 11-step NIT tour, as today).
+  - An app shell with a grouped sidebar: Guide · Salesman · Admin · Production · Owner · Auditor · Judge. Every screen
+    in `apps/web/src/guide/screens.ts` is listed in its group. A built screen opens. A screen not built yet opens an
+    honest "Coming in MPxx" page saying what it will do, never sample numbers or fake data.
+  - `screens.ts` becomes the single registry for the sidebar, the routes and the tour's "Take me there" links, so the
+    three can never disagree. Each entry gains its role group, an icon and a one-line description.
+  - Signed out, a visitor can browse the tour and the "coming" pages; a screen that needs data asks to sign in. After
+    sign-in the user's role group is expanded and they land on its home (a salesman on `/sales`). The sidebar hides
+    what the role cannot use; the API still enforces every permission.
+  - Phone width: the sidebar collapses into a menu button; the salesman area uses bottom tabs (Today · My orders ·
+    Summary). Everything keeps 48 px touch targets, and status is icon + word + colour.
+  - No new UI library: plain CSS with the existing tokens (PROGRESS decisions, MP00).
+
+Steps:
+1. **Migration 0009:** `price_list_items` insert-only (trigger + grants); `alembic check`.
+2. **`sales.domain` (pure):** price resolution, the order plan (whole positive packets, each item once), totals ex-tax
+   (an `Explained` value), the stale rule, the request hash (unit- and order-independent), `SO/26-27/000001`.
+   Hypothesis: totals = Σ qty × captured price, exactly.
+3. **`sales.service`:**
+   - price lists: create a version (with its items), list, the price in force for a customer
+   - `catalog(customer)`: FG items priced for that customer, units per carton from the active pack spec
+     (`recipe.service`), the available-today hint (`ledger.available_to_promise`, quantities only)
+   - `place_order`: one savepoint — idempotency claim, assignment check (a salesman orders only for assigned
+     customers), price check (G1), number, order + lines, a SUBMITTED status-history row, audit row
+   - `get_order` (lines, status timeline, stale flag with current price), `list_orders` (existing row filter),
+     `last_order(customer)`, `summary` (per customer: orders, packets, value ex-tax — labelled "ordered, not invoiced")
+4. **API** (all in the generated route × role tests): `POST /api/orders` (`order.create`, Idempotency-Key),
+   `GET /api/orders/{id}`, `GET /api/sales/catalog?customer_id=`, `GET /api/sales/customers/{id}/last-order`,
+   `GET /api/sales/summary` (`order.read`), `GET/POST /api/price-lists` (`customer.read` / `price.manage`). Decimals as
+   strings; quantities as whole-number strings.
+5. **Seeds and the replay:** a DEMO general price list v1 with `murukku_200g` at ₹50.00 (the inputs'
+   `selling_price_ex_tax`) in `setup_section5`; `make seed-demo` adds the price list (and MP06's recipe, pack specs,
+   card and tolerance) to an existing DEMO factory if missing. The replay posts step 4 (Retailer A, 150) and step 6
+   (Distributor B, 120) as SUBMITTED orders, ready for MP09; no assertion changes. DB tests: the salesman row filter
+   on orders, an order for an unassigned customer refused, a tampered price refused, a stale price flagged, a
+   duplicate key replayed, a reused key with a different order 409, numbering gapless after a refusal.
+6. **Web, one app (G9 first, then `/sales`, mobile-first, 48 px targets):**
+   - the shell: grouped sidebar from `screens.ts`, the "Coming in MPxx" page, the menu button at phone width, sign-in
+     state in the top bar; the guided tour stays the landing page; existing pages (`/guide`, `/leaks`, `/sign-in`)
+     move inside the shell; vitest checks that every registry entry has a route and a sidebar link
+   - Today: assigned customers in route order with **Repeat last order**
+   - the order screen: product grid with pictures, carton-aware stepper, last quantity pre-filled, sticky total
+     ex-tax, the available-today hint, Save (always to the phone first)
+   - My orders with the status timeline; Needs attention (the conflict view); Summary per customer
+   - the outbox (Dexie) and the sync engine, written as a pure state machine with an injected clock and network so
+     vitest can drive backoff, ACKs, conflicts and 401s; the UI never says "Received" before the server's ACK
+   - logout wipe (G6), PWA manifest and service worker (G5); the role redirect after sign-in (G7)
+7. **E2E (`make e2e`):** online order; offline order → reconnect → exactly one server order; a duplicate replay
+   ignored; a stale price flagged (a new price list version published while the phone is offline); time-to-submit for
+   a repeat order measured and printed.
+8. **Docs:** ADR-0015 (G1–G8), `docs/security.md` (what the phone stores and when it is wiped), the README's DEMO
+   logins and `make e2e`, CLAUDE.md commands, this file.
+
+**Gate:** one frontend (:5180) with every role's screens in its sidebar and the tour first, one API (:8180); the
+five Playwright scenarios pass; an offline order reaches the server exactly once; a stale price is
+flagged; the measured repeat-order time is printed; the benchmark stays 12/26 with no green row turned red; the full
+suite passes with 500 state-machine examples.
 
 ### Record: the MP07 plan as approved (implemented above)
 

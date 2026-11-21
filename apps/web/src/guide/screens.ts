@@ -1,51 +1,194 @@
-import type { Screen } from "./types";
+import type { Group, Screen } from "./types";
 
 /**
- * Every screen the guide can point to. When an MP builds a screen it flips `built` to true,
- * and the guide's "Take me there" link starts working. Unbuilt screens are shown as "Coming in MPxx".
+ * The single registry of screens (MP08, G9). The sidebar, the routes and the tour's "Take me there" links all read
+ * this, so they can never disagree. When an MP builds a screen it flips `built` to true; until then the route opens
+ * an honest "Coming in MPxx" page that says what the screen will do, never sample numbers.
  */
 export const SCREENS: Record<string, Screen> = {
-  home: { name: "Start here", route: "/", mp: "MP00", built: true },
-  guide: { name: "Guided tour", route: "/guide", mp: "MP00", built: true },
-  purchases: {
-    name: "Purchases → New receipt",
-    route: "/admin/purchases/new",
-    mp: "MP05",
-    built: false,
-  },
-  batch: {
-    name: "Production → Batch card",
-    route: "/production/batch/new",
-    mp: "MP06",
-    built: false,
-  },
-  batchCosts: { name: "Batch → Run costs", route: "/production/batch", mp: "MP07", built: false },
-  profitLeaks: {
-    name: "Where profit leaks",
-    route: "/leaks",
-    mp: "MP07",
+  home: {
+    name: "Start here",
+    label: "Start here",
+    route: "/",
+    mp: "MP00",
     built: true,
+    group: "Guide",
+    icon: "⌂",
+    description: "What AaharOS is, in one page.",
   },
-  salesOrder: { name: "Salesman app → New order", route: "/sales/order", mp: "MP08", built: false },
-  orderInbox: { name: "Admin → Order inbox", route: "/admin/orders", mp: "MP09", built: false },
+  guide: {
+    name: "Guided tour",
+    label: "Guided tour",
+    route: "/guide",
+    mp: "MP00",
+    built: true,
+    group: "Guide",
+    icon: "➜",
+    description: "NIT's nine steps, one card each: who, where, what to type, what you should see.",
+  },
+  salesToday: {
+    name: "Salesman app → Today",
+    label: "Today",
+    route: "/sales",
+    mp: "MP08",
+    built: true,
+    group: "Salesman",
+    icon: "☀",
+    description: "Your customers in route order, with one-tap “Repeat last order”.",
+    permission: "order.create",
+  },
+  salesOrder: {
+    name: "Salesman app → New order",
+    label: "New order",
+    route: "/sales/order",
+    mp: "MP08",
+    built: true,
+    group: "Salesman",
+    icon: "＋",
+    description: "Pick a customer, set packets, save. Works with no network.",
+    permission: "order.create",
+  },
+  salesOrders: {
+    name: "Salesman app → My orders",
+    label: "My orders",
+    route: "/sales/orders",
+    mp: "MP08",
+    built: true,
+    group: "Salesman",
+    icon: "☰",
+    description: "Every order and where it is: saved on phone, received by factory, approved.",
+    permission: "order.read",
+  },
+  salesSummary: {
+    name: "Salesman app → Summary",
+    label: "Summary",
+    route: "/sales/summary",
+    mp: "MP08",
+    built: true,
+    group: "Salesman",
+    icon: "Σ",
+    description: "Packets and order value per customer, last 30 days (ordered, not invoiced).",
+    permission: "order.read",
+  },
+  orderInbox: {
+    name: "Admin → Order inbox",
+    label: "Order inbox",
+    route: "/admin/orders",
+    mp: "MP09",
+    built: false,
+    group: "Admin",
+    icon: "✉",
+    description: "Approve, part-approve or reject orders against available-to-promise stock.",
+    permission: "order.approve",
+  },
   invoices: {
     name: "Admin → Invoices and dispatch",
+    label: "Invoices and dispatch",
     route: "/admin/invoices",
     mp: "MP10",
     built: false,
+    group: "Admin",
+    icon: "₹",
+    description: "GST invoices (CGST + SGST or IGST) and FEFO dispatch, oldest batch first.",
+    permission: "invoice.post",
   },
   collections: {
     name: "Admin → Collections",
+    label: "Collections",
     route: "/admin/collections",
     mp: "MP10",
     built: false,
+    group: "Admin",
+    icon: "◎",
+    description: "Record payments and see what each customer still owes.",
+    permission: "payment.post",
   },
-  reports: { name: "Auditor → Reports", route: "/auditor/reports", mp: "MP11", built: false },
-  judge: { name: "Judge Mode", route: "/judge", mp: "MP15", built: false },
+  purchases: {
+    name: "Purchases → New receipt",
+    label: "Purchases",
+    route: "/admin/purchases/new",
+    mp: "MP05",
+    built: false,
+    group: "Production",
+    icon: "⇩",
+    description:
+      "Receive raw materials; the average cost updates itself. (The API is built; the screen is next.)",
+    permission: "receipt.post",
+  },
+  batch: {
+    name: "Production → Batch card",
+    label: "Batch card",
+    route: "/production/batch/new",
+    mp: "MP06",
+    built: false,
+    group: "Production",
+    icon: "⚙",
+    description:
+      "Start a batch, issue materials, record good packets and damage. (API built; screen next.)",
+    permission: "run.start",
+  },
+  batchCosts: {
+    name: "Batch → Run costs",
+    label: "Run costs",
+    route: "/production/batch",
+    mp: "MP07",
+    built: false,
+    group: "Production",
+    icon: "⏲",
+    description: "Add labour and gas to a finished batch. (API built; screen next.)",
+    permission: "run.cost",
+  },
+  profitLeaks: {
+    name: "Where profit leaks",
+    label: "Where profit leaks",
+    route: "/leaks",
+    mp: "MP07",
+    built: true,
+    group: "Owner",
+    icon: "◔",
+    description: "Each batch's cost against standard, as a waterfall. Tap ⓘ on any number.",
+    permission: "report.read",
+  },
+  reports: {
+    name: "Auditor → Reports",
+    label: "Reports",
+    route: "/auditor/reports",
+    mp: "MP11",
+    built: false,
+    group: "Auditor",
+    icon: "▤",
+    description: "Stock ledger, GST summary, the four conservation laws and the evidence pack.",
+    permission: "audit.read",
+  },
+  judge: {
+    name: "Judge Mode",
+    label: "Judge Mode",
+    route: "/judge",
+    mp: "MP15",
+    built: false,
+    group: "Judge",
+    icon: "⚖",
+    description:
+      "Replay NIT's nine steps on a fresh factory and compare every figure with the oracle.",
+  },
 };
 
 export function screenFor(id: string): Screen {
   const screen = SCREENS[id];
   if (!screen) throw new Error(`unknown screen id: ${id}`);
   return screen;
+}
+
+/** The group whose screens a role uses most, expanded after sign-in. */
+export const ROLE_GROUP: Record<string, Group> = {
+  SALESMAN: "Salesman",
+  ADMIN: "Admin",
+  PRODUCTION: "Production",
+  OWNER: "Owner",
+  AUDITOR: "Auditor",
+};
+
+/** Where each role lands after sign-in (G7). Roles whose shells come later land on today's pages. */
+export function homeFor(role: string): string {
+  return role === "SALESMAN" ? SCREENS.salesToday!.route : SCREENS.profitLeaks!.route;
 }

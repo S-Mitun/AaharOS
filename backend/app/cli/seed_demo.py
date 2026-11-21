@@ -25,7 +25,18 @@ from app.modules.audit import service as audit
 from app.modules.catalog import service as catalog
 from app.modules.identity import service as identity
 from app.modules.identity.domain import hash_password
-from app.modules.judge.replay import post_section5_opening, setup_section5
+from app.modules.judge.replay import (
+    EXTRA_ITEMS,
+    ITEMS,
+    PRICE_LIST_CODE,
+    RECIPE,
+    post_section5_opening,
+    setup_section5,
+    setup_section5_bom,
+    setup_section5_price_list,
+)
+from app.modules.recipe import service as recipes
+from app.modules.sales import service as sales
 
 ORG_CODE = "DEMO-FACTORY"
 ORG_NAME = "AaharOS Demo Snacks (DEMO)"
@@ -110,6 +121,38 @@ def seed_master_data(app_session: Session, org_id: uuid.UUID, user_ids: dict[str
     return True
 
 
+def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
+    """An existing DEMO factory seeded by an earlier MP gets what later MPs added, if missing: the MP06 items,
+    recipe, pack specs, standard cost card and tolerance, and the MP08 price list. Nothing is changed or deleted."""
+    org_scope(app_session, org_id)
+    oracle = load_oracle(get_settings().oracle_path)
+    added: list[str] = []
+    ids = {code: catalog.id_by_code(app_session, code) for code in ITEMS}
+    for code, (kind, base, stock) in EXTRA_ITEMS.items():
+        try:
+            ids[code] = catalog.id_by_code(app_session, code)
+        except NotFoundError:
+            ids[code] = catalog.create_item(
+                app_session,
+                organization_id=org_id,
+                actor_id=None,
+                code=code,
+                name=f"DEMO {code.replace('_', ' ')}",
+                kind=kind,
+                base_uom=base,
+                stock_uom=stock,
+                lot_tracked=kind == "FG",
+            )
+            added.append(f"item {code}")
+    if RECIPE[0] not in {r["code"] for r in recipes.list_recipes(app_session)}:
+        setup_section5_bom(app_session, oracle, org_id, ids)
+        added.append("recipe v1, 200 g / 500 g pack specs, standard cost card, tolerance")
+    if PRICE_LIST_CODE not in {p["code"] for p in sales.list_price_lists(app_session)}:
+        setup_section5_price_list(app_session, oracle, org_id, ids)
+        added.append("price list GENERAL v1")
+    return added
+
+
 def main() -> int:
     engine = create_engine(get_settings().migration_database_url)
     with Session(engine) as session:
@@ -126,13 +169,16 @@ def main() -> int:
     engine.dispose()
     with Session(get_engine(), expire_on_commit=False) as app_session:
         added = seed_master_data(app_session, org_id, user_ids)
+        topped_up = [] if added else top_up_master_data(app_session, org_id)
         app_session.commit()
     print(f"DEMO organization {ORG_CODE}: {len(seeded)} logins (passwords from .env, DEMO_PASSWORD_<ROLE>)")
     for email, role in seeded:
         print(f"  {role:<11} {email}")
     if added:
         print("  master data: 9 items, 1 supplier, 2 customers (assigned to salesman A / B), opening stock posted,")
-        print("  recipe v1 and the 200 g / 500 g pack specs (ACTIVE), variance tolerance 3%")
+        print("  recipe v1 and the 200 g / 500 g pack specs (ACTIVE), variance tolerance 3%, price list GENERAL v1")
+    elif topped_up:
+        print("  master data topped up: " + "; ".join(topped_up))
     else:
         print("  master data already present: left unchanged")
     return 0

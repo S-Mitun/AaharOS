@@ -140,6 +140,27 @@ their own orders. This is applied in the sales service through `Principal.sees_o
 `make seed-demo` creates the LIVE DEMO organization `DEMO-FACTORY` and six logins. The passwords come from `.env`
 (`DEMO_PASSWORD_<ROLE>`; the default `change-me-demo` is for local use only). See the README for the list.
 
+## What the salesman's phone stores, and when it is wiped (MP08, ADR-0015 G6)
+
+The salesman app keeps a small IndexedDB database, `aaharos-salesman`, so orders can be taken with no network:
+
+| Stored | Why | Removed |
+|---|---|---|
+| The outbox: orders saved on the phone (customer, products, packets, list price shown, Idempotency-Key, status) | Send them when the network is back | When received, they stay as a record of what the phone sent until logout |
+| Assigned customers | Today screen offline | Logout |
+| The priced catalog per customer (price list version, prices ex-tax, packets per carton, the "available today" quantity hint) | Order screen offline | Logout |
+| The last order per customer, and the salesman's own orders of the last 30 days | Repeat last order, My orders offline | Logout |
+| The id of the user the data belongs to | Wipe it if someone else signs in on the same phone | Logout |
+
+- **No tokens or passwords** are stored by the app: sessions stay in httpOnly cookies (ADR-0010).
+- **No stock values, costs or other customers' data:** the catalog carries prices ex-tax and quantity hints only.
+- **Logout deletes the whole database.** If orders have not reached the factory, logout first says how many and offers
+  "Send now" or "Delete them and sign out". A phone signed into by a different user is wiped before use.
+- **Prices cannot be set from the phone:** the server takes each line's price from the price list version the phone
+  showed and refuses any other price (`price_mismatch`). A version that went out of force while the phone was offline
+  is accepted and flagged stale for the admin (MP09).
+- **The service worker caches the app shell only** (HTML, JS, CSS, the icon), never API responses.
+
 ## Known limits (tracked in PROGRESS.md)
 
 - **CSRF:** relies on SameSite cookies (Lax for access, Strict for refresh) plus CORS limited to the web origin.

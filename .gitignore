@@ -22,6 +22,9 @@ coverage/
 *.tsbuildinfo
 
 # generated outputs
+e2e/.tenant.json
+e2e/test-results/
+e2e/playwright-report/
 benchmark/results/
 analytics/data/raw/
 analytics/data/generated/

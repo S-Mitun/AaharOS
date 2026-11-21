@@ -30,7 +30,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string, organizationCode?: string) => {
     const body: Record<string, string> = { email, password };
     if (organizationCode) body.organization_code = organizationCode;
-    setMe(await apiPost<Me>("/api/auth/login", body));
+    const signedIn = await apiPost<Me>("/api/auth/login", body);
+    setMe(signedIn);
+    return signedIn;
   }, []);
 
   const signOut = useCallback(async () => {

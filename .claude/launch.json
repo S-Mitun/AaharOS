@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "aaharos-web", "url": "http://localhost:5180" },
+    { "name": "aaharos-api", "url": "http://localhost:8180" }
+  ]
+}

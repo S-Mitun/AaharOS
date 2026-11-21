@@ -115,6 +115,15 @@ def codes_for(session: Session, item_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID
     return dict(session.execute(select(Item.id, Item.code).where(Item.id.in_(wanted))).tuples().all())
 
 
+def names_for(session: Session, item_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, tuple[str, str]]:
+    """(code, name) per item visible to this organization."""
+    wanted = set(item_ids)
+    if not wanted:
+        return {}
+    rows = session.execute(select(Item.id, Item.code, Item.name).where(Item.id.in_(wanted))).tuples().all()
+    return {i: (c, n) for i, c, n in rows}
+
+
 def id_by_code(session: Session, code: str) -> uuid.UUID:
     found = session.execute(select(Item.id).where(Item.code == code)).scalar_one_or_none()
     if found is None:
