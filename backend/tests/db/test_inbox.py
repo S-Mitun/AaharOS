@@ -198,6 +198,49 @@ def test_stale_order_needs_a_price_choice(api_app: Any, shop: Shop) -> None:
     assert "v2" in (line["amend_reason"] or "")
 
 
+def test_current_price_means_the_list_the_admin_sees_today(api_app: Any, shop: Shop) -> None:
+    """Review fix (MP09): v2 was in force when the stale order arrived, v3 came after. The card shows v3 as today's
+    price, so choosing "current" must apply v3, not v2."""
+    admin = login_client(api_app, shop.staff.emails["ADMIN"])
+
+    def publish(price: str) -> None:
+        body = {
+            "code": "GENERAL",
+            "effective_from": "2026-04-01",
+            "items": [{"item_id": str(shop.item), "price_ex_tax": price}],
+        }
+        assert admin.post("/api/price-lists", json=body).status_code == 201
+
+    publish("52.00")
+    a = place(api_app, shop, shop.ret_a, 10)  # the phone still shows v1 at 50.00
+    publish("54.00")
+    card = admin.get(f"/api/inbox/{a}").json()
+    assert card["card_lines"][0]["price_current"] == "54.00"
+    ok = admin.post(f"/api/orders/{a}/approve", json={"stale_price": "current"}).json()
+    line = ok["card_lines"][0]
+    assert (line["price_captured"], line["price_final"]) == ("50.00", "54.00")
+    assert "v3" in (line["amend_reason"] or "")
+
+
+def test_history_lists_received_before_decisions_in_one_transaction(shop: Shop, app_engine: Engine) -> None:
+    """Review fix (MP09): rows written in one transaction share now(); "received" must still come first."""
+    s = scoped_session(app_engine, shop.staff.tenant)
+    org = shop.staff.tenant.org
+    placed = sales.receive_order(
+        s,
+        organization_id=org,
+        actor_id=None,
+        customer_id=shop.ret_a,
+        price_list_id=shop.price_list,
+        lines=[sales.OrderLineIn(shop.item, 150, D("50.00"))],
+    )
+    sales.approve_order(s, organization_id=org, actor_id=None, order_id=placed.order_id)
+    s.commit()
+    timeline = sales.get_order_any(s, placed.order_id)["timeline"]
+    s.close()
+    assert [(t["from_status"], t["to_status"]) for t in timeline] == [(None, "SUBMITTED"), ("SUBMITTED", "APPROVED")]
+
+
 def test_credit_limit_needs_an_override_reason(api_app: Any, shop: Shop, app_engine: Engine) -> None:
     s = scoped_session(app_engine, shop.staff.tenant)
     sales.set_credit_limit(

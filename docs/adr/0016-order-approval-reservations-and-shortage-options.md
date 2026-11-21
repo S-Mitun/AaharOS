@@ -31,7 +31,9 @@ write history and audit rows.
 
 ### H4. A stale price is chosen before approving
 The card shows the phone's price next to today's list price. Approving a stale order needs `stale_price` =
-`captured` or `current`; `current` writes `price_final` with an automatic `amend_reason` naming the version in force.
+`captured` or `current`; `current` writes `price_final` from the list in force **today** (the one the card shows as
+"list today"; amended after the MP09 review, which found it used the version in force at receipt) with an automatic
+`amend_reason` naming that version.
 
 ### H5. Amendments never overwrite the salesman's values
 `qty_requested` and `price_captured` are never changed. A price change goes to `price_final` with a reason (the

@@ -7,6 +7,19 @@ import { formatValue } from "../lib/format";
 import { ServerStatus } from "../sales/ui";
 import type { OrderCard } from "./types";
 
+/** One product: show its price in the label. Several: the table above lists each price (review fix, MP09). */
+function priceChoiceLabel(card: OrderCard, choice: "captured" | "current"): string {
+  const one = card.card_lines.length === 1 ? card.card_lines[0] : undefined;
+  if (choice === "captured") {
+    return one
+      ? `The phone's price (${formatValue(one.price_captured, "INR")})`
+      : "The phone's prices";
+  }
+  return one
+    ? `Today's list price (${formatValue(one.price_current ?? "", "INR")})`
+    : "Today's list prices";
+}
+
 const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "—";
 
@@ -204,9 +217,7 @@ export function OrderCardPage() {
                       checked={stalePrice === c}
                       onChange={() => setStalePrice(c)}
                     />
-                    {c === "captured"
-                      ? `The phone's price (${formatValue(card.card_lines[0]?.price_captured ?? "", "INR")})`
-                      : `Today's list price (${formatValue(card.card_lines[0]?.price_current ?? "", "INR")})`}
+                    {priceChoiceLabel(card, c)}
                   </label>
                 ))}
               </div>

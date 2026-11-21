@@ -571,7 +571,8 @@ def _order_view(session: Session, order: SalesOrder) -> dict[str, Any]:
     history = session.execute(
         select(OrderStatusHistory)
         .where(OrderStatusHistory.order_id == order.id)
-        .order_by(OrderStatusHistory.changed_at)
+        # rows of one transaction share now(): the receipt row (no from_status) always comes first
+        .order_by(OrderStatusHistory.changed_at, OrderStatusHistory.from_status.is_not(None))
     ).scalars()
     versions = _versions(session)
     shown = next((v for v in versions if v.id == order.price_list_id), None)
@@ -851,9 +852,13 @@ def approve_order(
                 {"in_force_price_list": stale["in_force_price_list"]},
             )
         if stale_price == "current":
-            current = {uuid.UUID(k): Decimal(v) for k, v in stale["current_prices"].items()}
-            pl = stale["in_force_price_list"]
-            price_note = f"price list {pl['code']} v{pl['version']} in force at receipt" if pl else "current price"
+            # "current" is the list in force today, the one the card shows as "list today" (review fix: not the
+            # version in force at receipt, which a later version may already have replaced)
+            today_list = domain.price_list_in_force(versions, order.customer_id, business_date())
+            if today_list is None:
+                raise OrderError("no_price_list_in_force", "no price list is in force for this customer today")
+            current = _list_prices(session, today_list.id)
+            price_note = f"price list {today_list.code} v{today_list.version} in force at approval"
             for ln in lines:
                 if ln.item_id not in current:
                     raise OrderError("item_not_on_current_list", "a product is not on the current price list")
