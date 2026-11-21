@@ -25,7 +25,8 @@ A = pytest.mark.assertion
 
 
 # Assertions 1-3 and 15 (MP04): closing stock after the NIT movements, replayed through the services
-# (app/modules/judge/replay.py). Valued since MP05; the run output (J3) is a stand-in until MP06.
+# (app/modules/judge/replay.py). Valued since MP05; since MP06 J2 is a real material issue and J3 the real
+# completion of run B-001.
 
 
 @A(1, "Flour closing", "MP04", "nit_expected.flour_closing_kg")
@@ -46,9 +47,9 @@ def test_a03_pouches_closing(stock_replay: Any, oracle: dict[str, Any]) -> None:
 
 
 @A(4, "Finished goods after run", "MP06", "nit_expected.fg_after_run_packets")
-@pending("MP06")
-def test_a04_fg_after_run() -> None:
-    not_built("MP06")
+def test_a04_fg_after_run(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    assert stock_replay.stock_units["murukku_200g"] == "packet"
+    assert stock_replay.closing_in("murukku_200g", "FG_STORE") == oracle["nit_expected"]["fg_after_run_packets"]
 
 
 @A(5, "Finished goods after Retailer A dispatch", "MP10", "nit_expected.fg_after_dispatch_A_packets")
@@ -57,16 +58,22 @@ def test_a05_fg_after_dispatch_a() -> None:
     not_built("MP10")
 
 
+# Assertions 6, 7 and 20 (MP06): variances of run B-001, computed on read from its frozen snapshot (ADR-0013).
+
+
 @A(6, "Yield variance (flagged)", "MP06", "nit_expected.yield_variance_percent")
-@pending("MP06")
-def test_a06_yield_variance() -> None:
-    not_built("MP06")
+def test_a06_yield_variance(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    v = stock_replay.run.pack_lines[0].yield_variance
+    assert v.pct_display == oracle["nit_expected"]["yield_variance_percent"]
+    assert v.flagged and v.direction == "UNFAVOURABLE"
+    assert v.explained.unit == "%" and v.explained.value == v.pct_display
 
 
 @A(7, "Oil variance (flagged)", "MP06", "nit_expected.oil_variance_percent")
-@pending("MP06")
-def test_a07_oil_variance() -> None:
-    not_built("MP06")
+def test_a07_oil_variance(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    v = stock_replay.run.ingredient("cooking_oil")
+    assert v.pct_display == oracle["nit_expected"]["oil_variance_percent"]
+    assert v.flagged and v.view == "PER_BATCH"
 
 
 @A(8, "Retailer A invoice taxable value", "MP10", "nit_expected.invoice_A.taxable")
@@ -182,9 +189,12 @@ def test_a19_waterfall() -> None:
     "MP06",
     "aaharos_expected.flexible_standard_variances.pouch_vs_good_output_percent",
 )
-@pending("MP06")
-def test_a20_pouch_flexible_variance() -> None:
-    not_built("MP06")
+def test_a20_pouch_flexible_variance(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    line = stock_replay.run.pack_lines[0]
+    flexible, batch = line.flexible("pouch_200g"), line.batch_view("pouch_200g")
+    expected = oracle["aaharos_expected"]["flexible_standard_variances"]["pouch_vs_good_output_percent"]
+    assert flexible.pct_display == expected and flexible.flagged and flexible.view == "PER_GOOD_UNIT"
+    assert batch.pct_display == -3 and not batch.flagged  # the batch view hides the damage (bom.md section 1)
 
 
 @A(

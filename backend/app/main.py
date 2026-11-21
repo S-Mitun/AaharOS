@@ -14,6 +14,8 @@ from app.modules.identity.api import auth_router, identity_router
 from app.modules.judge.api import router as guide_router
 from app.modules.ledger.api import router as stock_router
 from app.modules.procurement.api import router as purchases_router
+from app.modules.production.api import router as runs_router
+from app.modules.recipe.api import router as recipes_router
 from app.modules.sales.api import router as sales_router
 from app.modules.valuation.api import router as valuation_router
 
@@ -44,6 +46,8 @@ def create_app() -> FastAPI:
     app.include_router(stock_router)
     app.include_router(valuation_router)
     app.include_router(purchases_router)
+    app.include_router(recipes_router)
+    app.include_router(runs_router)
     return app
 
 

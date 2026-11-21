@@ -2,8 +2,9 @@
 
 Built: the audit hash chain of every organization (MP03); law 1 re-summed from every journal's lines and the
 balance projection rebuilt from `stock_lines` and diffed (MP04; diff only, never repair); every posted receipt's
-stock value equal to its lines (MP05). The other laws are added by
-MP11 and are listed here as NOT BUILT, never as passing.
+stock value equal to its lines (MP05); S6, the WIP of every completed production run is zero (MP06), with the mass
+balance gap of each run reported (shown, never failed: law 3 is an explained gap, not a forced zero). The other laws
+are added by MP11 and are listed here as NOT BUILT, never as passing.
 """
 
 import sys
@@ -16,6 +17,7 @@ from app.core.config import get_settings
 from app.modules.audit import service as audit
 from app.modules.ledger import service as ledger
 from app.modules.procurement import service as procurement
+from app.modules.production import service as production
 
 NOT_BUILT = (
     ("Law 2 value: lot value = run cost", "MP11"),
@@ -61,6 +63,20 @@ def run(session: Session) -> tuple[bool, list[str]]:
         lines.extend(f"        {row}" for row in receipts[:20])
     else:
         lines.append("PASS  receipt value: every posted receipt's stock value = the sum of its accepted lines")
+
+    wip = production.completed_run_wip_mismatches(session)
+    ok = ok and not wip
+    if wip:
+        lines.append(f"FAIL  S6 run WIP: {len(wip)} (completed run, item) positions with WIP left on the floor")
+        lines.extend(f"        {row}" for row in wip[:20])
+    else:
+        lines.append(
+            "PASS  S6 run WIP: every completed run consumed exactly its net issues (WIP zero per run and item)"
+        )
+
+    gaps = production.mass_balance_gaps(session)
+    lines.append(f"INFO  mass balance: {len(gaps)} completed runs show an unexplained gap (reported, not failed)")
+    lines.extend(f"        {row}" for row in gaps[:20])
     lines.extend(f"----  {name}: not built yet ({mp})" for name, mp in NOT_BUILT)
     return ok, lines
 

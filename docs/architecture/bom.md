@@ -89,9 +89,20 @@ Rows to add (all through the admin screens or a seed file):
 6. Optional: `standard_cost_cards` row for 500 g (computed from the same rates).
 
 Nothing in `production.domain` mentions 200, 20 or "murukku": every number comes from the snapshot of the recipe and
-pack spec frozen on the run. Old runs keep their snapshots, so they are unchanged (rehearsed in MP19).
+pack spec frozen on the run (`test_domain_knows_no_product` reads its source). Old runs keep their snapshots, so they
+are unchanged (rehearsed in MP19). Proven in MP06 by `tests/db/test_production.py::test_a_500g_run_from_seed_data`
+(40 kg → 80 expected, 78 good: yield −2.50%, 7 cartons + 8 loose) and `::test_mixed_split_writes_a_burnt_line_off_to_scrap`.
+A quantity per good unit must be exact at 6 dp, so a carton of 24 (1/24) is refused; use a carton size whose
+reciprocal is exact, or MP17 can add a per-carton driver.
 
 ## 5. Versioning
 - Recipes and pack specs have versions with status DRAFT → ACTIVE → RETIRED. A version used by any run is immutable.
 - A run stores `recipe_snapshot` and `pack_snapshot` (JSONB copies, plus version ids) when it starts.
 - Standard cost cards are versioned per pack spec version and effective-dated.
+
+## 6. As built (MP06, ADR-0013)
+- Variances are computed on read from the frozen snapshot and the posted actuals (E1); flag = beyond tolerance and
+  unfavourable, strict and unrounded (E2); the tolerance in force on the run date is frozen into the snapshot.
+- A pack line with no good units writes its share of the cost off to SCRAP as the bulk item, with a reason (E4).
+- Routes: `/api/recipes`, `/api/pack-specs` (versions and activation), `/api/runs` (create, start, issues, complete,
+  read with variances, packing and mass balance).

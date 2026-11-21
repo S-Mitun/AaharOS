@@ -1,27 +1,83 @@
 # PROGRESS
 
-## Status: MP05 done (2026-11-21) / next: MP06
+## Status: MP06 done, not committed (branch feat/mp06-production-run, from 903d1a3) / MP07 next
 
-## Benchmark scoreboard: 5/26
+## Benchmark scoreboard: 9/26
 - **Green:**
   - 1 flour closing 120 kg, 2 oil 19.5 L, 3 pouches 306, 15 spice 3.8 kg / cartons 21 (MP04)
-  - **16 flour WAC ₹43.125/kg after the purchase** (MP05), an `Explained` value from `valuation.wac`, read from
-    the ledger
+  - 16 flour WAC ₹43.125/kg after the purchase (MP05), an `Explained` value from `valuation.wac`
+  - **4 FG after run 238, 6 yield −6.00% flagged, 7 oil +5.00% flagged, 20 pouch flexible +3.19% flagged** (MP06;
+    assertion 20 also checks that the batch view −3.00% is not flagged)
 - They are replayed through the real services into a fresh BENCHMARK tenant (`app/modules/judge/replay.py`):
-  - J0 opening, valued
-  - J1 as a purchase receipt
-  - J2 at WAC
-  - J3 run output still a labelled stand-in for MP06
+  - J0 opening, valued; J1 as a purchase receipt
+  - run B-001 created and started (recipe and pack snapshots and the 3% tolerance frozen)
+  - J2 as a real material issue `MI/26-27/000001` at WAC; J3 as the real `complete_run` of B-001 (stand-in removed)
 - Oracle integrity: 10/10 checks pass (the sha256 guard on `inputs` + `nit_expected` included). No green row turned
   red.
 
 Red items and the MP that turns them green:
-- MP06: 4 FG after run, 6 yield, 7 oil, 20 pouch flexible
 - MP07: 17 run cost, 18 cost per packet, 19 waterfall
 - MP09: 13 Distributor B shortage
 - MP10: 5, 8–12, 14, 21, 22, 25
 - MP11: 26 integrity
 - MP12: 23 shortage attribution, 24 runway
+
+## Done in MP06 (recipe, pack specs and the atomic production run)
+- **Gate met:**
+  - A failure injected at the third write of a completion persists nothing
+    (`tests/db/test_production.py::test_failure_at_the_third_write_persists_nothing`), and so does a failure at
+    **every** write in turn (`::test_failure_at_any_write_persists_nothing`): no journal, lot, pack-line change,
+    sample, oil session, status change, audit row or balance change is left, and a clean retry then succeeds.
+  - FG 238; yield −6.00%, oil +5.00% and pouch +3.19% flagged (benchmark 4, 6, 7, 20 green: 9/26).
+  - The 500 g pack spec works from seed data with no code change (`::test_a_500g_run_from_seed_data`: 80 expected,
+    78 good, yield −2.50% not flagged, 7 cartons + 8 loose); a 200 g + 500 g split works too.
+  - `tests/db/test_replay.py` unchanged and green: B-001 ₹4,055.00, WIP 0, pouches ₹765.00. No green row turned red.
+- **Decisions E1–E4 (approved; [ADR-0013](adr/0013-production-run-and-variance-engine.md)):**
+  - E1: variances, packing and mass balance computed on read from the frozen snapshot (`variance_results` unused)
+  - E2: flag = beyond tolerance and unfavourable, strict, on the unrounded %; display half up to 2 dp
+  - E3: runs B-001…; lot no = run no (-A / -B with several pack lines, ordered by pack spec code); issues
+    MI/26-27/000001
+  - E4: a zero-good pack line writes its share off to SCRAP (as the bulk item, valued); a reason is required
+- **`recipe`:** recipes and pack specs with versions DRAFT → ACTIVE → RETIRED (activating retires the old ACTIVE
+  version, audited). Checks: RAW recipe lines, PACK pack lines, BULK output in grams, FG pack output. Snapshots via
+  `recipe_snapshot` / `pack_snapshot`.
+- **`production`:**
+  - `domain.py` (pure): expected bulk and units; allocation (over-allocation refused, unallocated shown); batch and
+    flexible standards; the batch view of packaging; yield; E2 flags; packing (divmod); mass balance with giveaway;
+    the value split (last line takes the remainder); the completion journal plan; returns at the run's own average.
+    Every figure is an `Explained` value. A test reads its source: no product, pack size or carton size in it.
+  - `service.py`: `create_run`, `start_run` (freezes snapshots and the effective-dated tolerance), `issue_materials`
+    (ISSUE RAW_STORE → WIP at WAC; RETURN at the run's own issued average), `complete_run` (one savepoint; the
+    Idempotency-Key is checked before the status, so a retried submit replays), `run_analysis`, `get_run`,
+    `list_runs`, `completed_run_wip_mismatches` (S6), `mass_balance_gaps`.
+- **Kernel:** `app/core/effective_settings.py` (`value_on`, `decimal_on`, `put`; numbers stored as decimal strings).
+  Also `ledger.service.lot_no`.
+- **API** (all covered by the generated route × role tests):
+  - `GET/POST /api/recipes`, `POST /api/recipes/{id}/versions`, `POST /api/recipes/versions/{id}/activate`, and the
+    same four for `/api/pack-specs` (`recipe.manage` to change)
+  - `GET/POST /api/runs`, `GET /api/runs/{id}`, `POST /api/runs/{id}/start` and `/issues` (`run.start`),
+    `/complete` (`run.complete`); decimals as strings; Idempotency-Key on issues and completion
+  - Deviation from the plan: the GET routes need `report.read`, not `recipe.manage`, so auditors can read the
+    standards behind a variance.
+- **Seeds:** `setup_section5` adds `murukku_bulk`, `murukku_500g`, `pouch_500g`; recipe MURUKKU v1 (40 kg / 10 L /
+  1.2 kg, bulk yield 200 × 200 g); pack specs MURUKKU-200G v1 (pouch 1, carton 0.05, 20 per carton, 90 days) and
+  MURUKKU-500G v1 (pouch_500g 1, carton_20 0.1, 10 per carton), all ACTIVE; `variance_tolerance_pct` = 3 from
+  2026-04-01 (the oracle's `variance_tolerance_percent`). `make seed-benchmark` run on the dev DB: OK.
+- **`make integrity`** adds S6 (the WIP of every completed run is zero per item, and the run has a completion
+  journal) and reports each run's mass-balance gap without failing. Run on the dev DB: integrity OK; two B-001 runs
+  show the 2.4 kg gap.
+- **Tests:** 386 in total (was 279), all passing in Docker with the full 500-example state machine (4 min 29 s). New:
+  - pure: `production/tests/test_domain.py` (16, with two Hypothesis properties: the value split is exact, and the
+    completion conserves quantity and value), `recipe/tests/test_domain.py` (11)
+  - PostgreSQL: `tests/db/test_production.py` (10: the NIT run, atomicity ×2, versions, 500 g, mixed split + E4,
+    idempotency, returns, refusals, the API), plus the generated RBAC cases for the 13 new routes
+  - Bugs the tests found, fixed: a completion replay with the same Idempotency-Key was refused because the status
+    check ran before the key lookup; `dict()` over a SQLAlchemy result in `list_runs`; the multi-row sample insert
+    passed `now()` as a parameter.
+- **Checks run:** ruff check / format clean, mypy --strict clean, import-linter 2/2 kept, `alembic check` clean (no
+  migration in MP06), float grep clean, benchmark 9/26 (oracle 10/10), `make integrity` OK.
+- **Not checked live:** the API container on :8180 was not restarted against the new code; the routes run through
+  the TestClient in `test_run_through_the_api`.
 
 ## Done in MP05 (valuation, procurement and lots)
 - **Gate met:**
@@ -340,6 +396,9 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP06: [ADR-0013](adr/0013-production-run-and-variance-engine.md): E1 variances on read from the frozen snapshot,
+  E2 strict flag on unfavourable only, E3 numbering, E4 zero-good write-off to SCRAP; returns at the run's own
+  average; reads of recipes and runs need `report.read`.
 - MP05: [ADR-0012](adr/0012-valuation-from-the-ledger.md) (amends ADR-0004):
   - D1: the WAC pool is read from the projection
   - D2: FIFO / LAST are replayed from the history
@@ -388,6 +447,16 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   so FEFO for raw materials waits for MP13.
 - **No stock-posting route:** posting happens inside receipts (MP05), runs (MP06) and dispatches (MP10). No HTTP
   route moves stock without its source document.
+- **Fill-weight samples are per run** (`fill_weight_samples` has no pack-line column), so they are accepted only for
+  single-pack-line runs. A migration adding `run_pack_line_id` lifts this (MP13, or when the tablet UI needs it).
+- **Quantity per good unit must be exact at 6 dp:** a carton of 24 (1/24) is refused. The seeds use 20 and 10 per
+  carton. A per-carton driver would lift it (MP17 if needed).
+- **Run reversal not built:** `run.reverse` is in the matrix, but no route or service reverses a completed run yet.
+- **Runs are numbered at DRAFT:** deleting a DRAFT run leaves a gap in B-numbers (run numbers are not tax documents;
+  material-issue numbers stay gapless).
+- **The dev DB's DEMO factory has no recipe yet:** `make seed-demo` adds master data on its first run only, and the
+  DEMO factory was seeded in MP05. Fresh databases get the recipe, pack specs and tolerance.
+- **Mass balance is reported, not yet a pass/fail law:** the rule for an acceptable gap is MP11.
 - **No login screen yet.** The API supports login; the web app gets its login and role shells with MP08.
 - **CSRF:** relies on SameSite cookies plus the CORS allow-list; there is no CSRF token (docs/security.md).
 - **Multiple tabs:** two tabs refreshing with the same refresh token at the same instant revoke the session (safe,
@@ -403,9 +472,113 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-Run MP06: recipe, pack specs and the atomic production run. Plan first: it touches stock and valuation, so show the
-plan and wait for approval. MP06 should:
-- replace the replay's J3 stand-in (`app/modules/judge/replay.py`) with a real production run that freezes the recipe
-  and pack snapshots, issues at WAC through `valuation.issue_value`, and completes atomically
-- turn 4 (FG 238), 6 (yield −6.00%), 7 (oil +5.00%) and 20 (pouch flexible +3.19%) green
-- keep 1–3, 15 and 16 green, and keep the replay values equal to ledger.md (`tests/db/test_replay.py`)
+1. The user reviews MP06 and commits on branch `feat/mp06-production-run` (proposed message below).
+2. Then MP07 (costing, the waterfall, Explain-this-number), plan first: run costs (labour ₹1,200, gas ₹600) through
+   the COST_TRUE_UP journal; cost per good packet ₹31.14; the waterfall ₹431.20 U from the run's snapshot and actuals
+   (`production.service.run_analysis`); FIFO / LAST per packet -> assertions 17, 18, 19.
+
+Proposed commit message:
+```
+feat(production): MP06 recipes, pack specs and the atomic production run
+
+- recipe: versioned recipes and pack specs (DRAFT -> ACTIVE -> RETIRED) and run snapshots
+- production: runs B-001.., material issues and returns (MI/26-27/..), an atomic
+  complete_run, and the variance engine, packing and mass balance computed on read
+  from the frozen snapshot (ADR-0013, decisions E1-E4)
+- replay: J2 is a real material issue and J3 the real completion of run B-001
+- integrity: S6 (WIP of every completed run is zero); mass-balance gaps reported
+- benchmark 9/26 (4, 6, 7, 20 green); 386 tests
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+```
+
+### Record: the MP06 plan as approved (implemented above)
+
+Decisions that need a yes or no:
+- **E1. Quantity variances are computed on read from the run's frozen snapshot, not stored.** Each run freezes its
+  recipe, pack specs and the tolerance in force on its run date. Yield and usage variances are then pure functions of
+  the snapshot and the run's posted actuals: deterministic, nothing to drift, the same idea as ADR-0012. Two reasons:
+  - `variance_results` belongs to `costing` (a higher layer than `production`)
+  - its rupee column is NOT NULL, and rupee impacts are MP07's waterfall
+  MP07 then decides whether the costed rows are stored. *Alternative:* store rows at completion, which needs migration
+  0008 (move the table to `production`, make `inr_impact` nullable).
+- **E2. The flag rule.** Flagged = beyond tolerance **and** unfavourable. Favourable beyond tolerance is shown as
+  information (carton −4.26%: "8 loose packets not cartoned"), matching bom.md. The comparison uses the unrounded
+  percentage and is strict, so exactly 3.00% is not flagged; the display rounds half up to 2 dp. Tolerance = the
+  line's override, else the org setting `variance_tolerance_pct` (effective-dated, seeded at 3).
+- **E3. Run and lot numbers.**
+  - Runs are numbered B-001, B-002, … per organization (a perpetual sequence, `number_sequences` fy `00-00`).
+  - The lot no. is the run no., with -A / -B suffixes for a run with several pack lines.
+  - Material issues are numbered `MI/26-27/000001`.
+- **E4. A pack line with zero good units writes its materials off to SCRAP.** A burnt batch is real. Its share of the
+  cost goes to SCRAP as an explicit valued line, with the scrap reason required. Law 2 holds and nothing is silent.
+  *Alternative:* refuse to complete a run with no good output.
+- **Note (no decision needed):** issues post RAW_STORE → WIP and completion consumes WIP → PRODUCTION, as the accepted
+  ADR-0002 says. The MP06 spec text says RAW → PRODUCTION; NIT checks the flour balance between steps 2 and 3, which is
+  why ADR-0002 added WIP.
+
+Steps:
+1. **`recipe` (versions and workflow):**
+   - recipes and pack specs with versions DRAFT → ACTIVE → RETIRED; activating a version retires the previous
+     ACTIVE one (audited)
+   - lines are frozen outside DRAFT by the existing DB trigger, and only ACTIVE versions can start a run, so "used
+     versions are immutable" holds by construction (tested)
+   - `recipe.service.snapshot(version)` returns a JSON copy with item ids, codes, base units, quantities, drivers,
+     tolerances, net g, units per carton and shelf life
+2. **`production.domain` (pure, the variance engine):**
+   - expected bulk = yield × multiplier; expected units = bulk allocated ÷ net g; unallocated bulk is shown, and
+     over-allocation is refused
+   - batch standard (PER_BATCH) and flexible standard (PER_GOOD_UNIT); the batch view of packaging shown alongside
+   - yield and usage %, direction, flag (E2)
+   - packing breakdown (divmod)
+   - mass balance: expected = good × net + scrap + loss + **unexplained gap** (shown, never forced to 0); giveaway from
+     fill-weight samples, (mean sample net − declared net) × good units, shown as part of the gap
+   - every figure returned as an `Explained` value
+   - nothing mentions 200, 20 or "murukku"
+3. **`production.service`:**
+   - `create_run` (DRAFT: recipe version, multiplier, pack lines with bulk allocated)
+   - `start_run` (→ IN_PROGRESS; freezes the snapshots and the tolerance)
+   - `issue_materials` / `return_materials`: a material-issue document, RAW_STORE ⇄ WIP at WAC through
+     `valuation.issue_value`; a return comes back at the run's own issued average, not the shared WIP average
+   - `complete_run`, atomic in one savepoint:
+     - lot per pack line (mfg = run date, best-before = run date + shelf life)
+     - one RUN_COMPLETION journal: the run's net issues WIP → PRODUCTION; packaging PACK_STORE → PRODUCTION at WAC,
+       damaged → SCRAP at no value; FG PRODUCTION → FG_STORE per lot
+     - ingredient value split between lots by bulk allocated, packaging to its own lot, the last lot takes the
+       rounding remainder (ADR-0003)
+     - pack lines, fill-weight samples and the oil session (top-up, discard, TPC) recorded
+     - run → COMPLETED with scrap / loss / reason in a single update, then an audit row
+   - Idempotency-Key on issue and completion (tablet on weak wi-fi)
+   - **Atomicity test:** a failure injected at the third write of a completion leaves no journal, lot, pack-line
+     change or status change behind.
+4. **API** (all covered by the generated route × role tests):
+   - recipes and pack specs: list, create a draft version, activate (`recipe.manage`)
+   - runs:
+     - `POST /api/runs` and `POST /api/runs/{id}/start` (`run.start`)
+     - `POST /api/runs/{id}/issues` (`run.start`)
+     - `POST /api/runs/{id}/complete` (`run.complete`)
+     - `GET /api/runs`, and `GET /api/runs/{id}` with the variances, packing and mass balance (`report.read`)
+   - decimals as strings
+5. **Seeds and the benchmark replay:**
+   - `setup_section5` adds:
+     - a BULK item `murukku_bulk`
+     - recipe v1 ACTIVE from the BOM: 40 kg / 10 L / 1.2 kg; bulk yield = 200 expected packets × 200 g net
+     - pack spec "Murukku 200 g" v1 ACTIVE: pouch 1 and carton 0.05 per good unit (10 / 200 from the BOM),
+       20 per carton, DEMO shelf life 90 days
+     - the tolerance setting (3%, from the oracle's config)
+     - the 500 g pack spec as seed data only: `murukku_500g`, `pouch_500g`, 10 per carton so 1/N is exact
+   - The replay's J2 becomes a material issue for run B-001 and J3 a real `complete_run` (188 good; pouches 194 used,
+     6 damaged; 9 cartons); the stand-in is gone.
+   - **Turn green:** 4 (FG 238), 6 (yield −6.00% flagged), 7 (oil +5.00% flagged), 20 (pouch flexible +3.19% flagged;
+     the test also checks the batch view −3.00% is not flagged)
+   - Keep 1–3, 15 and 16 green, and the replay values equal to ledger.md (`tests/db/test_replay.py`: B-001 ₹4,055.00,
+     WIP 0).
+   - Assertion 26 stays red: it is all four laws (MP11). The run's quantity part is checked in a DB test and in
+     `make integrity` instead.
+6. **Integrity:** `make integrity` adds S6, "WIP of every completed run is zero" (net issues = what completion
+   consumed, per run and item). The mass-balance gap is reported, not failed.
+7. **Docs:** ADR-0013 (E1–E4, snapshot contents, value split and rounding), bom.md and invariants D2 / S6 / L3 test
+   ids, assumptions (shelf life 90 days DEMO, bulk yield derived from net weight), this file.
+
+**Gate:** the injected failure persists nothing; FG 238; yield −6.00%, oil +5.00% and pouch +3.19% are flagged; the
+500 g pack spec works from seed data with no code change (a DB test runs one 500 g run); no green row turns red.

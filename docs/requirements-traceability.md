@@ -51,10 +51,10 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 
 | Id | Requirement | Tier | Module | API | Screen | Tables | Test | MP |
 |---|---|---|---|---|---|---|---|---|
-| R4.3.1 | BOM per product: standard qty of each raw and packaging item per batch + expected yield | M | recipe | /recipes, /pack-specs | recipe master | recipe_versions, recipe_lines, pack_spec_lines (driver) | recipe:versions-immutable | 06 |
+| R4.3.1 | BOM per product: standard qty of each raw and packaging item per batch + expected yield | M | recipe | /recipes, /pack-specs | recipe master | recipe_versions, recipe_lines, pack_spec_lines (driver) | test_production.py::test_versions_activate_retire_and_freeze | 06 |
 | R4.3.2 | Run records product, batch size/issues, expected output, actual output, wastage/scrap | M | production | POST /runs | batch card | production_runs, material_issues, run_pack_lines | bench:a04 | 06 |
-| R4.3.3 | Saving a run lowers raw stock and raises FG stock automatically | M | production, ledger | POST /runs/{id}/post | stock-impact preview | stock_journals | bench:a01–a04, production:atomic-rollback | 06 |
-| R4.3.4 | Planned vs actual consumption and yield; flag beyond tolerance (e.g. 3%) | M | production | GET /runs/{id}/variances | variance view | variance_results, settings | bench:a06, a07, a20 | 06 |
+| R4.3.3 | Saving a run lowers raw stock and raises FG stock automatically | M | production, ledger | POST /runs/{id}/issues, POST /runs/{id}/complete | stock-impact preview | stock_journals | bench:a01–a04, test_production.py::test_failure_at_the_third_write_persists_nothing, ::test_failure_at_any_write_persists_nothing | 06 |
+| R4.3.4 | Planned vs actual consumption and yield; flag beyond tolerance (e.g. 3%) | M | production | GET /runs/{id} (analysis, computed on read, ADR-0013) | variance view | production_runs snapshots, settings | bench:a06, a07, a20 | 06 |
 | R4.3.5 | Units convert correctly: kg, g, L, pieces, packets, cartons | M | uom | — | — | uoms, uom_conversions | uom/tests/test_domain.py (round-trip properties), tests/db/test_uom.py | 04 |
 
 ## Section 4.4: inventory

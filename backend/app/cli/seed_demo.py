@@ -2,10 +2,11 @@
 
 Idempotent: re-running updates names, roles and passwords; it never deletes anything.
 
-MP05 adds the DEMO master data on the first run only: the section 5 items, a DEMO supplier, Retailer A and
-Distributor B, salesman A -> Retailer A and salesman B -> Distributor B, and the valued opening stock. Users and the
-LIVE organization are written as the owner (the app role may not create LIVE tenants); the master data is written as
-`aahar_app`, scoped to the organization, because the owner bypasses row-level security and the services rely on it.
+MP05 adds the DEMO master data on the first run only (MP06 adds the recipe, the pack specs and the tolerance to it):
+the section 5 items, a DEMO supplier, Retailer A and Distributor B, salesman A -> Retailer A and salesman B ->
+Distributor B, and the valued opening stock. Users and the LIVE organization are written as the owner (the app role
+may not create LIVE tenants); the master data is written as `aahar_app`, scoped to the organization, because the
+owner bypasses row-level security and the services rely on it.
 """
 
 import os
@@ -130,7 +131,8 @@ def main() -> int:
     for email, role in seeded:
         print(f"  {role:<11} {email}")
     if added:
-        print("  master data: 6 items, 1 supplier, 2 customers (assigned to salesman A / B), opening stock posted")
+        print("  master data: 9 items, 1 supplier, 2 customers (assigned to salesman A / B), opening stock posted,")
+        print("  recipe v1 and the 200 g / 500 g pack specs (ACTIVE), variance tolerance 3%")
     else:
         print("  master data already present: left unchanged")
     return 0

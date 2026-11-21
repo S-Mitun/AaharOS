@@ -26,13 +26,15 @@ Everything marked **DEMO** is fictional and must be replaced and verified (by a 
 | G6 | FSSAI licence number, Udyam number | **DEMO** 14-digit FSSAI and Udyam values, printed on invoices, from config. |
 | G7 | Murukku shelf life | 90 days (config on the pack spec), used for best-before and FEFO. |
 | G8 | Opening finished-goods lot dates | One opening lot "OPEN-LOT", manufactured before the benchmark run, earlier best-before than batch B-001. |
-| G9 | Bulk yield of the recipe | One batch yields 40.0 kg of bulk murukku = 200 packets × 200 g (oracle `mass_balance`). |
+| G9 | Bulk yield of the recipe | One batch yields 40.0 kg of bulk murukku = 200 expected packets × 200 g net: the seed derives it from the BOM's expected output and the pack's net weight (MP06). |
 | G10 | Dates of the benchmark steps | All nine steps happen in one month in FY 2026-27 so one month's reports contain them. |
 | G11 | Timezone | Stored in UTC, shown and reported in Asia/Kolkata. |
 | G12 | Factory state / place of supply | Factory in Tamil Nadu (brief). Place of supply = customer's state. |
 | G13 | Rounding | Tax per line, ROUND_HALF_UP to paise; unit costs stored to 6 dp; the last unit of a lot absorbs rounding so lot value = run cost. |
 | G14 | Tolerance | 3% (brief), effective-dated, overridable per BOM line. |
 | G15 | Inter-state e-way bill threshold | ₹50,000 consignment value (config). Distributor B's ₹6,300 is below it. |
+| G17 | 500 g pack (seed data only) | **DEMO**: `murukku_500g` in `pouch_500g`, 10 packets per outer carton (the same `carton_20` box), 90 days shelf life. Not part of the benchmark run. |
+| G18 | Pouches used in the NIT run | Pouches taken from the store = good packets + damaged pouches (188 + 6 = 194); the damaged go to SCRAP at no value. |
 | G16 | Payment terms | 45 days (MSME written-agreement maximum) unless a customer has shorter terms; verify with CA. |
 
 ## Not assumed

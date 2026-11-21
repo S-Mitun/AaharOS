@@ -123,6 +123,13 @@ def lot_id_by_no(session: Session, item_id: uuid.UUID, lot_no: str) -> uuid.UUID
     return session.execute(select(Lot.id).where(Lot.item_id == item_id, Lot.lot_no == lot_no)).scalar_one_or_none()
 
 
+def lot_no(session: Session, lot_id: uuid.UUID) -> str:
+    found = session.execute(select(Lot.lot_no).where(Lot.id == lot_id)).scalar_one_or_none()
+    if found is None:
+        raise NotFoundError("lot_not_found", "unknown lot", {"lot_id": str(lot_id)})
+    return found
+
+
 # ---------- posting ----------
 
 

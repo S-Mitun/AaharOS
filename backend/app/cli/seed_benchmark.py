@@ -27,7 +27,8 @@ def main() -> int:
         session.commit()
         code = session.execute(text("SELECT code FROM organizations WHERE id = :o"), {"o": org}).scalar_one()
     print(f"BENCHMARK tenant {code}: {len(s5.item_ids)} items, 1 supplier, {len(s5.customer_ids)} customers,")
-    print("  opening stock posted (J0, valued; OPEN-LOT at standard cost). Earlier BENCHMARK tenants are kept.")
+    print("  recipe v1 + pack specs 200 g / 500 g ACTIVE, tolerance setting, opening stock posted (J0, valued;")
+    print("  OPEN-LOT at standard cost). Earlier BENCHMARK tenants are kept.")
     return 0
 
 
