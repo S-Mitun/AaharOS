@@ -252,7 +252,7 @@ def test_credit_limit_needs_an_override_reason(api_app: Any, shop: Shop, app_eng
     admin = login_client(api_app, shop.staff.emails["ADMIN"])
     card = admin.get(f"/api/inbox/{a}").json()
     assert card["credit"]["over_limit"] is True and card["credit"]["exposure"]["value"] == "7500.00"
-    assert card["credit"]["outstanding"]["formula"] == "no invoices exist until MP10"
+    assert card["credit"]["outstanding"]["value"] == "0.00"  # no invoices yet (MP10 computes it from invoices)
     r = admin.post(f"/api/orders/{a}/approve", json={})
     assert r.status_code == 422 and r.json()["error"]["code"] == "credit_limit_exceeded"
     ok = admin.post(f"/api/orders/{a}/approve", json={"credit_override_reason": "DEMO: owner agreed by phone"})

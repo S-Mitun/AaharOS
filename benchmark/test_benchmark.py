@@ -50,13 +50,13 @@ def test_a03_pouches_closing(stock_replay: Any, oracle: dict[str, Any]) -> None:
 @A(4, "Finished goods after run", "MP06", "nit_expected.fg_after_run_packets")
 def test_a04_fg_after_run(stock_replay: Any, oracle: dict[str, Any]) -> None:
     assert stock_replay.stock_units["murukku_200g"] == "packet"
-    assert stock_replay.closing_in("murukku_200g", "FG_STORE") == oracle["nit_expected"]["fg_after_run_packets"]
+    # the replay continues to step 8 (MP10), so this reads FG at the moment B-001 completed
+    assert stock_replay.fg_after_run == oracle["nit_expected"]["fg_after_run_packets"]
 
 
 @A(5, "Finished goods after Retailer A dispatch", "MP10", "nit_expected.fg_after_dispatch_A_packets")
-@pending("MP10")
-def test_a05_fg_after_dispatch_a() -> None:
-    not_built("MP10")
+def test_a05_fg_after_dispatch_a(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    assert stock_replay.closing_in("murukku_200g", "FG_STORE") == oracle["nit_expected"]["fg_after_dispatch_A_packets"]
 
 
 # Assertions 6, 7 and 20 (MP06): variances of run B-001, computed on read from its frozen snapshot (ADR-0013).
@@ -78,33 +78,34 @@ def test_a07_oil_variance(stock_replay: Any, oracle: dict[str, Any]) -> None:
 
 
 @A(8, "Retailer A invoice taxable value", "MP10", "nit_expected.invoice_A.taxable")
-@pending("MP10")
-def test_a08_invoice_a_taxable() -> None:
-    not_built("MP10")
+def test_a08_invoice_a_taxable(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    inv = stock_replay.invoice_a
+    assert (inv["regime"], inv["status"]) == ("INTRA", "POSTED")
+    assert Decimal(inv["taxable"]) == oracle["nit_expected"]["invoice_A"]["taxable"]
 
 
 @A(9, "Retailer A CGST", "MP10", "nit_expected.invoice_A.cgst")
-@pending("MP10")
-def test_a09_invoice_a_cgst() -> None:
-    not_built("MP10")
+def test_a09_invoice_a_cgst(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    assert Decimal(stock_replay.invoice_a["by_tax"]["CGST"]) == oracle["nit_expected"]["invoice_A"]["cgst"]
 
 
 @A(10, "Retailer A SGST", "MP10", "nit_expected.invoice_A.sgst")
-@pending("MP10")
-def test_a10_invoice_a_sgst() -> None:
-    not_built("MP10")
+def test_a10_invoice_a_sgst(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    assert Decimal(stock_replay.invoice_a["by_tax"]["SGST"]) == oracle["nit_expected"]["invoice_A"]["sgst"]
 
 
 @A(11, "Retailer A invoice total", "MP10", "nit_expected.invoice_A.total")
-@pending("MP10")
-def test_a11_invoice_a_total() -> None:
-    not_built("MP10")
+def test_a11_invoice_a_total(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    inv = stock_replay.invoice_a
+    assert Decimal(inv["total"]) == oracle["nit_expected"]["invoice_A"]["total"]
+    assert Decimal(inv["round_off"]) == 0 and "IGST" not in inv["by_tax"]
 
 
 @A(12, "Retailer A outstanding", "MP10", "nit_expected.outstanding_A")
-@pending("MP10")
-def test_a12_outstanding_a() -> None:
-    not_built("MP10")
+def test_a12_outstanding_a(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    statement = stock_replay.statement_a
+    assert Decimal(statement["outstanding"]["value"]) == oracle["nit_expected"]["outstanding_A"]
+    assert Decimal(statement["invoices"][0]["paid"]) == oracle["inputs"]["steps"]["7_payment_A"]["amount"]
 
 
 @A(
@@ -138,9 +139,14 @@ def test_a13_distributor_b_shortage(stock_replay: Any, oracle: dict[str, Any]) -
     "aaharos_expected.distributor_B_options.full_120.igst",
     "aaharos_expected.distributor_B_options.partial_88.igst",
 )
-@pending("MP10")
-def test_a14_distributor_b_igst() -> None:
-    not_built("MP10")
+def test_a14_distributor_b_igst(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    preview = stock_replay.b_card["tax_preview"]
+    opts = oracle["aaharos_expected"]["distributor_B_options"]
+    assert oracle["nit_expected"]["distributor_B"]["tax_regime"] == "IGST"
+    assert preview["full"]["regime"] == preview["partial"]["regime"] == "INTER"
+    assert set(preview["full"]["by_tax"]) == {"IGST"}
+    assert Decimal(preview["full"]["by_tax"]["IGST"]) == opts["full_120"]["igst"]
+    assert Decimal(preview["partial"]["by_tax"]["IGST"]) == opts["partial_88"]["igst"]
 
 
 @A(
@@ -237,9 +243,13 @@ def test_a20_pouch_flexible_variance(stock_replay: Any, oracle: dict[str, Any]) 
     "aaharos_expected.fefo_dispatch_A.from_opening_lot",
     "aaharos_expected.fefo_dispatch_A.from_batch_B001",
 )
-@pending("MP10")
-def test_a21_fefo_dispatch() -> None:
-    not_built("MP10")
+def test_a21_fefo_dispatch(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    fefo = oracle["aaharos_expected"]["fefo_dispatch_A"]
+    taken = {ln["lot_no"]: Decimal(ln["qty"]) for ln in stock_replay.dispatch_a["lines"]}
+    assert taken.pop("OPEN-LOT") == fefo["from_opening_lot"]
+    ((b001_no, b001_qty),) = taken.items()
+    assert b001_qty == fefo["from_batch_B001"]
+    assert stock_replay.b001_lot["FG_STORE"][0] == fefo["remaining_batch_B001"]
 
 
 @A(
@@ -249,9 +259,12 @@ def test_a21_fefo_dispatch() -> None:
     "aaharos_expected.fg_value_split_of_run.dispatched_100",
     "aaharos_expected.fg_value_split_of_run.remaining_88",
 )
-@pending("MP10")
-def test_a22_value_conservation() -> None:
-    not_built("MP10")
+def test_a22_value_conservation(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    split = oracle["aaharos_expected"]["fg_value_split_of_run"]
+    lot = stock_replay.b001_lot
+    assert lot["CUSTOMER"][1] == split["dispatched_100"]
+    assert lot["FG_STORE"][1] == split["remaining_88"]
+    assert lot["CUSTOMER"][1] + lot["FG_STORE"][1] == oracle["aaharos_expected"]["run_cost"]["total"]
 
 
 @A(
@@ -277,9 +290,12 @@ def test_a24_material_runway() -> None:
     "MP10",
     "aaharos_expected.distributor_B_options.full_120.eway_bill_required",
 )
-@pending("MP10")
-def test_a25_eway_bill() -> None:
-    not_built("MP10")
+def test_a25_eway_bill(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    full = stock_replay.b_card["tax_preview"]["full"]
+    expected = oracle["aaharos_expected"]["distributor_B_options"]["full_120"]
+    assert full["eway_required"] is expected["eway_bill_required"]
+    assert Decimal(full["total"]) == expected["total"]
+    assert full["eway_reason"].startswith("Not required: inter-state")  # the reason is shown, not just a flag
 
 
 @A(26, "Integrity: 4 conservation laws, balance rebuild, audit chain", "MP11")

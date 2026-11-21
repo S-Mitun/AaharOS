@@ -30,10 +30,13 @@ from app.core import effective_settings
 from app.core.errors import DomainError
 from app.core.explained import Explained
 from app.modules.audit import service as audit
+from app.modules.billing import service as billing
 from app.modules.catalog import service as catalog
+from app.modules.collections import service as collections
 from app.modules.costing import service as costing
 from app.modules.costing.domain import StandardCost, StandardLine, standard_cost
 from app.modules.costing.service import RunCosting
+from app.modules.dispatch import service as dispatch
 from app.modules.identity import service as identity
 from app.modules.ledger import service as ledger
 from app.modules.procurement import service as procurement
@@ -45,6 +48,7 @@ from app.modules.recipe import service as recipes
 from app.modules.recipe.domain import PackLineIn, RecipeLineIn
 from app.modules.sales import service as sales
 from app.modules.sales.domain import OrderLineIn
+from app.modules.tax import service as tax
 from app.modules.uom.domain import BASE_UNIT, from_base, to_base, unit
 from app.modules.valuation import service as valuation
 from app.modules.valuation.service import OpeningLine
@@ -85,6 +89,20 @@ CUSTOMERS: Final = (
 )
 # MP09 (H7): fictional DEMO credit limits in rupees; NIT gives none. 0 would mean "no limit set".
 CREDIT_LIMITS: Final[dict[str, Decimal]] = {"RET-A": Decimal("25000.00"), "DIST-B": Decimal("100000.00")}
+PAYMENT_TERMS_DAYS: Final = 30  # MP10 (J8): fictional DEMO terms; MSME terms cap them at 45 days
+
+# MP10 (J1, J5): DEMO tax and business identity as effective-dated settings. The HSN and rate must be verified with a
+# chartered accountant; the rate itself comes from the oracle's config (gst_rate_percent), never from code.
+HSN_NAMKEEN: Final = "21069099"
+GST_RATE_FROM: Final = date(2025, 9, 22)
+DEMO_PROFILE: Final[dict[str, str]] = {
+    "org.gstin": "33DEMOX0000X1Z0",
+    "org.fssai_no": "10000000000000 (DEMO)",
+    "org.udyam_no": "UDYAM-TN-00-0000000 (DEMO)",
+    "org.address": "DEMO address, Tiruchirappalli, Tamil Nadu 620001",
+    "org.upi_vpa": "demo-not-real@aaharos",
+}
+EWAY_THRESHOLD_DEMO: Final = Decimal("50000.00")  # Rule 138; the intra-state figure varies by state: verify
 
 
 @dataclass
@@ -113,6 +131,13 @@ class StockReplay:
     order_ids: dict[str, uuid.UUID] = field(default_factory=dict)  # step -> sales order id
     b_card: dict[str, Any] | None = None  # MP09: Distributor B's inbox card after Retailer A's approval
     b_full_refusal: str | None = None  # MP09: the code a full approval of B is refused with
+    fg_after_run: Decimal | None = None  # FG on hand right after B-001 completes (row 4; the replay goes on)
+    invoice_a_id: uuid.UUID | None = None  # MP10
+    dispatch_a_id: uuid.UUID | None = None
+    invoice_a: dict[str, Any] | None = None  # the invoice view (rows 8-11)
+    dispatch_a: dict[str, Any] | None = None  # the dispatch view (row 21: lots)
+    statement_a: dict[str, Any] | None = None  # Retailer A's statement after the payment (row 12)
+    b001_lot: dict[str, tuple[Decimal, Decimal]] = field(default_factory=dict)  # location -> (qty, value) (row 22)
     closing: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, store) -> qty in stock unit
     closing_value: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, location) -> rupees
     run_id: uuid.UUID | None = None
@@ -189,11 +214,14 @@ def setup_section5(
             state_code=state,
             gstin=gstin,
             credit_limit=CREDIT_LIMITS[code],
+            payment_terms_days=PAYMENT_TERMS_DAYS,
+            msme_terms=True,
         )
         for code, name, kind, state, gstin in CUSTOMERS
     }
     recipe_version, pack_versions = setup_section5_bom(session, oracle, organization_id, ids, actor_id)
     price_list = setup_section5_price_list(session, oracle, organization_id, ids, actor_id)
+    setup_section5_tax(session, oracle, organization_id, ids, actor_id)
     return Section5(organization_id, ids, stock_units, supplier, customers, recipe_version, pack_versions, price_list)
 
 
@@ -217,6 +245,46 @@ def setup_section5_price_list(
         effective_from=SETTINGS_FROM,
         items={ids[FINISHED]: Decimal(str(oracle["inputs"]["selling_price_ex_tax"])).quantize(Decimal("0.01"))},
     )
+
+
+def setup_section5_tax(
+    session: Session,
+    oracle: dict[str, Any],
+    organization_id: uuid.UUID,
+    ids: dict[str, uuid.UUID],
+    actor_id: uuid.UUID | None = None,
+) -> None:
+    """MP10: HSN on the finished goods, the GST rule at the oracle's `gst_rate_percent`, the DEMO business profile,
+    e-way bill thresholds and no rupee round-off, all effective-dated."""
+    for code in (FINISHED, "murukku_500g"):
+        if code in ids:
+            catalog.set_hsn(
+                session, organization_id=organization_id, actor_id=actor_id, item_id=ids[code], hsn=HSN_NAMKEEN
+            )
+    tax.create_rule(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        hsn=HSN_NAMKEEN,
+        rate_pct=Decimal(str(oracle["gst_rate_percent"])),
+        effective_from=GST_RATE_FROM,
+        note="DEMO: pre-packaged namkeen; verify HSN and rate with a chartered accountant",
+    )
+    settings: dict[str, Any] = {
+        **DEMO_PROFILE,
+        tax.EWAY_THRESHOLDS["INTER"]: EWAY_THRESHOLD_DEMO,
+        tax.EWAY_THRESHOLDS["INTRA"]: EWAY_THRESHOLD_DEMO,
+        tax.ROUND_TO_RUPEE: "false",
+    }
+    for key, value in settings.items():
+        tax.put_setting(
+            session,
+            organization_id=organization_id,
+            actor_id=actor_id,
+            key=key,
+            value=value,
+            effective_from=SETTINGS_FROM,
+        )
 
 
 def _cartons_per_batch(bom: dict[str, Any]) -> Decimal:
@@ -437,8 +505,65 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
         ],
     ).journal_id
 
-    # J8 step 8: labour and gas/power for B-001, each a value-only COST_TRUE_UP over the lot (F1, F2), then FINAL (F3).
-    # Dispatch arrives with MP10, so in this replay all 188 packets are still on hand when the costs are recorded.
+    replay.fg_after_run = ledger.balance(session, ids[FINISHED], "FG_STORE")[0]
+
+    # NIT's order from here (MP10): step 4 order A; step 5 approve (150 of 238 reserved), invoice and dispatch A
+    # (J5, FEFO at lot value; B-001 still at its materials cost); step 6 order B; step 7 payment; step 8 run costs.
+    assert s5.price_list_id is not None
+    price_list_id = s5.price_list_id
+    price = Decimal(str(inputs["selling_price_ex_tax"])).quantize(Decimal("0.01"))
+
+    def place(step: str, customer: str) -> uuid.UUID:
+        placed = sales.receive_order(
+            session,
+            organization_id=org,
+            actor_id=None,
+            customer_id=s5.customer_ids[customer],
+            price_list_id=price_list_id,
+            lines=[OrderLineIn(ids[FINISHED], int(steps[step]["qty"]), price)],
+            order_date=POSTING_DATE,
+        )
+        replay.orders[step], replay.order_ids[step] = placed.order_no, placed.order_id
+        return placed.order_id
+
+    order_a = place("4_order_A", "RET-A")
+    sales.approve_order(session, organization_id=org, actor_id=None, order_id=order_a)
+    invoice_a = billing.create_invoice(
+        session, organization_id=org, actor_id=None, order_id=order_a, invoice_date=POSTING_DATE
+    )
+    dispatched = dispatch.dispatch_invoice(
+        session,
+        organization_id=org,
+        actor_id=None,
+        invoice_id=invoice_a.invoice_id,
+        qty={ids[FINISHED]: int(steps["5_invoice_A"]["dispatch_qty"])},
+        dispatch_date=POSTING_DATE,
+    )
+    replay.journals["J5 dispatch A"] = dispatched.journal_id
+    replay.invoice_a_id, replay.dispatch_a_id = invoice_a.invoice_id, dispatched.dispatch_id
+
+    # step 6, the admin's view: B's card shows the shortage, and a full approval is refused with nothing written
+    place("6_order_B", "DIST-B")
+    try:
+        with session.begin_nested():
+            sales.approve_order(session, organization_id=org, actor_id=None, order_id=replay.order_ids["6_order_B"])
+    except DomainError as exc:
+        replay.b_full_refusal = exc.code
+
+    # step 7: Retailer A pays, allocated to invoice A (oldest due first)
+    collections.record_payment(
+        session,
+        organization_id=org,
+        actor_id=None,
+        customer_id=s5.customer_ids["RET-A"],
+        amount=Decimal(str(steps["7_payment_A"]["amount"])),
+        received_on=POSTING_DATE,
+        mode="UPI",
+        reference="DEMO-UPI-0001",
+    )
+
+    # J8 step 8: labour and gas/power for B-001, each a value-only COST_TRUE_UP spread over wherever the lot is now
+    # (100 packets with the customer, 88 on hand), then FINAL (F1-F3)
     for kind, step_key in (("LABOUR", "labour"), ("GAS_POWER", "gas_power")):
         replay.journals[f"J8 {step_key}"] = production.record_run_cost(
             session,
@@ -451,35 +576,17 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
         ).journal_id
     production.finalise_costs(session, organization_id=org, actor_id=None, run_id=run_id)
 
-    # MP08-MP09: step 4 order A; step 5 (first half) the admin approves it, reserving 150 of the 238 packets;
-    # step 6 order B. Invoice and dispatch (the rest of step 5) are MP10.
-    assert s5.price_list_id is not None
-    price = Decimal(str(inputs["selling_price_ex_tax"])).quantize(Decimal("0.01"))
-    for step, customer in (("4_order_A", "RET-A"), ("6_order_B", "DIST-B")):
-        placed = sales.receive_order(
-            session,
-            organization_id=org,
-            actor_id=None,
-            customer_id=s5.customer_ids[customer],
-            price_list_id=s5.price_list_id,
-            lines=[OrderLineIn(ids[FINISHED], int(steps[step]["qty"]), price)],
-            order_date=POSTING_DATE,
-        )
-        replay.orders[step], replay.order_ids[step] = placed.order_no, placed.order_id
-        if step == "4_order_A":
-            sales.approve_order(session, organization_id=org, actor_id=None, order_id=placed.order_id)
-
-    # step 6, the admin's view: B's card shows the shortage, and a full approval is refused with nothing written
-    try:
-        with session.begin_nested():
-            sales.approve_order(session, organization_id=org, actor_id=None, order_id=replay.order_ids["6_order_B"])
-    except DomainError as exc:
-        replay.b_full_refusal = exc.code
-
     session.commit()
     replay.run = production.run_analysis(session, run_id)
     replay.costing = costing.run_costing(session, run_id)
     replay.b_card = sales.inbox_card(session, replay.order_ids["6_order_B"])
+    replay.invoice_a = billing.invoice_view(session, invoice_a.invoice_id)
+    replay.dispatch_a = dispatch.dispatch_view(session, dispatched.dispatch_id)
+    replay.statement_a = collections.statement(session, s5.customer_ids["RET-A"], on=POSTING_DATE)
+    b001_no = replay.run.pack_lines[0].lot_no
+    b001 = None if b001_no is None else ledger.lot_id_by_no(session, ids[FINISHED], b001_no)
+    if b001 is not None:
+        replay.b001_lot = {loc: (qty, value) for loc, qty, value in ledger.lot_positions(session, ids[FINISHED], b001)}
 
     by_id = {str(i): c for c, i in ids.items()}
     for row in ledger.balances(session, include_virtual=True):

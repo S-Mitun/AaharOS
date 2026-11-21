@@ -2,9 +2,10 @@
 
 import uuid
 from datetime import date
+from typing import Any
 
 from sqlalchemy import Boolean, CheckConstraint, Date, Integer, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
@@ -27,6 +28,7 @@ class Dispatch(OrgScoped, Base):
     journal_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     eway_required: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     eway_reason: Mapped[str | None] = mapped_column(Text)
+    eway_payload: Mapped[Any | None] = mapped_column(JSONB)  # MP10: a MOCK payload, never sent to the portal
 
 
 class DispatchLine(OrgScoped, Base):

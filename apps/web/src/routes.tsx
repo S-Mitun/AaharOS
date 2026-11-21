@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import type { RouteObject } from "react-router-dom";
 import { SCREENS } from "./guide/screens";
 import { GuidePage } from "./pages/GuidePage";
+import { CollectionsPage } from "./admin/CollectionsPage";
 import { InboxPage } from "./admin/InboxPage";
+import { InvoicePage } from "./admin/InvoicePage";
+import { InvoicesPage } from "./admin/InvoicesPage";
 import { OrderCardPage } from "./admin/OrderCardPage";
 import { HomePage } from "./pages/HomePage";
 import { LeaksIndexPage, LeaksPage } from "./pages/LeaksPage";
@@ -29,6 +32,16 @@ const BUILT: Record<string, ReactNode> = {
       <InboxPage />
     </Gate>
   ),
+  invoices: (
+    <Gate permission="invoice.post" what="invoices and dispatch">
+      <InvoicesPage />
+    </Gate>
+  ),
+  collections: (
+    <Gate permission="payment.post" what="collections">
+      <CollectionsPage />
+    </Gate>
+  ),
 };
 
 const SALES_ROUTES = new Set(["salesToday", "salesOrder", "salesOrders", "salesSummary"]);
@@ -51,6 +64,14 @@ export const appRoutes: RouteObject[] = [
       { path: "/guide/:stepId", element: <GuidePage /> },
       { path: "/leaks/:runId", element: <LeaksPage /> },
       { path: "/sign-in", element: <SignInPage /> },
+      {
+        path: "/admin/invoices/:invoiceId",
+        element: (
+          <Gate permission="report.read" what="this invoice">
+            <InvoicePage />
+          </Gate>
+        ),
+      },
       {
         path: "/admin/orders/:orderId",
         element: (

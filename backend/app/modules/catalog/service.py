@@ -108,6 +108,39 @@ def units_for(session: Session, item_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID
     }
 
 
+def hsn_for(session: Session, item_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, str | None]:
+    """The HSN code per item (MP10: the GST rule is found by HSN). None where it is not set."""
+    wanted = set(item_ids)
+    if not wanted:
+        return {}
+    return dict(session.execute(select(Item.id, Item.hsn).where(Item.id.in_(wanted))).tuples().all())
+
+
+def set_hsn(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, item_id: uuid.UUID, hsn: str
+) -> None:
+    """Master data: an item's HSN code (digits only, 4 to 8), audited."""
+    code = hsn.strip()
+    if not code.isdigit() or not 4 <= len(code) <= 8:
+        raise DomainError("bad_hsn", "an HSN code is 4 to 8 digits")
+    item = session.execute(select(Item).where(Item.id == item_id)).scalar_one_or_none()
+    if item is None:
+        raise NotFoundError("item_not_found", "unknown item")
+    before = item.hsn
+    item.hsn = code
+    session.flush()
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="item.hsn",
+        entity_type="item",
+        entity_id=item_id,
+        before={"hsn": before},
+        after={"hsn": code},
+    )
+
+
 def codes_for(session: Session, item_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, str]:
     wanted = set(item_ids)
     if not wanted:

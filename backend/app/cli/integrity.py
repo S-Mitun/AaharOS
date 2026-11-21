@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app import db_models as _db_models  # noqa: F401 - registers every table for the ORM
 from app.core.config import get_settings
 from app.modules.audit import service as audit
+from app.modules.billing import service as billing
 from app.modules.ledger import service as ledger
 from app.modules.procurement import service as procurement
 from app.modules.production import service as production
@@ -89,6 +90,16 @@ def run(session: Session) -> tuple[bool, list[str]]:
         lines.extend(f"        {row}" for row in promised[:20])
     else:
         lines.append("PASS  reservations: no store position promises more than it holds on hand")
+
+    taxes = billing.tax_line_mismatches(session)
+    ok = ok and not taxes
+    if taxes:
+        lines.append(f"FAIL  invoice tax: {len(taxes)} invoices whose lines do not add up to the header")
+        lines.extend(f"        {row}" for row in taxes[:20])
+    else:
+        lines.append(
+            "PASS  invoice tax: every invoice's lines and tax lines add up to its header (law 4, per document)"
+        )
 
     gaps = production.mass_balance_gaps(session)
     lines.append(f"INFO  mass balance: {len(gaps)} completed runs show an unexplained gap (reported, not failed)")

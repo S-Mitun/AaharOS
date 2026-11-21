@@ -351,6 +351,21 @@ def shortage_explained(open_qty: int, available: int) -> Explained:
     )
 
 
+BILLING_STATUSES: Final = frozenset({"APPROVED", "PART_APPROVED", "INVOICED", "DISPATCHED"})
+
+
+def billing_status(lines: Sequence[tuple[int, int, int, int]]) -> str:
+    """MP10: (approved, backordered, invoiced, dispatched) per line -> the order's status once it is approved.
+    DISPATCHED when every agreed packet has left, INVOICED when every agreed packet is invoiced, else APPROVED or
+    PART_APPROVED (a backorder is still owed)."""
+    owed = any(back for _, back, _, _ in lines)
+    if not owed and all(disp == appr for appr, _, _, disp in lines) and any(appr for appr, *_ in lines):
+        return "DISPATCHED"
+    if not owed and all(inv == appr for appr, _, inv, _ in lines) and any(appr for appr, *_ in lines):
+        return "INVOICED"
+    return "PART_APPROVED" if owed else "APPROVED"
+
+
 @dataclass(frozen=True)
 class CreditCheck:
     limit: Decimal | None  # None: no limit set (0 in the master data)

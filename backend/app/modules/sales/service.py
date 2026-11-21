@@ -43,6 +43,8 @@ from app.modules.sales.models import (
     PriceListItem,
     SalesOrder,
 )
+from app.modules.tax import domain as tax_domain
+from app.modules.tax import service as tax_service
 
 ORDERED_NOT_INVOICED = "Ordered, not invoiced: values are ex-tax order values, not sales."
 COUNTED_STATUSES = ("SUBMITTED", "APPROVED", "PART_APPROVED", "INVOICED", "DISPATCHED")
@@ -104,6 +106,8 @@ def create_customer(
     state_code: str,
     gstin: str | None = None,
     credit_limit: Decimal = Decimal(0),
+    payment_terms_days: int = 0,
+    msme_terms: bool = False,
 ) -> uuid.UUID:
     """Master data (MP05 seeds; the credit limit from MP09). Customer management screens come later."""
     if kind not in CUSTOMER_KINDS:
@@ -119,6 +123,8 @@ def create_customer(
             state_code=state_code,
             gstin=gstin,
             credit_limit=credit_limit,
+            payment_terms_days=payment_terms_days,
+            msme_terms=msme_terms,
             created_by=actor_id,
         )
     )
@@ -162,6 +168,36 @@ def set_credit_limit(
         entity_id=customer_id,
         before={"credit_limit": before},
         after={"credit_limit": limit},
+    )
+
+
+def set_payment_terms(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    customer_id: uuid.UUID,
+    days: int,
+    msme_terms: bool,
+) -> None:
+    """Master data (MP10): payment terms in days and whether MSME terms apply (due date at most 45 days), audited."""
+    if days < 0 or days > 365:
+        raise OrderError("bad_terms", "payment terms are 0 to 365 days")
+    customer = session.execute(select(Customer).where(Customer.id == customer_id)).scalar_one_or_none()
+    if customer is None:
+        raise NotFoundError("customer_not_found", "unknown customer")
+    before = {"payment_terms_days": customer.payment_terms_days, "msme_terms": customer.msme_terms}
+    customer.payment_terms_days, customer.msme_terms = days, msme_terms
+    session.flush()
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="customer.terms",
+        entity_type="customer",
+        entity_id=customer_id,
+        before=before,
+        after={"payment_terms_days": days, "msme_terms": msme_terms},
     )
 
 
@@ -1007,6 +1043,10 @@ def _close_order(
     domain.require_status(action, order.status)
     text_reason = domain.require_reason(reason, "rejecting" if action == "reject" else "cancelling")
     lines = _lines(session, {order.id})
+    if any(_invoiced(session, order.id).values()):
+        raise OrderError(
+            "order_has_invoice", "packets of this order are invoiced: cancel the invoice first (or issue a credit note)"
+        )
     before = order.status
     try:
         with session.begin_nested():
@@ -1103,6 +1143,13 @@ def amend_line(
                 summary = f"line {line_no}: price {line.price_captured} -> {price} ({text_reason})"
             else:
                 assert qty is not None
+                invoiced = _invoiced(session, order.id).get(line.item_id, 0)
+                if qty < invoiced:
+                    raise OrderError(
+                        "below_invoiced",
+                        f"{invoiced} packets of this line are already invoiced",
+                        {"invoiced": invoiced},
+                    )
                 approved, back = domain.reduce_line(line.qty_approved, line.qty_backordered, qty)
                 if approved < line.qty_approved:
                     _release_lines(session, organization_id, actor_id, [line.id], f"amended: {text_reason}")
@@ -1327,7 +1374,214 @@ def inbox_card(session: Session, order_id: uuid.UUID) -> dict[str, Any]:
         "stale_choice_needed": stale is not None and order.status == "SUBMITTED",
         "waiting": order.status == "SUBMITTED" and order.id in _waiting_orders(session, [order.id]),
         "actions": actions,
+        "tax_preview": _tax_preview(session, order, customer, lines, out_lines),
     }
+
+
+def _tax_preview(
+    session: Session,
+    order: SalesOrder,
+    customer: Customer,
+    lines: Sequence[OrderLine],
+    card_lines: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """MP10 (rows 14, 25): what an invoice would carry for each option, and whether the move needs an e-way bill.
+    A preview only: the invoice computes it again from the rules in force on its own date."""
+    supplier_state = identity.organization(session, order.organization_id)["state_code"]
+    on = business_date()
+    by_no = {int(c["line_no"]): c for c in card_lines}
+    options = {
+        "full": {ln.line_no: int(by_no[ln.line_no]["open"]) for ln in lines},
+        "partial": {ln.line_no: int(by_no[ln.line_no]["can_send_now"]) for ln in lines},
+    }
+    out: dict[str, Any] = {"place_of_supply": tax_domain.state_label(customer.state_code)}
+    for name, qty in options.items():
+        taxed = [
+            tax_service.TaxedLineIn(ln.line_no, ln.item_id, qty[ln.line_no], _price(ln))
+            for ln in lines
+            if qty[ln.line_no]
+        ]
+        if not taxed:
+            out[name] = None
+            continue
+        try:
+            computed = tax_service.compute(
+                session, supplier_state=supplier_state, place_of_supply=customer.state_code, on=on, lines=taxed
+            )
+            verdict = tax_service.eway_verdict(session, computed.regime, computed.totals.total, on)
+        except DomainError as exc:
+            out[name] = {"error": exc.message}
+            continue
+        out[name] = {
+            "packets": str(sum(t.qty for t in taxed)),
+            "regime": computed.regime,
+            "taxable": str(computed.totals.taxable),
+            "by_tax": {k: str(v) for k, v in computed.totals.by_tax.items()},
+            "total": str(computed.totals.total),
+            "eway_required": verdict.required,
+            "eway_reason": verdict.reason,
+        }
+    return out
+
+
+# ---------- MP10: what billing and dispatch need from an order (ADR-0017) ----------
+
+InvoicedProvider = Callable[[Session, uuid.UUID], dict[uuid.UUID, int]]
+_invoiced_provider: InvoicedProvider | None = None
+
+
+def register_invoiced_provider(provider: InvoicedProvider | None) -> None:
+    """Billing (L6) tells sales how many packets of an order are on POSTED invoices, per item."""
+    global _invoiced_provider
+    _invoiced_provider = provider
+
+
+def _invoiced(session: Session, order_id: uuid.UUID) -> dict[uuid.UUID, int]:
+    return {} if _invoiced_provider is None else _invoiced_provider(session, order_id)
+
+
+@dataclass(frozen=True)
+class BillingLine:
+    order_line_id: uuid.UUID
+    line_no: int
+    item_id: uuid.UUID
+    approved: int
+    backordered: int
+    price: Decimal  # price_final if amended, else the captured price
+
+
+@dataclass(frozen=True)
+class BillingOrder:
+    id: uuid.UUID
+    order_no: str
+    status: str
+    customer_id: uuid.UUID
+    customer_name: str
+    customer_state: str
+    customer_gstin: str | None
+    payment_terms_days: int
+    msme_terms: bool
+    lines: list[BillingLine]
+
+
+def order_for_billing(session: Session, order_id: uuid.UUID, lock: bool = False) -> BillingOrder:
+    """The approved quantities and prices of an order, with its customer (locked when billing changes it)."""
+    order = _lock_order(session, order_id) if lock else session.get(SalesOrder, order_id)
+    if order is None:
+        raise NotFoundError("order_not_found", "unknown order")
+    customer = session.execute(select(Customer).where(Customer.id == order.customer_id)).scalar_one()
+    return BillingOrder(
+        id=order.id,
+        order_no=order.order_no,
+        status=order.status,
+        customer_id=customer.id,
+        customer_name=customer.name,
+        customer_state=customer.state_code,
+        customer_gstin=customer.gstin,
+        payment_terms_days=customer.payment_terms_days,
+        msme_terms=customer.msme_terms,
+        lines=[
+            BillingLine(ln.id, ln.line_no, ln.item_id, ln.qty_approved, ln.qty_backordered, _price(ln))
+            for ln in _lines(session, {order.id})
+        ],
+    )
+
+
+def customer_terms(session: Session, customer_id: uuid.UUID) -> dict[str, Any]:
+    c = session.execute(select(Customer).where(Customer.id == customer_id)).scalar_one_or_none()
+    if c is None:
+        raise NotFoundError("customer_not_found", "unknown customer", {"customer_id": str(customer_id)})
+    return {
+        "id": str(c.id),
+        "code": c.code,
+        "name": c.name,
+        "state_code": c.state_code,
+        "gstin": c.gstin,
+        "payment_terms_days": c.payment_terms_days,
+        "msme_terms": c.msme_terms,
+        "credit_limit": str(c.credit_limit),
+    }
+
+
+def customers_brief(session: Session) -> list[dict[str, Any]]:
+    return [customer_terms(session, c) for c in session.execute(select(Customer.id).order_by(Customer.code)).scalars()]
+
+
+def sync_billing_status(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    order_id: uuid.UUID,
+    invoiced: dict[uuid.UUID, int],
+    dispatched: dict[uuid.UUID, int],
+    reason: str,
+) -> str:
+    """After an invoice, a cancellation or a dispatch: set APPROVED / PART_APPROVED / INVOICED / DISPATCHED from the
+    packets invoiced and dispatched per item, with a history row when it changes."""
+    order = _lock_order(session, order_id)
+    if order.status not in domain.BILLING_STATUSES:
+        raise OrderError("order_not_approved", f"this order is {order.status}: only approved orders are billed")
+    lines = _lines(session, {order.id})
+    new_status = domain.billing_status(
+        [
+            (ln.qty_approved, ln.qty_backordered, invoiced.get(ln.item_id, 0), dispatched.get(ln.item_id, 0))
+            for ln in lines
+        ]
+    )
+    if new_status != order.status:
+        before = order.status
+        order.status = new_status
+        session.flush()
+        _history(session, organization_id, actor_id, order.id, before, new_status, reason)
+    return new_status
+
+
+def active_reservations_by_item(session: Session, order_id: uuid.UUID) -> dict[uuid.UUID, list[tuple[uuid.UUID, int]]]:
+    """The order's ACTIVE reservations, per item: [(reservation id, packets)] (dispatch consumes them)."""
+    lines = _lines(session, {order_id})
+    item_of = {ln.id: ln.item_id for ln in lines}
+    out: dict[uuid.UUID, list[tuple[uuid.UUID, int]]] = {}
+    for res_id, line_id, qty in ledger.active_reservations(session, list(item_of)):
+        out.setdefault(item_of[line_id], []).append((res_id, int(qty)))
+    return out
+
+
+def order_line_ids(session: Session, order_id: uuid.UUID) -> dict[uuid.UUID, uuid.UUID]:
+    """item id -> order line id (each item appears once per order)."""
+    return {ln.item_id: ln.id for ln in _lines(session, {order_id})}
+
+
+def orders_to_bill(session: Session) -> list[dict[str, Any]]:
+    """Approved orders with packets not yet invoiced (the 'Ready to invoice' list)."""
+    orders = list(
+        session.execute(
+            select(SalesOrder)
+            .where(SalesOrder.status.in_(("APPROVED", "PART_APPROVED")))
+            .order_by(SalesOrder.created_at)
+        ).scalars()
+    )
+    out = []
+    for o in orders:
+        lines = _lines(session, {o.id})
+        done = _invoiced(session, o.id)
+        open_qty = sum(max(0, ln.qty_approved - done.get(ln.item_id, 0)) for ln in lines)
+        if open_qty <= 0:
+            continue
+        customer = session.execute(select(Customer).where(Customer.id == o.customer_id)).scalar_one()
+        out.append(
+            {
+                "order_id": str(o.id),
+                "order_no": o.order_no,
+                "status": o.status,
+                "customer_name": customer.name,
+                "packets_to_invoice": str(open_qty),
+                "value_ex_tax": str(
+                    sum((max(0, ln.qty_approved - done.get(ln.item_id, 0)) * _price(ln) for ln in lines), Decimal(0))
+                ),
+            }
+        )
+    return out
 
 
 def get_order_any(session: Session, order_id: uuid.UUID) -> dict[str, Any]:

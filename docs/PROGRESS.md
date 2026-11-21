@@ -1,8 +1,9 @@
 # PROGRESS
 
-## Status: MP09 done, not committed (branch feat/mp09-order-inbox from feat/mp08-salesman-pwa, MP08 = 9528f5f) / MP10 next
+## Status: MP10 done, not committed (branch feat/mp10-invoices from feat/mp09-order-inbox, MP09 = 529c6fa; the MP09 review
+  fixes are also uncommitted on this branch) / MP11 next
 
-## Benchmark scoreboard: 13/26
+## Benchmark scoreboard: 23/26
 - **Green:**
   - 1 flour closing 120 kg, 2 oil 19.5 L, 3 pouches 306, 15 spice 3.8 kg / cartons 21 (MP04)
   - 16 flour WAC ₹43.125/kg after the purchase (MP05), an `Explained` value from `valuation.wac`
@@ -12,6 +13,9 @@
     oracle's** (MP07)
   - **13 Distributor B: requested 120, available 88, shortage 32 flagged; a full approval refused with nothing
     written; FG never negative; not invoiced** (MP09)
+  - **5 FG 88 after dispatch; 8–11 invoice A ₹7,500.00 + CGST ₹187.50 + SGST ₹187.50 = ₹7,875.00; 12 outstanding
+    ₹3,875.00; 14 B's IGST ₹300 in full / ₹220 on 88; 21 FEFO 50 from OPEN-LOT + 100 from B-001; 22 sold 100 =
+    ₹3,114.36 + on hand 88 = ₹2,740.64; 25 B's e-way bill not required (₹6,300 ≤ ₹50,000), reason shown** (MP10)
 - They are replayed through the real services into a fresh BENCHMARK tenant (`app/modules/judge/replay.py`):
   - J0 opening, valued; J1 as a purchase receipt
   - run B-001 created and started; J2 a real material issue at WAC; J3 the real `complete_run`
@@ -19,13 +23,61 @@
   - (MP08) steps 4 and 6 as orders SO/26-27/000001 (Retailer A, 150) and 000002 (Distributor B, 120) at the DEMO
     general price list v1 (₹50.00 = `selling_price_ex_tax`)
   - (MP09) step 5's approval of Retailer A (150 of 238 reserved), then Distributor B's inbox card for row 13
+  - (MP10) **NIT's order**: approve A → invoice AHR/26-27/000001 → dispatch J5 (FEFO, B-001 at provisional materials
+    value) → order B → payment ₹4,000 (oldest due first) → J8 labour and gas (true-ups 957.45 to CUSTOMER, 842.55 to
+    FG_STORE) → FINAL. Row 4 reads FG right after the run (238), since the replay now goes past it.
 - Oracle integrity: 10/10 checks pass (the sha256 guard on `inputs` + `nit_expected` included). No green row turned
   red.
 
 Red items and the MP that turns them green:
-- MP10: 5, 8–12, 14, 21, 22, 25
 - MP11: 26 integrity
 - MP12: 23 shortage attribution, 24 runway
+
+## Review of MP09 (2026-11-21, before MP10)
+- **Fixed, real bug:** choosing "today's list price" for a stale order applied the list in force at receipt, not the
+  one the card shows as today's (v2 applied while v3 was shown). Test:
+  `test_inbox.py::test_current_price_means_the_list_the_admin_sees_today` (failed before the fix). ADR-0016 H4 amended.
+- **Hardening:** order history rows written in one transaction now sort received-first (they shared `now()`); could
+  not be reproduced, pinned by `test_history_lists_received_before_decisions_in_one_transaction`.
+- **UI:** the stale-price choice names a price only on single-product orders.
+
+## Done in MP10 (tax engine, invoices, FEFO dispatch, collections)
+- **Gate met:** **23/26** (rows 5, 8–12, 14, 21, 22, 25 green; 13 and 17–19 still green), oracle 10/10; `make
+  integrity` OK with a new check (each invoice's lines and tax lines add up to its header); Playwright **7/7** (new:
+  approve → invoice → FEFO dispatch → payment through the UI; repeat-order time printed 664 ms this run, automated).
+- **Decisions J1–J10 (approved; [ADR-0017](adr/0017-tax-invoices-dispatch-and-collections.md)):** pure tax engine on
+  effective-dated rules; invoices of approved packets only, gapless AHR numbers; cancel before dispatch, credit notes
+  after (value-only); printable HTML invoice with a DEMO UPI QR, text-only share links; business identity and
+  thresholds as settings; FEFO at lot value consuming exactly the packets leaving; mock e-way check; payments with
+  oldest-due allocation, advances, MSME due dates; the replay in NIT's order; the admin screens.
+- **Backend:** `tax` (domain, service, api), `billing` (domain, document, service, api, schemas), `dispatch` (domain,
+  service, api), `collections` (service, api); migration 0010 (`dispatches.eway_payload`, dispatches insert-only);
+  `ledger.fefo_lots`; `catalog.hsn_for` / `set_hsn`; `identity.organization`; sales: invoiced provider, billing status
+  sync (INVOICED / DISPATCHED), guards (cancel or amend below what is invoiced refused), tax and e-way preview on the
+  card, `set_payment_terms`; providers wired in `app/db_models.py`; `segno==1.6.1` (API image rebuilt).
+- **API** (all in the generated route × role tests): `GET /api/invoices`, `/api/invoices/ready`,
+  `/api/invoices/{id}`, `/api/invoices/{id}/document`, `/api/invoices/{id}/dispatches`, `/api/collections`,
+  `/api/customers/{id}/statement`, `/api/tax/rules`; `POST /api/orders/{id}/invoice`, `/api/invoices/{id}/cancel`,
+  `/api/invoices/{id}/credit-notes`, `/api/invoices/{id}/dispatch-preview`, `/api/invoices/{id}/dispatch`,
+  `/api/payments`, `/api/tax/rules`.
+- **Seeds:** HSN 21069099 (DEMO, verify with a CA), the GST rule at the oracle's 5% from 22-Sep-2025, the DEMO business
+  profile, e-way thresholds ₹50,000, no round-off, 30-day MSME terms; `make seed-demo` topped up the DEMO factory.
+- **Web:** Admin → Invoices and dispatch (`InvoicesPage`, `InvoicePage`: tax breakup, print / WhatsApp / email,
+  preview then record dispatch, credit note, cancel) and Collections (`CollectionsPage`: owed, overdue, advance,
+  record payment); the order card's "If invoiced" preview; tour steps 5 and 7 are the real clicks.
+- **Live check on :5180 (DEMO factory, read-only):** the order card's preview (CGST + SGST ₹187.50 each, no e-way
+  bill, with the reason); Invoices and Collections render. It caught a bug: "Overdue ₹0" on customers who owe nothing
+  (amounts summed to `0`, not `0.00`); fixed in the backend (always paise) and the screen (zero by value).
+- **Checks run:** backend **665 passed** (was 556; full suite incl. 500 state-machine examples, 6 min 4 s), ruff
+  check / format clean, mypy --strict clean (137 files), import-linter 2/2 kept, `alembic check` clean (0010 applied
+  to the dev DB); web **59 passed** (was 58), typecheck, lint and build clean; float grep clean; benchmark 23/26 and
+  `make integrity` OK re-run after the last edits.
+- **New tests:** `tax/tests/test_domain.py` (9, one property: header = Σ lines), `billing/tests/test_domain.py` (6),
+  `dispatch/tests/test_domain.py` (6, one property), `tests/db/test_billing.py` (12: NIT invoice and document,
+  approved-only, gapless numbers under 4 parallel requests, FEFO at lot value, partial dispatch, chosen lots need a
+  reason, cancel only before dispatch, credit note limits, payments / advance / idempotency, outstanding feeds the
+  credit check, part-approved order with an invoice cannot be cancelled), replay tests updated to the ledger.md end
+  state, `src/admin/billing.test.tsx`, Playwright scenario 7.
 
 ## Done in MP09 (order inbox, available to promise, reservations, shortage options)
 - **Gate met:**
@@ -541,6 +593,8 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP10: [ADR-0017](adr/0017-tax-invoices-dispatch-and-collections.md): J1–J10 (tax engine, invoices, cancel and
+  credit notes, document, settings, FEFO dispatch, mock e-way, collections, NIT-order replay, screens).
 - MP09: [ADR-0016](adr/0016-order-approval-reservations-and-shortage-options.md): H1–H10 (approval under locks,
   partial + backorder, release on reject / cancel, stale choice, amendments, wait, credit, races, the inbox).
 - MP08: [ADR-0015](adr/0015-orders-prices-and-the-offline-outbox.md): G1 server prices and stale flag, G2 whole
@@ -619,7 +673,12 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (invoices), MP11 (reports). Unbuilt screens show an honest "Coming in MPxx" page.
 - **ADMIN cannot create orders** (`order.create` is SALESMAN and OWNER): phoned-in orders are entered by the owner or
   the salesman for now.
-- **Outstanding is ₹0.00 until MP10** registers the collections provider (H7); the credit check counts only this order.
+- **Credit notes are value-only:** returned goods (stock back, food safety) are MP13.
+- **No payment reversal (bounced cheque) document yet;** payments and allocations are insert-only.
+- **The invoice PDF is the browser's print-to-PDF** of a server-rendered page; a server-made PDF file is MP17.
+- **WhatsApp / email share a text summary only** (no public PDF link, nothing sent by the server).
+- **Intra-state e-way threshold is a DEMO ₹50,000**; it varies by state: set the real figure in settings.
+- **HSN 21069099 and 5% are DEMO choices from the oracle's config;** verify with a chartered accountant.
 - **"Wait for the next batch" holds no stock:** another order may take it first; the card shows live ATP.
 - **The inbox lists at most 200 orders per view** (no paging yet).
 - **Stale orders:** the flag is computed on read from versions known at receipt (no column); the admin chooses the
@@ -644,21 +703,23 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-Run MP10 (tax engine, invoices, dispatch FEFO, collections → rows 5, 8–12, 14, 21, 22, 25) in a fresh session: read the
-MP10 section of docs/MASTER_PACK.md, show the plan (it touches tax, stock and money) and wait for approval.
+Run MP11 (reports, GST exports, month-end close, evidence pack → row 26, laws 3 and 4 in full) in a fresh session:
+read the MP11 section of docs/MASTER_PACK.md, show the plan (it touches tax exports and period locks) and wait for
+approval.
 
 Before starting:
-- The user commits MP09 first. Then branch `feat/mp10-invoices` from `feat/mp09-order-inbox`.
-- One frontend and one backend, both in Docker: web http://localhost:5180 (polls for edits), API http://localhost:8180
-  (Swagger at `/docs`). `docker compose up -d api web`. `make e2e` needs the stack up.
-- Everything runs in Docker (`docker compose run --rm -T api <cmd>`, `docker compose run --rm -T --no-deps web npm run
-  <cmd>`); never two pytest runs at once. Host Python is cp1252 / CRLF; long heredocs break the Bash tool, so write
-  scripts with the editor tools.
-- MP10 inherits from MP09: approved orders with ACTIVE reservations per order line (`ledger.active_reservations`);
-  invoice only approved packets and consume their reservations at dispatch (FEFO by lot); `price_final ?? price_captured`
-  is the invoice rate; register the outstanding provider (`sales.service.register_outstanding_provider`) from
-  collections; statuses INVOICED / DISPATCHED; the Admin registry entries `invoices` and `collections` (flip `built`);
-  the replay's step 5 dispatch must leave FG at 88 with B's card unchanged (row 13 stays green).
+- The user commits first: the MP09 review fixes, then MP10 (proposed messages in the session that built them). Then
+  branch `feat/mp11-reports` from `feat/mp10-invoices`.
+- One frontend and one backend in Docker: web http://localhost:5180, API http://localhost:8180 (`/docs`). After a
+  dependency change rebuild the API image (`docker compose build api && docker compose up -d api`).
+- Everything runs in Docker; never two pytest runs at once; host Python is cp1252 / CRLF; long heredocs break the Bash
+  tool, so write scripts with the editor tools.
+- MP11 inherits: invoices with tax lines (law 4 per document already checked by `make integrity`), credit notes,
+  payments, dispatch journals (COGS at CUSTOMER), `billing.tax_line_mismatches`, the Auditor → Reports registry entry
+  (`reports`), and the period-lock trigger on invoices, credit notes, payments and stock journals.
+
+### Record: the MP10 plan as approved (implemented above)
+Approved by the user on 2026-11-21 as recommended (J1–J10); see ADR-0017 for the decisions as built.
 
 ### Record: the MP09 plan as approved (implemented above)
 Approved by the user on 2026-11-21 as recommended (H1–H10); see ADR-0016 for the decisions as built. Steps: domain

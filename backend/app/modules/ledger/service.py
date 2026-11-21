@@ -735,6 +735,37 @@ def active_reservations(
     return list(rows.all())
 
 
+@dataclass(frozen=True)
+class LotStock:
+    lot_id: uuid.UUID
+    lot_no: str
+    mfg_date: date | None
+    best_before: date | None
+    qty_base: Decimal
+    value: Decimal
+
+
+def fefo_lots(
+    session: Session, item_id: uuid.UUID, *, location: str = "FG_STORE", as_of: date | None = None
+) -> list[LotStock]:
+    """MP10 (J6, A3): the lots of an item held at a store, First-Expiry-First-Out: best-before ascending, lots
+    with no date (opening stock) first, then manufacture date and creation. Expired lots are left out."""
+    loc = _location(session, location)
+    on = as_of or business_date()
+    rows = session.execute(
+        select(Lot.id, Lot.lot_no, Lot.mfg_date, Lot.best_before, InventoryBalance.qty_base, InventoryBalance.value)
+        .join(InventoryBalance, InventoryBalance.lot_id == Lot.id)
+        .where(
+            InventoryBalance.item_id == item_id,
+            InventoryBalance.location_id == loc.id,
+            InventoryBalance.qty_base > 0,
+            (Lot.best_before.is_(None)) | (Lot.best_before >= on),
+        )
+        .order_by(Lot.best_before.asc().nulls_first(), Lot.mfg_date.asc().nulls_first(), Lot.created_at, Lot.lot_no)
+    ).tuples()
+    return [LotStock(i, n, m, b, Decimal(q), Decimal(v)) for i, n, m, b, q, v in rows]
+
+
 def over_reserved(session: Session) -> list[dict[str, str]]:
     """Integrity (MP09): no store position may have more ACTIVE reservations than it holds on hand. Empty means
     every promise is covered by stock (sees all orgs as the owner)."""

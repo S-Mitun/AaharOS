@@ -148,6 +148,46 @@ test("6. MP09: the admin approves in the inbox and the salesman's phone shows Ap
   await expect(row.locator(".chip", { hasText: "Approved" })).toBeVisible();
 });
 
+test("7. MP10: approve, invoice, dispatch first-expiry-first-out, and collect a payment", async ({
+  page,
+  browser,
+}) => {
+  await signIn(page, tenant.emails.SALESMAN);
+  await expect(page.getByText("DEMO Retailer A")).toBeVisible();
+  await newOrder(page, "8");
+  await expect(page.locator(".chip", { hasText: "Received by factory" })).toBeVisible();
+  const orderNo = (await page.locator(".order-no").textContent()) ?? "";
+
+  const adminContext = await browser.newContext();
+  const admin = await adminContext.newPage();
+  await signIn(admin, tenant.emails.ADMIN);
+  await admin.getByText(orderNo).click();
+  await admin.getByRole("button", { name: "Approve all 8 packets" }).click();
+  await expect(admin.getByRole("status").filter({ hasText: /approved 8 packets/ })).toBeVisible();
+
+  await admin.goto("/admin/invoices");
+  const ready = admin.locator(".order-row", { hasText: orderNo });
+  await ready.getByRole("button", { name: "Create invoice" }).click();
+  await expect(admin.getByRole("heading", { name: /AHR\/\d{2}-\d{2}\/\d{6}/ })).toBeVisible();
+  await expect(admin.getByText("₹400.00").first()).toBeVisible(); // 8 x 50.00 taxable
+  await expect(admin.getByText("₹420.00").first()).toBeVisible(); // + CGST 10.00 + SGST 10.00
+  await admin.getByRole("button", { name: /Preview the dispatch of 8 packets/ }).click();
+  await expect(admin.getByText("OPEN-LOT")).toBeVisible();
+  await expect(admin.getByText("e-Way Bill not required")).toBeVisible();
+  await admin.getByRole("button", { name: "Record dispatch" }).click();
+  await expect(admin.getByText(/Dispatched as DSP\//)).toBeVisible();
+
+  await admin.goto("/admin/collections");
+  await admin.locator(".order-row", { hasText: "DEMO Retailer A" }).getByRole("button").click();
+  await admin.getByLabel("Amount (₹)").fill("420.00");
+  await admin.getByRole("button", { name: "Record payment" }).click();
+  await expect(admin.getByText(/Payment RCP\/.* recorded/)).toBeVisible();
+  await adminContext.close();
+
+  await page.goto("/sales/orders");
+  await expect(page.locator(".order-row", { hasText: orderNo }).locator(".chip", { hasText: "Dispatched" })).toBeVisible();
+});
+
 test("5. a stale price is flagged when prices change while the phone is offline", async ({
   page,
   context,

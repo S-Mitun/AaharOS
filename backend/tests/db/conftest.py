@@ -18,6 +18,7 @@ from alembic.config import Config
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
+import app.db_models  # noqa: F401 - registers every table and the MP10 providers
 from app.core.config import get_settings
 
 BACKEND = Path(__file__).resolve().parents[2]

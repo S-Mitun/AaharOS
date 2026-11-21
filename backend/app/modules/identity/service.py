@@ -401,6 +401,12 @@ def display_names(session: Session, user_ids: set[uuid.UUID]) -> dict[uuid.UUID,
 # ---------- who am I, members ----------
 
 
+def organization(session: Session, organization_id: uuid.UUID) -> dict[str, str]:
+    """Name, code, kind and GST state code of an organization (MP10: the supplier on an invoice)."""
+    org = session.execute(select(Organization).where(Organization.id == organization_id)).scalar_one()
+    return {"id": str(org.id), "code": org.code, "name": org.name, "kind": org.kind, "state_code": org.state_code}
+
+
 def describe(session: Session, principal: Principal) -> dict[str, object]:
     user = session.execute(select(User).where(User.id == principal.user_id)).scalar_one()
     org = session.execute(select(Organization).where(Organization.id == principal.organization_id)).scalar_one()

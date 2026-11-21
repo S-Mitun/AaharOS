@@ -29,15 +29,18 @@ from app.modules.judge.replay import (
     CREDIT_LIMITS,
     EXTRA_ITEMS,
     ITEMS,
+    PAYMENT_TERMS_DAYS,
     PRICE_LIST_CODE,
     RECIPE,
     post_section5_opening,
     setup_section5,
     setup_section5_bom,
     setup_section5_price_list,
+    setup_section5_tax,
 )
 from app.modules.recipe import service as recipes
 from app.modules.sales import service as sales
+from app.modules.tax import service as tax
 
 ORG_CODE = "DEMO-FACTORY"
 ORG_NAME = "AaharOS Demo Snacks (DEMO)"
@@ -151,6 +154,21 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
     if PRICE_LIST_CODE not in {p["code"] for p in sales.list_price_lists(app_session)}:
         setup_section5_price_list(app_session, oracle, org_id, ids)
         added.append("price list GENERAL v1")
+    if not tax.rules(app_session):  # MP10: HSN, the GST rule, the DEMO business profile, e-way thresholds
+        setup_section5_tax(app_session, oracle, org_id, ids)
+        added.append("GST rule, HSN, DEMO business profile and e-way thresholds")
+        for code in CREDIT_LIMITS:
+            customer_id = sales.customer_id_by_code(app_session, code)
+            if customer_id is not None and sales.customer_terms(app_session, customer_id)["payment_terms_days"] == 0:
+                sales.set_payment_terms(
+                    app_session,
+                    organization_id=org_id,
+                    actor_id=None,
+                    customer_id=customer_id,
+                    days=PAYMENT_TERMS_DAYS,
+                    msme_terms=True,
+                )
+                added.append(f"payment terms {code}")
     for code, limit in CREDIT_LIMITS.items():  # MP09: only where no limit was ever set
         customer_id = sales.customer_id_by_code(app_session, code)
         if customer_id is not None and sales.credit_limit_of(app_session, customer_id) == 0:

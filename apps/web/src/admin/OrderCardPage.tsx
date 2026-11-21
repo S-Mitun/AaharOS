@@ -181,6 +181,37 @@ export function OrderCardPage() {
         </table>
       </div>
 
+      {card.tax_preview && (card.tax_preview.full || card.tax_preview.partial) && (
+        <>
+          <h2>If invoiced</h2>
+          <p className="muted small">
+            Place of supply {card.tax_preview.place_of_supply}. A preview: the invoice works it out
+            again on its own date.
+          </p>
+          <ul className="tax-options">
+            {(["full", "partial"] as const).map((k) => {
+              const o = card.tax_preview?.[k];
+              if (!o) return null;
+              if (o.error) return <li key={k}>{o.error}</li>;
+              const label =
+                k === "full" ? `All ${o.packets} packets` : `The ${o.packets} available now`;
+              if (k === "partial" && o.packets === card.tax_preview?.full?.packets) return null;
+              return (
+                <li key={k}>
+                  <strong>{label}:</strong> taxable {formatValue(o.taxable ?? "", "INR")} +{" "}
+                  {Object.entries(o.by_tax ?? {})
+                    .map(([h, a]) => `${h} ${formatValue(a, "INR")}`)
+                    .join(" + ")}{" "}
+                  = <strong>{formatValue(o.total ?? "", "INR")}</strong> ·{" "}
+                  {o.eway_required ? "e-Way Bill required" : "no e-Way Bill needed"}
+                  <div className="muted small">{o.eway_reason} (mock check)</div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
       <h2>Credit</h2>
       <p>
         Outstanding <Num value={card.credit.outstanding} label="Outstanding" /> + this order ={" "}
@@ -196,9 +227,7 @@ export function OrderCardPage() {
           <StatusChip tone="ok">Within limit</StatusChip>
         )}
       </p>
-      <p className="muted small">
-        Nothing is invoiced until the invoices stage (MP10), so outstanding is ₹0.00 for now.
-      </p>
+      <p className="muted small">Outstanding = invoices minus payments and credit notes.</p>
 
       {card.status === "SUBMITTED" && (
         <>

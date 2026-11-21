@@ -143,7 +143,8 @@ export const STEPS: GuideStep[] = [
     actions: [
       "Sign in → tap “Factory admin” → password. You land on the Order inbox.",
       "Open DEMO Retailer A's order. “Available to promise” covers it (no shortage) → Approve all {inputs.steps.4_order_A.qty} packets. They are held for Retailer A at once.",
-      "Coming in MP10: Create invoice (Tamil Nadu to Tamil Nadu, so CGST + SGST), then Record dispatch: the oldest lot leaves first (FEFO).",
+      "Invoices and dispatch → Ready to invoice → Retailer A → Create invoice. Tamil Nadu to Tamil Nadu, so CGST + SGST. Tap “Open printable invoice” to see the PDF.",
+      "On the invoice: Preview the dispatch → it shows 50 packets from the opening lot and 100 from batch B-001 (oldest first) and that no e-Way Bill is needed → Record dispatch.",
     ],
     expect: [
       { label: "Taxable value", key: "nit_expected.invoice_A.taxable", unit: "INR" },
@@ -217,8 +218,8 @@ export const STEPS: GuideStep[] = [
     who: { role: "Admin", login: "Factory admin" },
     screen: "collections",
     actions: [
-      "Collections → Record payment → Retailer A → ₹{inputs.steps.7_payment_A.amount}.",
-      "Allocate it to the invoice from step 5.",
+      "Collections → tap Retailer A → Record a payment: ₹{inputs.steps.7_payment_A.amount}, mode UPI → Record payment.",
+      "It is applied to the invoice from step 5 automatically (oldest unpaid first); the rest stays owed.",
     ],
     expect: [{ label: "Retailer A still owes", key: "nit_expected.outstanding_A", unit: "INR" }],
     why: "Each customer's balance comes from invoices minus allocated payments, never from a typed number.",

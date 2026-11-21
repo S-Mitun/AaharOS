@@ -59,5 +59,22 @@ export interface OrderCard {
   stale_choice_needed: boolean;
   waiting: boolean;
   actions: string[];
+  tax_preview?: {
+    place_of_supply: string;
+    full: TaxOption | null;
+    partial: TaxOption | null;
+  };
   decision?: { status: string; summary: string };
+}
+
+/** What an invoice would carry for an option (MP10 preview; the invoice recomputes it on its own date). */
+export interface TaxOption {
+  packets?: string;
+  regime?: string;
+  taxable?: string;
+  by_tax?: Record<string, string>;
+  total?: string;
+  eway_required?: boolean;
+  eway_reason?: string;
+  error?: string;
 }

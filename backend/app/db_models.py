@@ -47,3 +47,10 @@ MODEL_MODULES = (
 )
 
 metadata = Base.metadata
+
+# MP10: higher-layer services answer lower-layer questions through registered providers (billing -> sales: packets
+# invoiced; dispatch -> billing: packets dispatched; collections -> billing and sales: payments and outstanding).
+# Importing them here, where every entry point already imports this registry, guarantees they are registered.
+from app.modules.billing import service as _billing_service  # noqa: E402,F401
+from app.modules.collections import service as _collections_service  # noqa: E402,F401
+from app.modules.dispatch import service as _dispatch_service  # noqa: E402,F401

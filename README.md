@@ -52,6 +52,11 @@ card shows available to promise (on hand − reserved), the shortage, the credit
 approve all, **send what is available now and backorder the rest**, wait for the next batch, or reject. Stock is held
 the moment you approve, and can never go below zero.
 
+**Then bill and collect:** Invoices and dispatch → **Create invoice** (CGST + SGST inside Tamil Nadu, IGST outside) →
+**Open printable invoice** to save it as PDF → **Preview the dispatch** (oldest batch first, with the e-way bill
+verdict) → **Record dispatch**. Collections → the customer → **Record payment**: it is applied to the oldest unpaid
+invoice, and the rest stays owed.
+
 ## Test logins
 
 `make seed-demo` creates the DEMO organization `DEMO-FACTORY` with one login per role. Every password is
