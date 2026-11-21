@@ -18,7 +18,8 @@ dependencies = [
     "pyyaml==6.0.2",
     "argon2-cffi==23.1.0",
     "PyJWT==2.10.1",
-    "segno==1.6.1",  # MP10: the DEMO UPI QR on invoices (pure Python, no system libraries)
+    "segno==1.6.1",
+    "openpyxl==3.1.5",  # MP11: XLSX report downloads (pure Python)  # MP10: the DEMO UPI QR on invoices (pure Python, no system libraries)
 ]
 
 [project.optional-dependencies]

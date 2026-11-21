@@ -766,6 +766,59 @@ def fefo_lots(
     return [LotStock(i, n, m, b, Decimal(q), Decimal(v)) for i, n, m, b, q, v in rows]
 
 
+def movement_summary(session: Session, date_from: date, date_to: date) -> list[dict[str, Any]]:
+    """MP11 stock summary: per item and store, opening (before the range), quantity in and out, value-only
+    adjustments (cost true-ups) and closing (end of the range), by quantity and value. Closing = opening + in - out +
+    adjustments, exactly. Scoped to the caller's organization by row-level security."""
+    rows = session.execute(
+        text(
+            """
+            SELECT sl.item_id, l.code,
+              coalesce(sum(sl.qty_base) FILTER (WHERE j.posting_date < :f), 0),
+              coalesce(sum(sl.value) FILTER (WHERE j.posting_date < :f), 0),
+              coalesce(sum(sl.qty_base) FILTER (WHERE j.posting_date BETWEEN :f AND :t AND sl.qty_base > 0), 0),
+              coalesce(sum(sl.value) FILTER (WHERE j.posting_date BETWEEN :f AND :t AND sl.qty_base > 0), 0),
+              coalesce(-sum(sl.qty_base) FILTER (WHERE j.posting_date BETWEEN :f AND :t AND sl.qty_base < 0), 0),
+              coalesce(-sum(sl.value) FILTER (WHERE j.posting_date BETWEEN :f AND :t AND sl.qty_base < 0), 0),
+              coalesce(sum(sl.value) FILTER (WHERE j.posting_date BETWEEN :f AND :t AND sl.qty_base = 0), 0),
+              coalesce(sum(sl.qty_base) FILTER (WHERE j.posting_date <= :t), 0),
+              coalesce(sum(sl.value) FILTER (WHERE j.posting_date <= :t), 0)
+              FROM stock_lines sl
+              JOIN stock_journals j ON j.id = sl.journal_id
+              JOIN locations l ON l.id = sl.location_id
+             WHERE l.kind = 'STORE' AND j.posting_date <= :t
+             GROUP BY sl.item_id, l.code
+             ORDER BY l.code
+            """
+        ),
+        {"f": date_from, "t": date_to},
+    ).all()
+    item_ids = {r[0] for r in rows}
+    units = catalog.units_for(session, item_ids)
+    codes = catalog.codes_for(session, item_ids)
+    out = []
+    for item, loc, oq, ov, iq, iv, xq, xv, adj, cq, cv in rows:
+        u = units[item]
+        out.append(
+            {
+                "item_id": str(item),
+                "item_code": codes[item],
+                "store": loc,
+                "unit": u.stock_uom,
+                "opening_qty": str(from_base(Decimal(oq), u.stock_uom, u)),
+                "opening_value": str(Decimal(ov)),
+                "in_qty": str(from_base(Decimal(iq), u.stock_uom, u)),
+                "in_value": str(Decimal(iv)),
+                "out_qty": str(from_base(Decimal(xq), u.stock_uom, u)),
+                "out_value": str(Decimal(xv)),
+                "value_adjustments": str(Decimal(adj)),
+                "closing_qty": str(from_base(Decimal(cq), u.stock_uom, u)),
+                "closing_value": str(Decimal(cv)),
+            }
+        )
+    return out
+
+
 def over_reserved(session: Session) -> list[dict[str, str]]:
     """Integrity (MP09): no store position may have more ACTIVE reservations than it holds on hand. Empty means
     every promise is covered by stock (sees all orgs as the owner)."""

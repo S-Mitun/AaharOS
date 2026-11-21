@@ -601,6 +601,162 @@ def invoice_list(session: Session) -> list[dict[str, Any]]:
     return list(reversed(out))
 
 
+def register_rows(session: Session, date_from: date, date_to: date) -> list[dict[str, Any]]:
+    """MP11: every invoice line (POSTED and CANCELLED, with its status) and every credit-note line (negative) in the
+    range, with HSN, place of supply, regime and each tax head. The sales register and the GST summary read this."""
+    out: list[dict[str, Any]] = []
+    invoices_in = list(
+        session.execute(
+            select(Invoice)
+            .where(Invoice.invoice_date >= date_from, Invoice.invoice_date <= date_to)
+            .order_by(Invoice.invoice_date, Invoice.invoice_no)
+        ).scalars()
+    )
+    notes_in = list(
+        session.execute(
+            select(CreditNote, Invoice)
+            .join(Invoice, Invoice.id == CreditNote.invoice_id)
+            .where(CreditNote.note_date >= date_from, CreditNote.note_date <= date_to)
+            .order_by(CreditNote.note_date, CreditNote.credit_note_no)
+        ).all()
+    )
+    customers: dict[uuid.UUID, dict[str, Any]] = {}
+
+    def customer(cid: uuid.UUID) -> dict[str, Any]:
+        if cid not in customers:
+            customers[cid] = sales.customer_terms(session, cid)
+        return customers[cid]
+
+    inv_lines = list(
+        session.execute(select(InvoiceLine).where(InvoiceLine.invoice_id.in_([i.id for i in invoices_in]))).scalars()
+    )
+    inv_taxes = list(
+        session.execute(
+            select(InvoiceTaxLine).where(InvoiceTaxLine.invoice_line_id.in_([ln.id for ln in inv_lines]))
+        ).scalars()
+    )
+    cn_lines = list(
+        session.execute(
+            select(CreditNoteLine).where(CreditNoteLine.credit_note_id.in_([n.id for n, _ in notes_in]))
+        ).scalars()
+    )
+    cn_taxes = list(
+        session.execute(
+            select(CreditNoteTaxLine).where(CreditNoteTaxLine.credit_note_line_id.in_([ln.id for ln in cn_lines]))
+        ).scalars()
+    )
+    orig_lines = {
+        ln.id: ln
+        for ln in session.execute(
+            select(InvoiceLine).where(InvoiceLine.id.in_({ln.invoice_line_id for ln in cn_lines}))
+        ).scalars()
+    }
+    names = catalog.names_for(session, {ln.item_id for ln in inv_lines} | {ln.item_id for ln in orig_lines.values()})
+
+    def heads(rows: list[Any], key: str, line_id: uuid.UUID) -> dict[str, Decimal]:
+        found = {t.tax: t.amount for t in rows if getattr(t, key) == line_id}
+        return {h: found.get(h, Decimal("0.00")) for h in ("CGST", "SGST", "IGST")}
+
+    rate_of: dict[uuid.UUID, Decimal] = {}
+    for t in inv_taxes:
+        rate_of[t.invoice_line_id] = rate_of.get(t.invoice_line_id, Decimal(0)) + t.rate_pct
+    for inv in invoices_in:
+        c = customer(inv.customer_id)
+        for ln in sorted((x for x in inv_lines if x.invoice_id == inv.id), key=lambda x: x.line_no):
+            h = heads(inv_taxes, "invoice_line_id", ln.id)
+            out.append(
+                {
+                    "doc_type": "INV",
+                    "doc_id": str(inv.id),
+                    "doc_no": inv.invoice_no,
+                    "doc_date": inv.invoice_date.isoformat(),
+                    "status": inv.status,
+                    "customer_id": str(inv.customer_id),
+                    "customer": c["name"],
+                    "gstin": inv.customer_gstin,
+                    "place_of_supply": inv.place_of_supply,
+                    "regime": inv.regime,
+                    "hsn": ln.hsn,
+                    "item_id": str(ln.item_id),
+                    "item": names[ln.item_id][1],
+                    "qty": str(ln.qty),
+                    "gst_rate": str(rate_of.get(ln.id, Decimal(0)).normalize()),
+                    "taxable": str(ln.taxable),
+                    "cgst": str(h["CGST"]),
+                    "sgst": str(h["SGST"]),
+                    "igst": str(h["IGST"]),
+                    "total": str(ln.taxable + h["CGST"] + h["SGST"] + h["IGST"]),
+                    "original_doc_no": None,
+                }
+            )
+    for note, inv in notes_in:
+        c = customer(inv.customer_id)
+        for cl in sorted((x for x in cn_lines if x.credit_note_id == note.id), key=lambda x: x.line_no):
+            orig = orig_lines[cl.invoice_line_id]
+            h = heads(cn_taxes, "credit_note_line_id", cl.id)
+            out.append(
+                {
+                    "doc_type": "CN",
+                    "doc_id": str(note.id),
+                    "invoice_id": str(inv.id),
+                    "doc_no": note.credit_note_no,
+                    "doc_date": note.note_date.isoformat(),
+                    "status": "POSTED",
+                    "customer_id": str(inv.customer_id),
+                    "customer": c["name"],
+                    "gstin": inv.customer_gstin,
+                    "place_of_supply": inv.place_of_supply,
+                    "regime": inv.regime,
+                    "hsn": orig.hsn,
+                    "item_id": str(orig.item_id),
+                    "item": names[orig.item_id][1],
+                    "qty": str(-cl.qty),
+                    "gst_rate": str(rate_of.get(orig.id, Decimal(0)).normalize()) if orig.id in rate_of else "",
+                    "taxable": str(-cl.taxable),
+                    "cgst": str(-h["CGST"]),
+                    "sgst": str(-h["SGST"]),
+                    "igst": str(-h["IGST"]),
+                    "total": str(-(cl.taxable + h["CGST"] + h["SGST"] + h["IGST"])),
+                    "original_doc_no": inv.invoice_no,
+                }
+            )
+    return out
+
+
+def documents_issued(session: Session, date_from: date, date_to: date) -> list[dict[str, Any]]:
+    """GSTR-1 table 13: per series, the first and last number, how many were issued and how many cancelled."""
+    out = []
+    for kind, model, no_col, date_col in (
+        ("Invoices for outward supply", Invoice, Invoice.invoice_no, Invoice.invoice_date),
+        ("Credit notes", CreditNote, CreditNote.credit_note_no, CreditNote.note_date),
+    ):
+        nos = list(
+            session.execute(select(no_col).where(date_col >= date_from, date_col <= date_to).order_by(no_col)).scalars()
+        )
+        cancelled = 0
+        if model is Invoice:
+            cancelled = int(
+                session.execute(
+                    select(func.count()).where(
+                        Invoice.invoice_date >= date_from,
+                        Invoice.invoice_date <= date_to,
+                        Invoice.status == "CANCELLED",
+                    )
+                ).scalar_one()
+            )
+        out.append(
+            {
+                "nature": kind,
+                "from": nos[0] if nos else "",
+                "to": nos[-1] if nos else "",
+                "total": str(len(nos)),
+                "cancelled": str(cancelled),
+                "net_issued": str(len(nos) - cancelled),
+            }
+        )
+    return out
+
+
 def tax_line_mismatches(session: Session) -> list[dict[str, str]]:
     """Integrity (law 4, per document): each invoice's tax lines add up to its tax_total and its lines to its
     taxable value (sees all orgs as the owner). The GST summary and export arrive with MP11."""
