@@ -1040,6 +1040,45 @@ def completed_run_wip_mismatches(session: Session) -> list[dict[str, str]]:
     ]
 
 
+def mass_law_results(session: Session) -> list[dict[str, Any]]:
+    """Law 3 for every completed run: the balance reconciles and its good output is backed by the completion
+    journal (packets posted x net weight). Each row says whether the law holds and whether the gap is flagged."""
+    out = []
+    runs = session.execute(
+        select(ProductionRun.id, ProductionRun.organization_id, ProductionRun.run_no).where(
+            ProductionRun.status == "COMPLETED"
+        )
+    ).all()
+    for run_id, org, run_no in runs:
+        a = run_analysis(session, run_id)
+        if a.mass_balance is None:
+            continue
+        journal = ledger.journal_for(session, "RUN_COMPLETION", "production_run", run_id)
+        posted = ledger.journal_lines(session, journal) if journal is not None else []
+        ledger_good_g = Decimal(0)
+        for pl in a.pack_lines:
+            units = sum(
+                (ln.qty_base for ln in posted if ln.item_id == pl.pack.fg_item_id and ln.location == "FG_STORE"),
+                Decimal(0),
+            )
+            ledger_good_g += units * pl.pack.net_g
+        verdict = domain.mass_law(a.mass_balance, ledger_good_g, a.tolerance_pct)
+        out.append(
+            {
+                "organization_id": str(org),
+                "run_no": run_no,
+                "holds": verdict.holds,
+                "reconciles": verdict.reconciles,
+                "backed_by_ledger": verdict.backed_by_ledger,
+                "flagged": verdict.flagged,
+                "unexplained_kg": str(normalise(verdict.gap_g / 1000)),
+                "gap_pct": None if verdict.gap_pct is None else str(verdict.gap_pct.quantize(Decimal("0.01"))),
+                "tolerance_pct": str(a.tolerance_pct),
+            }
+        )
+    return out
+
+
 def mass_balance_gaps(session: Session) -> list[dict[str, str]]:
     """Completed runs with an unexplained mass gap (law 3 is reported, not failed: the gap is shown, never hidden)."""
     out = []

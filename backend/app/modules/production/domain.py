@@ -932,3 +932,28 @@ class RunCostingFacts:
     conversion: tuple[ConversionFacts, ...]
     completion_journal_id: uuid.UUID
     written_off: Decimal  # value the completion and true-ups sent to SCRAP (decision E4)
+
+
+@dataclass(frozen=True)
+class MassVerdict:
+    """Law 3 for one completed run (MP11, ADR-0018 K4)."""
+
+    reconciles: bool  # expected bulk = good packed + scrap + loss + disclosed gap, exactly
+    backed_by_ledger: bool  # good packed mass = packets the completion journal posted x their net weight
+    gap_g: Decimal
+    gap_pct: Decimal | None  # gap / expected bulk x 100 (None when nothing was expected)
+    flagged: bool  # |gap| above the variance tolerance: shown and flagged, never hidden
+
+    @property
+    def holds(self) -> bool:
+        return self.reconciles and self.backed_by_ledger
+
+
+def mass_law(balance: MassBalance, ledger_good_g: Decimal, tolerance_pct: Decimal) -> MassVerdict:
+    """Law 3 holds when every gram is accounted for, the unexplained gap included as an explicit line, and the good
+    output the balance claims is exactly what the ledger received. A gap above tolerance is flagged, not failed."""
+    accounted = balance.good_packed_g + balance.scrap_g + balance.loss_g + balance.unexplained_g
+    reconciles = accounted == balance.expected_bulk_g
+    pct = None if balance.expected_bulk_g == 0 else balance.unexplained_g / balance.expected_bulk_g * 100
+    flagged = pct is not None and abs(pct) > tolerance_pct
+    return MassVerdict(reconciles, balance.good_packed_g == ledger_good_g, balance.unexplained_g, pct, flagged)

@@ -23,7 +23,7 @@ from app.modules.procurement import service as procurement
 from app.modules.production import service as production
 from app.modules.reports import gst
 
-NOT_BUILT = (("Law 3 mass balance per run", "MP11"),)
+NOT_BUILT: tuple[tuple[str, str], ...] = ()  # every law is built since MP11
 
 
 def run(session: Session) -> tuple[bool, list[str]]:
@@ -112,9 +112,23 @@ def run(session: Session) -> tuple[bool, list[str]]:
     else:
         lines.append("PASS  law 4 tax: every month's invoice tax lines = GST summary = GSTR-1 export")
 
-    gaps = production.mass_balance_gaps(session)
-    lines.append(f"INFO  mass balance: {len(gaps)} completed runs show an unexplained gap (reported, not failed)")
-    lines.extend(f"        {row}" for row in gaps[:20])
+    mass = production.mass_law_results(session)
+    broken = [m for m in mass if not m["holds"]]
+    flagged = [m for m in mass if m["holds"] and m["flagged"]]
+    ok = ok and not broken
+    if broken:
+        lines.append(f"FAIL  law 3 mass: {len(broken)} completed runs do not reconcile or are not backed by the ledger")
+        lines.extend(f"        {row}" for row in broken[:20])
+    else:
+        lines.append(
+            f"PASS  law 3 mass: {len(mass)} completed runs reconcile"
+            " (good + scrap + loss + disclosed gap = expected bulk) and their good output matches the ledger"
+        )
+    if flagged:
+        lines.append(
+            f"INFO  law 3 mass: {len(flagged)} runs show a gap above tolerance (flagged and shown, not hidden)"
+        )
+        lines.extend(f"        {row}" for row in flagged[:20])
     lines.extend(f"----  {name}: not built yet ({mp})" for name, mp in NOT_BUILT)
     return ok, lines
 
