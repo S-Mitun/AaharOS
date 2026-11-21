@@ -39,6 +39,7 @@ from app.modules.ledger.models import (
     InventoryBalance,
     Location,
     Lot,
+    PeriodLock,
     Reservation,
     StockJournal,
     StockLine,
@@ -817,6 +818,104 @@ def movement_summary(session: Session, date_from: date, date_to: date) -> list[d
             }
         )
     return out
+
+
+# ---------- month-end close (MP11, ADR-0018 K5) ----------
+
+
+def _month_start(month: date) -> date:
+    return month.replace(day=1)
+
+
+def period_locks(session: Session) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": str(p.id),
+            "period": p.period.isoformat(),
+            "locked_at": p.locked_at.isoformat(),
+            "locked_by": None if p.locked_by is None else str(p.locked_by),
+            "reason": p.reason,
+            "reopened_at": None if p.reopened_at is None else p.reopened_at.isoformat(),
+            "reopened_by": None if p.reopened_by is None else str(p.reopened_by),
+            "reopen_reason": p.reopen_reason,
+            "active": p.reopened_at is None,
+        }
+        for p in session.execute(select(PeriodLock).order_by(PeriodLock.period, PeriodLock.locked_at)).scalars()
+    ]
+
+
+def is_locked(session: Session, month: date) -> bool:
+    return (
+        session.execute(
+            select(PeriodLock.id).where(PeriodLock.period == _month_start(month), PeriodLock.reopened_at.is_(None))
+        ).first()
+        is not None
+    )
+
+
+def lock_period(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, month: date, reason: str
+) -> uuid.UUID:
+    """Close a month: from now on the database refuses any posting dated in it (SQLSTATE AH003)."""
+    text_reason = (reason or "").strip()
+    if len(text_reason) < 3:
+        raise DomainError("reason_required", "closing a month needs a reason")
+    period = _month_start(month)
+    if period >= _month_start(business_date()) and period != _month_start(business_date()):
+        raise DomainError("future_period", "a month in the future cannot be closed")
+    if is_locked(session, period):
+        raise ConflictError("already_locked", f"{period.strftime('%B %Y')} is already closed")
+    lock_id = uuid.uuid4()
+    session.execute(
+        pg_insert(PeriodLock).values(
+            id=lock_id,
+            organization_id=organization_id,
+            period=period,
+            locked_by=actor_id,
+            reason=text_reason,
+            created_by=actor_id,
+        )
+    )
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="period.lock",
+        entity_type="period_lock",
+        entity_id=lock_id,
+        after={"period": period, "reason": text_reason},
+    )
+    return lock_id
+
+
+def reopen_period(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, month: date, reason: str
+) -> None:
+    """Reopen a closed month with a reason. The lock row stays, with who reopened it, when and why."""
+    text_reason = (reason or "").strip()
+    if len(text_reason) < 3:
+        raise DomainError("reason_required", "reopening a month needs a reason")
+    period = _month_start(month)
+    lock = session.execute(
+        select(PeriodLock).where(PeriodLock.period == period, PeriodLock.reopened_at.is_(None)).with_for_update()
+    ).scalar_one_or_none()
+    if lock is None:
+        raise ConflictError("not_locked", f"{period.strftime('%B %Y')} is not closed")
+    lock.reopened_at = func.now()
+    lock.reopened_by = actor_id
+    lock.reopen_reason = text_reason
+    session.flush()
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="period.reopen",
+        entity_type="period_lock",
+        entity_id=lock.id,
+        before={"period": period, "active": True},
+        after={"period": period, "active": False},
+        note=text_reason,
+    )
 
 
 def over_reserved(session: Session) -> list[dict[str, str]]:

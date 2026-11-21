@@ -16,13 +16,12 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    PrimaryKeyConstraint,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from app.core.db import Base, Money, OrgScoped, Qty, in_list, lot_of_item_fk, same_org_fk, uuid_pk
 
@@ -92,19 +91,35 @@ class Lot(OrgScoped, Base):
 
 
 class PeriodLock(OrgScoped, Base):
-    """A closed month. `period` is the first day of the month (business date, IST)."""
+    """A closed month. `period` is the first day of the month (business date, IST). MP11: a lock is reopened with a
+    reason (never deleted); at most one active lock per month (migration 0011)."""
 
     __tablename__ = "period_locks"
     __table_args__ = (
-        PrimaryKeyConstraint("organization_id", "period"),
         CheckConstraint("extract(day FROM period) = 1", name="period_is_month_start"),
         CheckConstraint("length(trim(reason)) > 0", name="reason_required"),
+        CheckConstraint(
+            "reopened_at IS NULL OR length(trim(coalesce(reopen_reason, ''))) > 0", name="reopen_needs_reason"
+        ),
+        Index(
+            "uq_period_locks_active",
+            "organization_id",
+            "period",
+            unique=True,
+            postgresql_where=text("reopened_at IS NULL"),
+        ),
     )
 
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
     period: Mapped[date] = mapped_column(Date, nullable=False)
     locked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     locked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     reason: Mapped[str] = mapped_column(Text, nullable=False)
+    reopened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reopened_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    reopen_reason: Mapped[str | None] = mapped_column(Text)
 
 
 class StockJournal(OrgScoped, Base):

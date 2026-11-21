@@ -8,11 +8,12 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse, Response
+from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.modules.identity.service import Principal, require
-from app.modules.reports import domain, gst, service
+from app.modules.reports import close, domain, gst, service
 from app.modules.reports.domain import Report
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -76,6 +77,48 @@ def sales_register(
     format: Format = "json",
 ) -> Any:
     return render(service.sales_register(session, date_from, date_to, customer_id, item_id), format)
+
+
+class CloseBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    month: date
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+
+
+@router.get("/close")
+def close_cockpit(principal: Reader, session: DbSession, month: date | None = None) -> dict[str, Any]:
+    return close.cockpit(session, principal.organization_id, month)
+
+
+@router.post("/close/lock")
+def close_month(
+    body: CloseBody, principal: Annotated[Principal, Depends(require("period.lock"))], session: DbSession
+) -> dict[str, Any]:
+    close.close_month(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        month=body.month,
+        reason=body.reason,
+    )
+    session.commit()
+    return close.cockpit(session, principal.organization_id, body.month)
+
+
+@router.post("/close/reopen")
+def reopen_month(
+    body: CloseBody, principal: Annotated[Principal, Depends(require("period.reopen"))], session: DbSession
+) -> dict[str, Any]:
+    close.reopen_month(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        month=body.month,
+        reason=body.reason,
+    )
+    session.commit()
+    return close.cockpit(session, principal.organization_id, body.month)
 
 
 @router.get("/gst-summary")
