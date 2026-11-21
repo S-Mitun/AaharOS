@@ -33,6 +33,13 @@ services:
       # Database tests run against a throwaway database on this server and must not be skipped here.
       AAHAR_TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-aahar}:${POSTGRES_PASSWORD:-change-me-demo}@db:5432/aaharos_test
       AAHAR_REQUIRE_DB: "1"
+      # MP03: token signing secret (DEMO default; set your own) and the DEMO login passwords for `make seed-demo`.
+      AAHAR_AUTH_SECRET: ${AAHAR_AUTH_SECRET:-dev-only-DEMO-secret-change-me-0123456789abcdef}
+      DEMO_PASSWORD_SALESMAN: ${DEMO_PASSWORD_SALESMAN:-change-me-demo}
+      DEMO_PASSWORD_ADMIN: ${DEMO_PASSWORD_ADMIN:-change-me-demo}
+      DEMO_PASSWORD_PRODUCTION: ${DEMO_PASSWORD_PRODUCTION:-change-me-demo}
+      DEMO_PASSWORD_AUDITOR: ${DEMO_PASSWORD_AUDITOR:-change-me-demo}
+      DEMO_PASSWORD_OWNER: ${DEMO_PASSWORD_OWNER:-change-me-demo}
       AAHAR_CORS_ORIGINS: '["http://localhost:5180"]'
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:

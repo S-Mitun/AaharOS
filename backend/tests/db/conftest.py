@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -268,3 +269,87 @@ def make_user(owner: Engine, label: str = "user") -> uuid.UUID:
             {"id": uid, "e": f"{label}-{uid.hex[:8]}@demo.invalid", "n": f"DEMO {label}"},
         )
     return uid
+
+
+# ---------- MP03: logins per role and an API client on the test database ----------
+
+STAFF_PASSWORD = "DEMO-test-pass-123"  # noqa: S105 - test-only DEMO value
+_STAFF_HASH: str | None = None
+
+
+def _staff_hash() -> str:
+    global _STAFF_HASH  # argon2 is deliberately slow; hash the shared test password once
+    if _STAFF_HASH is None:
+        from app.modules.identity.domain import hash_password
+
+        _STAFF_HASH = hash_password(STAFF_PASSWORD)
+    return _STAFF_HASH
+
+
+@dataclass
+class Staff:
+    tenant: Tenant
+    code: str
+    emails: dict[str, str]  # role -> email
+    user_ids: dict[str, uuid.UUID]
+
+
+def add_member(owner: Engine, t: Tenant, role: str, label: str | None = None) -> tuple[uuid.UUID, str]:
+    uid = uuid.uuid4()
+    email = f"{(label or role).lower()}-{uid.hex[:10]}@aaharos-demo.invalid"
+    with owner.begin() as c:
+        c.execute(
+            text("INSERT INTO users (id, email, display_name, password_hash) VALUES (:i, :e, :n, :h)"),
+            {"i": uid, "e": email, "n": f"DEMO {role}", "h": _staff_hash()},
+        )
+        c.execute(
+            text("INSERT INTO memberships (organization_id, user_id, role_code) VALUES (:o, :u, :r)"),
+            {"o": t.org, "u": uid, "r": role},
+        )
+    return uid, email
+
+
+def make_staff(owner: Engine, label: str = "S") -> Staff:
+    from app.modules.identity.domain import ROLES
+
+    t = make_tenant(owner, label)
+    with owner.connect() as c:
+        code = c.execute(text("SELECT code FROM organizations WHERE id = :o"), {"o": t.org}).scalar_one()
+    emails: dict[str, str] = {}
+    ids: dict[str, uuid.UUID] = {}
+    for role in ROLES:
+        ids[role], emails[role] = add_member(owner, t, role)
+    return Staff(tenant=t, code=code, emails=emails, user_ids=ids)
+
+
+@pytest.fixture(scope="session")
+def api_app(app_engine: Engine) -> Iterator[Any]:
+    """The real FastAPI app, with its DB sessions pointed at the test database as aahar_app."""
+    from sqlalchemy.orm import Session
+
+    from app.core.db import get_session
+    from app.main import create_app
+
+    app = create_app()
+
+    def _session() -> Iterator[Session]:
+        with Session(app_engine, expire_on_commit=False) as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _session
+    yield app
+    app.dependency_overrides.clear()
+
+
+def login_client(api_app: Any, email: str, password: str = STAFF_PASSWORD) -> Any:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(api_app)
+    r = client.post("/api/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    return client
+
+
+@pytest.fixture(scope="module")
+def staff(owner_engine: Engine) -> Staff:
+    return make_staff(owner_engine, "STAFF")

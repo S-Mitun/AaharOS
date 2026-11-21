@@ -6,11 +6,11 @@ API = docker compose run --rm api
 WEB = docker compose run --rm --no-deps web
 
 .PHONY: help up down logs build test lint typecheck benchmark web-test web-lint web-build \
-        migrate seed-benchmark e2e integrity sim ml-eval
+        migrate seed-demo seed-benchmark e2e integrity sim ml-eval
 
 help:
 	@echo up down logs build test lint typecheck benchmark web-test web-lint web-build
-	@echo migrate seed-benchmark e2e integrity sim ml-eval
+	@echo migrate seed-demo seed-benchmark e2e integrity sim ml-eval
 
 up:
 	docker compose up -d --build
@@ -52,6 +52,9 @@ web-build:
 migrate:
 	$(API) alembic upgrade head
 
+seed-demo:
+	$(API) python -m app.cli.seed_demo
+
 seed-benchmark:
 	@echo not built yet - MP05: BENCHMARK tenant seed && exit 1
 
@@ -59,7 +62,7 @@ e2e:
 	@echo not built yet - MP08: Playwright && exit 1
 
 integrity:
-	@echo not built yet - MP04 and MP11: conservation laws, balance rebuild, audit chain && exit 1
+	$(API) python -m app.cli.integrity
 
 sim:
 	@echo not built yet - MP16: factory simulator && exit 1

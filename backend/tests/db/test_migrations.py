@@ -1,14 +1,21 @@
-"""MP02 gate: migrations go up from empty, down one step, and up again (and all the way down and back)."""
+"""MP02 gate: migrations go up from empty, down one step, and up again (and all the way down and back).
+
+The checks are generic over the revision history, so every new migration is round-tripped automatically.
+"""
 
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 
 from tests.db.conftest import alembic_config, owner_url, recreate_database
 
 MIGRATION_DB = "aaharos_migtest"
 
+Snapshot = tuple[str | None, int, int, int, int, int]
 
-def _snapshot(database: str) -> tuple[str | None, int, int, int]:
+
+def _snapshot(database: str) -> Snapshot:
+    """(revision, tables, roles seeded, triggers, RLS policies, aahar_* functions)."""
     engine = create_engine(owner_url(database))
     try:
         with engine.connect() as c:
@@ -18,40 +25,57 @@ def _snapshot(database: str) -> tuple[str | None, int, int, int]:
             triggers = c.execute(
                 text(r"SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'trg\_%'")
             ).scalar_one()
-        return version, tables, roles, triggers
+            policies = c.execute(text("SELECT count(*) FROM pg_policy")).scalar_one()
+            functions = c.execute(text(r"SELECT count(*) FROM pg_proc WHERE proname LIKE 'aahar\_%'")).scalar_one()
+        return version, tables, roles, triggers, policies, functions
     finally:
         engine.dispose()
+
+
+def _head_and_previous() -> tuple[str, str]:
+    script = ScriptDirectory.from_config(alembic_config(MIGRATION_DB))
+    head = script.get_current_head()
+    assert head is not None
+    previous = script.get_revision(head).down_revision
+    assert isinstance(previous, str)
+    return head, previous
 
 
 def test_upgrade_downgrade_one_step_upgrade(database_available: None) -> None:
     recreate_database(MIGRATION_DB)
     cfg = alembic_config(MIGRATION_DB)
+    head, previous = _head_and_previous()
 
     command.upgrade(cfg, "head")
-    version, tables, roles, triggers = _snapshot(MIGRATION_DB)
-    assert version == "0005"
-    assert tables == 67
-    assert roles == 5
-    assert triggers > 30
+    at_head = _snapshot(MIGRATION_DB)
+    assert at_head[0] == head
+    assert at_head[2] == 5  # the five roles are seeded
+    assert at_head[3] > 30 and at_head[4] > 60
 
-    command.downgrade(cfg, "-1")  # removes the seed only
-    assert _snapshot(MIGRATION_DB) == ("0004", 67, 0, triggers)
+    command.downgrade(cfg, "-1")
+    one_down = _snapshot(MIGRATION_DB)
+    assert one_down[0] == previous
+    assert one_down != at_head  # the step really undid something
 
     command.upgrade(cfg, "head")
-    assert _snapshot(MIGRATION_DB) == ("0005", 67, 5, triggers)
+    assert _snapshot(MIGRATION_DB) == at_head
 
 
-def test_full_downgrade_to_empty_and_back(database_available: None) -> None:
+def test_every_revision_downgrades_and_reapplies(database_available: None) -> None:
+    """Walk all the way down to empty one step at a time, then back up: each downgrade must work."""
     recreate_database(MIGRATION_DB)
     cfg = alembic_config(MIGRATION_DB)
     command.upgrade(cfg, "head")
+    at_head = _snapshot(MIGRATION_DB)
 
-    command.downgrade(cfg, "base")
-    version, tables, _roles, triggers = _snapshot(MIGRATION_DB)
-    assert (version, tables, triggers) == (None, 0, 0)
+    script = ScriptDirectory.from_config(cfg)
+    for _ in script.walk_revisions():
+        command.downgrade(cfg, "-1")
+    version, tables, _roles, triggers, policies, functions = _snapshot(MIGRATION_DB)
+    assert (version, tables, triggers, policies, functions) == (None, 0, 0, 0, 0)
 
     command.upgrade(cfg, "head")
-    assert _snapshot(MIGRATION_DB)[:3] == ("0005", 67, 5)
+    assert _snapshot(MIGRATION_DB) == at_head
 
 
 def test_models_match_migrations(migrated: str) -> None:

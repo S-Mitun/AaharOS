@@ -46,11 +46,12 @@ Modules talk through `service.py` interfaces, never by importing another module'
 ## Commands (keep this section accurate; update it when commands change)
 - `make up`: start the stack with docker compose
 - `make migrate`: apply Alembic migrations
+- `make seed-demo`: the LIVE DEMO organization and one login per role (passwords from .env)
 - `make seed-benchmark`: reset the BENCHMARK tenant only and load Section 5 master data
 - `make benchmark`: run the 9 NIT steps and print the scoreboard against the oracle
 - `make test`: backend unit + integration tests
 - `make e2e`: Playwright tests
-- `make integrity`: check the 4 conservation laws, rebuild balances, verify the audit hash chain
+- `make integrity`: verify the audit hash chain (built); the 4 conservation laws and balance rebuild come in MP04/MP11
 - `make sim`: generate the synthetic 24-month dataset (fixed seed)
 - `make ml-eval`: backtests vs baselines + planted-truth recovery report
 

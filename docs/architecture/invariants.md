@@ -45,8 +45,8 @@ must use.
 |---|---|---|---|
 | P1 | Period lock: no journal, invoice or payment may be posted into a locked period; reopening needs OWNER + reason (audited). | DB: trigger on insert checks `period_locks` · SVC | `ledger:test_post_into_locked_period_rejected` |
 | P2 | Organization isolation: every business row carries `organization_id`; a session can read and write only its own organization. | DB: row-level security with `app.org_id` GUC set per request (ADR-0006) | `identity:test_cross_org_read_impossible` |
-| P3 | Audit chain is unbroken: for each organization, `hash(n) = sha256(hash(n−1) ‖ canonical_json(row n))`. Every privileged mutation writes one row. | SVC: `audit.record()` in the same transaction, chain head locked · CLI: verify | `audit:test_tampered_row_detected` |
-| P4 | RBAC on every route; the auditor can never mutate. | SVC: `require(perm)` dependency | `identity:test_route_role_matrix`, `identity:test_auditor_403_all_mutations` |
+| P3 | Audit chain is unbroken: for each organization, `hash(n) = sha256(hash(n−1) ‖ canonical_json(row n))`. Every privileged mutation writes one row. | SVC: `audit.record()` in the same transaction, chain head locked · DB: insert-only · CLI: `make integrity` | `tests/db/test_audit.py::test_tampered_row_is_detected`, `::test_deleted_row_is_detected`, `::test_deleted_newest_row_is_caught_by_the_chain_head`, `::test_concurrent_writers_do_not_fork_the_chain` |
+| P4 | RBAC on every route; the auditor can never mutate. | SVC: `require(perm)` dependency · TEST: unguarded route fails CI | `tests/db/test_rbac.py::test_route_role_matrix` (generated), `::test_auditor_gets_403_on_every_mutation`, `::test_every_route_is_guarded_or_deliberately_public` |
 | P5 | No float in money or quantity paths. | SVC: `core.money` rejects float · CI grep gate · oracle loader yields Decimal | `test_core:test_float_is_rejected` (exists), CI `grep -rn "float(" backend/app/modules` |
 | P6 | ML / analytics / LLM never write ledger, invoice, payment or run tables. | DB: analytics role has SELECT only on views | `analytics:test_role_is_read_only` (MP16) |
 

@@ -19,12 +19,12 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 
 | Id | Requirement | Tier | Module | API | Screen | Tables | Test | MP |
 |---|---|---|---|---|---|---|---|---|
-| R3.1 | Salesman (phone, weak network): pick customer, add products, submit; see own orders, status, customer-wise sales | M | sales, identity | /orders, /me/customers | salesman PWA | salesman_customer_assignments | e2e:salesman-order, identity:row-filter | 03, 08 |
+| R3.1 | Salesman (phone, weak network): pick customer, add products, submit; see own orders, status, customer-wise sales | M | sales, identity | GET /api/customers, GET /api/orders (row-filtered) | salesman PWA | salesman_customer_assignments | e2e:salesman-order, `tests/db/test_row_filter.py` | 03, 08 |
 | R3.2 | Factory admin (desktop): receive orders, verify price/qty/stock, invoice, dispatch, payments | M | sales, billing, dispatch, collections | /orders/{id}/approve … | order inbox, invoices, collections | — | e2e:admin-flow | 09–10 |
 | R3.3 | Production supervisor: receipts, issues, daily runs, actual output and wastage | M | procurement, production | /receipts, /runs | batch card | — | e2e:batch-card | 05–06 |
 | R3.4 | Accountant/auditor: read-only monthly reports and exports | M | reports, identity | GET /reports/* | auditor workspace | — | identity:auditor-403-all-mutations | 03, 11 |
 | R3.5 | Owner: today's orders, stock, variance alerts, cost per packet, dues | S | planning | /owner/brief | morning brief | alerts | planning:brief | 12 |
-| R3.6 | Each role sees only what it needs; RBAC is a requirement | M | identity | `require(perm)` on every route | role shells | roles, permissions, memberships | identity:route×role matrix | 03 |
+| R3.6 | Each role sees only what it needs; RBAC is a requirement | M | identity | `require(perm)` on every route | role shells | roles, permissions, role_permissions, memberships | `tests/db/test_rbac.py` (route × role, auditor 403) | 03 |
 
 ## Section 4.1: field order taking
 
@@ -52,7 +52,7 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 | Id | Requirement | Tier | Module | API | Screen | Tables | Test | MP |
 |---|---|---|---|---|---|---|---|---|
 | R4.3.1 | BOM per product: standard qty of each raw and packaging item per batch + expected yield | M | recipe | /recipes, /pack-specs | recipe master | recipe_versions, recipe_lines, pack_spec_lines (driver) | recipe:versions-immutable | 06 |
-| R4.3.2 | Run records product, batch size/issues, expected output, actual output, wastage/scrap | M | production | POST /runs | batch card | production_runs, run_issues, run_outputs | bench:a04 | 06 |
+| R4.3.2 | Run records product, batch size/issues, expected output, actual output, wastage/scrap | M | production | POST /runs | batch card | production_runs, material_issues, run_pack_lines | bench:a04 | 06 |
 | R4.3.3 | Saving a run lowers raw stock and raises FG stock automatically | M | production, ledger | POST /runs/{id}/post | stock-impact preview | stock_journals | bench:a01–a04, production:atomic-rollback | 06 |
 | R4.3.4 | Planned vs actual consumption and yield; flag beyond tolerance (e.g. 3%) | M | production | GET /runs/{id}/variances | variance view | variance_results, settings | bench:a06, a07, a20 | 06 |
 | R4.3.5 | Units convert correctly: kg, g, L, pieces, packets, cartons | M | uom | — | — | uoms, uom_conversions | uom:round-trip-property | 04 |
@@ -131,7 +131,7 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 | R7.2 | Real database; balances derived from a ledger, never overwritten | M | Postgres, inventory_balances projection, zero-sum trigger | ledger:projection==rebuild, db:unbalanced-journal-rejected | 02, 04 |
 | R7.3 | No float money; decimal or integer paise | M | `Decimal`/`NUMERIC`, `core.money` rejects float | test_core:float-rejected, grep gate | 00+ |
 | R7.4 | Every stock movement links to its source | M | stock_journals(source_type, source_id) NOT NULL | ledger:source-required | 02, 04 |
-| R7.5 | Edits to invoices and runs logged with user and time; posted invoices cancelled by credit note | M | audit hash chain, immutability trigger, credit notes | audit:tamper-detected, billing:credit-note | 03, 10 |
+| R7.5 | Edits to invoices and runs logged with user and time; posted invoices cancelled by credit note | M | audit hash chain, immutability trigger, credit notes | `tests/db/test_audit.py` (tamper detected), billing:credit-note | 03, 10 |
 | R7.6 | Seed script for section 5 data | M | `make seed-benchmark` | bench:* | 05 |
 | R7.7 | Hosted demo link or single run command | M | `make up`; hosted demo in MP17 | fresh-clone drill | 17 |
 | R7.8 | Understand every part; explain and change code live | M | Part F drills, judge-readiness | MP19 drills | 19 |
@@ -144,7 +144,7 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 | R8.2 | README: setup, stack and why, features vs tiers, assumptions, known gaps, benchmark numbers | README.md | 18 |
 | R8.3 | Design note ≤ 2 pages: ER diagram, stock and BOM computation, costing and valuation | docs/design-note.md | 18 |
 | R8.4 | Demo video ≤ 8 min, section 5 in order, mobile + admin views | docs/demo-script.md | 18 |
-| R8.5 | Live link or run command with test logins per role | README, Start-here page | 03, 17 |
+| R8.5 | Live link or run command with test logins per role | README "Test logins" (`make seed-demo`), Start-here page | 03, 17 |
 | R8.6 | First-time visitors understand how to test it | Start-here page + guided tour + Guide button (D) | 00, 15 |
 
 ## Sections 9–10: evaluation and rules

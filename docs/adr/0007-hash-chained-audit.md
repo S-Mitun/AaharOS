@@ -14,7 +14,11 @@ not been edited.
 - `audit_log` is insert-only for the application role (UPDATE/DELETE revoked and blocked by a trigger).
 - `make integrity` recomputes the chain; any edited, inserted or deleted row breaks verification at that `seq`.
 - Every privileged mutation writes one row: posting, reversal, approval, amendment, price change, period lock,
-  settings change, failed logins.
+  settings change, login, logout, refresh-token reuse, user create/deactivate.
+- **MP03 amendment:** failed logins are recorded in `login_attempts` (global), not in the chain. Before login there
+  is no organization, and the chain is per organization (ADR-0010).
+- **Implemented in MP03:** `audit_chain_heads` holds the last seq and hash, so deleting the newest rows is also
+  detected. Secret-looking keys in summaries are redacted, and floats are refused.
 
 ## Consequences
 - Blockchain-style evidence without a blockchain. The evidence pack (MP11) includes the verification result.

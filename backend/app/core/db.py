@@ -10,6 +10,7 @@ from datetime import datetime
 from functools import lru_cache
 
 from sqlalchemy import (
+    Connection,
     DateTime,
     Engine,
     ForeignKey,
@@ -17,11 +18,12 @@ from sqlalchemy import (
     MetaData,
     Numeric,
     create_engine,
+    event,
     func,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, SessionTransaction, mapped_column, sessionmaker
 
 from app.core.config import get_settings
 
@@ -102,13 +104,42 @@ def get_session() -> Iterator[Session]:
         yield session
 
 
-def org_scope(session: Session, organization_id: uuid.UUID) -> None:
-    """Bind the current transaction to one organization for row-level security.
+# session.info key -> PostgreSQL setting read by RLS policies and audit (`aahar_current_org()`, `aahar_current_user()`)
+_SCOPE_SETTINGS = (
+    ("aahar_org_id", "app.org_id"),
+    ("aahar_user_id", "app.user_id"),
+)
 
-    `set_config(..., true)` is transaction-local (like SET LOCAL), so it cannot leak to the next request
-    that reuses the pooled connection. MP03's middleware calls this once per request.
+
+def _apply_scope(session: Session, connection: Connection) -> None:
+    for key, setting in _SCOPE_SETTINGS:
+        value = session.info.get(key)
+        if value is not None:
+            connection.execute(text("SELECT set_config(:k, :v, true)"), {"k": setting, "v": str(value)})
+
+
+@event.listens_for(Session, "after_begin")
+def _reapply_scope(session: Session, _transaction: SessionTransaction, connection: Connection) -> None:
+    """Re-apply the scope at the start of every transaction, so a commit inside a request cannot drop it."""
+    _apply_scope(session, connection)
+
+
+def org_scope(session: Session, organization_id: uuid.UUID, user_id: uuid.UUID | None = None) -> None:
+    """Bind this session to one organization (and user) for row-level security.
+
+    `set_config(..., true)` is transaction-local (like SET LOCAL), so it cannot leak to the next request that
+    reuses the pooled connection. The values live in `session.info` and are re-applied on every new transaction.
+    The identity dependency (`require`) calls this once per request, on the same session the route uses.
     """
-    session.execute(
-        text("SELECT set_config('app.org_id', :org, true)"),
-        {"org": str(organization_id)},
-    )
+    session.info["aahar_org_id"] = organization_id
+    if user_id is not None:
+        session.info["aahar_user_id"] = user_id
+    already_open = session.in_transaction()
+    connection = session.connection()  # starts a transaction if needed; the after_begin hook applies the scope
+    if already_open:
+        _apply_scope(session, connection)
+
+
+def scoped_org(session: Session) -> uuid.UUID | None:
+    value = session.info.get("aahar_org_id")
+    return value if isinstance(value, uuid.UUID) else None
