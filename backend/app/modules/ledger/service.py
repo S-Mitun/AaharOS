@@ -487,6 +487,20 @@ def _journal_lines(session: Session, journal_id: uuid.UUID) -> list[JournalLine]
     ]
 
 
+def journal_lines(session: Session, journal_id: uuid.UUID) -> list[JournalLine]:
+    """The stored lines of one journal (base units, signed values, location codes)."""
+    return _journal_lines(session, journal_id)
+
+
+def journal_for(session: Session, kind: str, source_type: str, source_id: uuid.UUID) -> uuid.UUID | None:
+    """The journal of one kind posted for a source document (e.g. a run's RUN_COMPLETION), if any."""
+    return session.execute(
+        select(StockJournal.id).where(
+            StockJournal.kind == kind, StockJournal.source_type == source_type, StockJournal.source_id == source_id
+        )
+    ).scalar_one_or_none()
+
+
 # ---------- reservations ----------
 
 
@@ -687,6 +701,24 @@ def net_movements(session: Session, item_id: uuid.UUID, location_codes: Sequence
         .order_by(StockJournal.posting_date, StockJournal.posted_at, StockJournal.id)
     ).all()
     return [NetMovement(jid, kind, rev, Decimal(q), Decimal(v)) for jid, kind, rev, q, v in rows if q != 0 or v != 0]
+
+
+def lot_positions(session: Session, item_id: uuid.UUID, lot_id: uuid.UUID) -> list[tuple[str, Decimal, Decimal]]:
+    """(location code, qty_base, value) of every non-zero balance of one lot, virtual locations included."""
+    rows = session.execute(
+        select(Location.code, InventoryBalance.qty_base, InventoryBalance.value)
+        .join(Location, Location.id == InventoryBalance.location_id)
+        .where(InventoryBalance.item_id == item_id, InventoryBalance.lot_id == lot_id)
+        .where((InventoryBalance.qty_base != 0) | (InventoryBalance.value != 0))
+        .order_by(Location.code)
+    ).all()
+    return [(code, Decimal(q), Decimal(v)) for code, q, v in rows]
+
+
+def lock_item_stores(session: Session, organization_id: uuid.UUID, item_id: uuid.UUID) -> None:
+    """Take the per-(item, store) lock on every store of one item, as `post()` does, before reading its values."""
+    stores = [loc.id for loc in locations(session).values() if loc.kind == "STORE"]
+    lock_positions(session, organization_id, [(item_id, loc) for loc in stores])
 
 
 def items_held_at(session: Session, location_codes: Sequence[str]) -> list[uuid.UUID]:

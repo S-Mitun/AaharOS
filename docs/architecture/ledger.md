@@ -145,8 +145,11 @@ full run cost, split between what was sold and what is on hand. A value-only tru
 - After: B-001 on hand 88 packets = **2,740.64**, sold 100 = **3,114.36**, total **5,855.00** (assertion 22).
   Cost status becomes **FINAL**; cost per good packet ₹31.143617 → shown as **₹31.14** (assertions 17, 18).
 - COGS for invoice A = 1,442.50 + 3,114.36 = **4,556.86**; gross margin 2,943.14 (39.24%).
-- If run costs are entered *before* completion, no true-up is needed: the completion journal's output line simply
-  carries materials + conversion costs, with a `CONVERSION_COST` line for the costs.
+- **As built (MP07, ADR-0014):** run costs are recorded only after completion, each one a true-up spread
+  cumulatively over wherever the lot is (on hand takes the remainder), so labour then gas ends exactly where one
+  true-up of 1,800.00 would. Proven in NIT's order by `tests/db/test_costing.py::test_run_costs_in_nit_order_after_a_sale`
+  and in pure form by `production/tests/test_true_up.py::test_nit_j8_after_the_dispatch`. Until MP10 builds the
+  dispatch, the benchmark replay records step 8 before any sale, so its true-up goes wholly to FG_STORE.
 
 ### Step 9: reports
 No stock lines. Reports read journals, lines, invoices and payments; nothing is re-typed.

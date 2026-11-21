@@ -6,6 +6,7 @@ passes the xfail marker must be removed (strict mode turns an unexpected pass in
 """
 
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Any, TypeVar
 
 import pytest
@@ -159,9 +160,15 @@ def test_a16_flour_wac(stock_replay: Any, oracle: dict[str, Any]) -> None:
     "aaharos_expected.run_cost.total",
     "aaharos_expected.run_cost.materials_total",
 )
-@pending("MP07")
-def test_a17_run_cost() -> None:
-    not_built("MP07")
+def test_a17_run_cost(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    rc = oracle["aaharos_expected"]["run_cost"]
+    cost = stock_replay.costing.cost  # Explained values from costing.run_costing, read from the ledger (MP07)
+    assert cost.total.value == rc["total"] and cost.materials.value == rc["materials_total"]
+    assert cost.conversion.value == rc["labour"] + rc["gas_power"]
+    by_item = {i.label.split()[0]: i.value for i in cost.materials.inputs}
+    assert (by_item["flour"], by_item["cooking_oil"], by_item["spice_mix"]) == (rc["flour"], rc["oil"], rc["spice"])
+    assert (by_item["pouch_200g"], by_item["carton_20"]) == (rc["pouches"], rc["cartons"])
+    assert stock_replay.costing.facts.cost_status == "FINAL"
 
 
 @A(
@@ -172,15 +179,31 @@ def test_a17_run_cost() -> None:
     "aaharos_expected.valuation_sensitivity.FIFO.per_packet",
     "aaharos_expected.valuation_sensitivity.LAST.per_packet",
 )
-@pending("MP07")
-def test_a18_cost_per_packet() -> None:
-    not_built("MP07")
+def test_a18_cost_per_packet(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    ext = oracle["aaharos_expected"]
+    c = stock_replay.costing
+    assert c.cost.per_good_unit.unit == "INR/packet"
+    assert c.cost.per_good_unit.value.quantize(Decimal("0.01")) == ext["run_cost"]["cost_per_good_packet"]
+    for method in ("WAC", "FIFO", "LAST"):
+        s = c.sensitivity[method]
+        assert Decimal(s["total"]["value"]) == ext["valuation_sensitivity"][method]["total"]
+        assert Decimal(s["per_good_unit_display"]) == ext["valuation_sensitivity"][method]["per_packet"]
+    assert [m for m, s in c.sensitivity.items() if s["posts"]] == ["WAC"]
 
 
 @A(19, "Variance waterfall sums exactly", "MP07", "aaharos_expected.variance_waterfall.total_unfavourable")
-@pending("MP07")
-def test_a19_waterfall() -> None:
-    not_built("MP07")
+def test_a19_waterfall(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    w = oracle["aaharos_expected"]["variance_waterfall"]
+    wf = stock_replay.costing.waterfall
+    assert wf.total.value == w["total_unfavourable"]
+    assert wf.standard.value == oracle["aaharos_expected"]["standard_cost"]["standard_cost_of_188"]
+    assert wf.component("YIELD").value == w["yield_loss"]
+    assert wf.component("USAGE", "cooking_oil").value == w["oil_usage"]
+    assert wf.component("PRICE", "flour").value == w["flour_price"]
+    assert wf.component("USAGE", "pouch_200g").value == w["pouch_damage"]
+    assert wf.component("USAGE", "carton_20").value == w["carton_usage"]
+    assert sum(c.value for c in wf.components) == wf.total.value  # nothing left as silent residue
+    assert {c.kind for c in wf.components} <= {"YIELD", "USAGE", "PRICE", "CONVERSION"}  # no rounding part needed
 
 
 @A(

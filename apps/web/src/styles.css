@@ -760,3 +760,160 @@ main {
     transition: none;
   }
 }
+
+/* Explain this number (MP07) */
+.numx {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+
+.info-btn {
+  min-width: 28px;
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--info);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.info-btn[aria-expanded="true"] {
+  background: var(--info-soft);
+}
+
+.explain-pop {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: min(360px, 86vw);
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--text);
+  text-align: left;
+}
+
+.explain-title {
+  font-weight: 700;
+}
+
+.explain-input {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 0.6rem;
+}
+
+.explain-input .muted {
+  grid-column: 1 / -1;
+}
+
+/* Where profit leaks (MP07) */
+.leaks h1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0 2rem;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.waterfall {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+}
+
+.wf-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) 2fr auto auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-bar {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.wf-bar span {
+  display: block;
+  height: 100%;
+  background: var(--bad);
+}
+
+.wf-favourable .wf-bar span {
+  background: var(--ok);
+}
+
+.checks-list li,
+.run-list li {
+  margin-bottom: 0.5rem;
+}
+
+.signin {
+  max-width: 420px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+.form input {
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+}
+
+@media (max-width: 640px) {
+  .wf-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .wf-bar {
+    grid-column: 1 / -1;
+  }
+}

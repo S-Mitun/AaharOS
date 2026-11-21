@@ -2,6 +2,8 @@
 
 - `POST /api/runs` and `POST /api/runs/{id}/start` need `run.start`; so do material issues and returns.
 - `POST /api/runs/{id}/complete` needs `run.complete`.
+- `POST /api/runs/{id}/costs` (labour, gas/power after completion: a value-only true-up) and
+  `POST /api/runs/{id}/costs/finalise` need `run.cost` (MP07).
 - Reading a run (variances, packing, mass balance) needs `report.read`.
 Issues and completion honour an `Idempotency-Key` header (a tablet on weak wi-fi): a duplicate submit returns the
 first result (200 instead of 201) and posts nothing.
@@ -17,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.modules.identity.service import Principal, require
 from app.modules.production import service
-from app.modules.production.schemas import CompleteBody, IssueBody, RunBody
+from app.modules.production.schemas import CompleteBody, IssueBody, RunBody, RunCostBody
 
 router = APIRouter(prefix="/api", tags=["production"])
 DbSession = Annotated[Session, Depends(get_session)]
@@ -145,3 +147,39 @@ def complete_run(
     if result.replayed:
         response.status_code = status.HTTP_200_OK
     return {"replayed": result.replayed, "journal_id": str(result.journal_id), **service.get_run(session, run_id)}
+
+
+@router.post("/runs/{run_id}/costs", status_code=status.HTTP_201_CREATED)
+def record_run_cost(
+    run_id: uuid.UUID,
+    body: RunCostBody,
+    response: Response,
+    principal: Annotated[Principal, Depends(require("run.cost"))],
+    session: DbSession,
+    idempotency_key: IdempotencyKey = None,
+) -> dict[str, Any]:
+    result = service.record_run_cost(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        run_id=run_id,
+        kind=body.kind,
+        amount=Decimal(body.amount),
+        incurred_on=body.incurred_on,
+        idempotency_key=idempotency_key,
+    )
+    session.commit()
+    if result.replayed:
+        response.status_code = status.HTTP_200_OK
+    return {"replayed": result.replayed, "run_cost_id": str(result.run_cost_id), "journal_id": str(result.journal_id)}
+
+
+@router.post("/runs/{run_id}/costs/finalise")
+def finalise_costs(
+    run_id: uuid.UUID, principal: Annotated[Principal, Depends(require("run.cost"))], session: DbSession
+) -> dict[str, Any]:
+    service.finalise_costs(
+        session, organization_id=principal.organization_id, actor_id=principal.user_id, run_id=run_id
+    )
+    session.commit()
+    return {"run_id": str(run_id), "cost_status": "FINAL"}

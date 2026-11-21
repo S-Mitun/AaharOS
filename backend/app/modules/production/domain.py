@@ -774,3 +774,161 @@ def returned_value(net_qty: Decimal, net_value: Decimal, return_qty: Decimal) ->
     if return_qty == net_qty:
         return net_value
     return round_money(return_qty * net_value / net_qty)
+
+
+# ---------- run costs: the value-only true-up (ADR-0004, ADR-0014 decisions F1, F2) ----------
+
+RUN_COST_KINDS: Final = ("LABOUR", "GAS_POWER", "OTHER")
+ON_HAND: Final = "FG_STORE"
+
+
+@dataclass(frozen=True)
+class LotPosition:
+    location: str
+    qty_base: Decimal
+    value: Decimal
+
+
+@dataclass(frozen=True)
+class LotState:
+    """One pack line of a completed run, as the ledger holds it now."""
+
+    pack_line_id: uuid.UUID
+    bulk_allocated_g: Decimal
+    item_id: uuid.UUID  # the FG item (or, for a pack line with no good units, unused)
+    base_uom: str
+    lot_id: uuid.UUID | None  # None when the pack line made no good units
+    positions: tuple[LotPosition, ...] = ()  # where the lot's units are now (qty > 0), e.g. FG_STORE, CUSTOMER
+
+    @property
+    def qty(self) -> Decimal:
+        return sum((p.qty_base for p in self.positions), ZERO)
+
+    @property
+    def value(self) -> Decimal:
+        return sum((p.value for p in self.positions), ZERO)
+
+
+@dataclass(frozen=True)
+class TrueUpPlan:
+    lines: tuple[LineSpec, ...]
+    share: dict[uuid.UUID, Decimal]  # pack line -> its part of this cost
+    written_off: dict[uuid.UUID, Decimal]  # pack line -> part sent to SCRAP (no good units)
+
+
+def check_run_cost(kind: str, amount: Decimal) -> Decimal:
+    if kind not in RUN_COST_KINDS:
+        raise RunError("bad_cost_kind", f"run cost kind must be one of {', '.join(RUN_COST_KINDS)}")
+    money = require_decimal(amount, "amount")
+    if money <= 0:
+        raise RunError("amount_not_positive", "a run cost must be positive")
+    if money != money.quantize(PCT_DISPLAY):
+        raise RunError("amount_not_rounded", "a run cost is rupees with at most 2 decimal places")
+    return money
+
+
+def plan_true_up(amount: Decimal, lots: Sequence[LotState], *, bulk_item_id: uuid.UUID) -> TrueUpPlan:
+    """Spread one direct run cost over the run's lots (value only, quantities untouched).
+
+    - Each pack line's share is by bulk allocated; the last line takes the rounding remainder.
+    - Within a lot the spread is cumulative (ledger.md J8): the lot's new total = what it holds + its share; each
+      position that holds units gets round(qty / lot qty x new total) - what it already holds; FG_STORE (on hand)
+      takes the remainder, or the last position when nothing is on hand. Two true-ups end where one would.
+    - A pack line with no good units sends its share to SCRAP on the bulk item (decision E4).
+    Σ value = 0 by construction: every share leaves CONVERSION_COST and lands somewhere.
+    """
+    if not lots:
+        raise RunError("no_pack_lines", "a run needs at least one pack line")
+    shares = split_value(amount, [lot.bulk_allocated_g for lot in lots])
+    lines: list[LineSpec] = []
+    written_off: dict[uuid.UUID, Decimal] = {}
+    for lot, share in zip(lots, shares, strict=True):
+        written_off[lot.pack_line_id] = ZERO
+        if share == 0:
+            continue
+        held = [p for p in lot.positions if p.qty_base > 0]
+        if lot.lot_id is None or not held:
+            written_off[lot.pack_line_id] = share
+            lines += [
+                LineSpec(bulk_item_id, "SCRAP", ZERO, "g", share),
+                LineSpec(bulk_item_id, "CONVERSION_COST", ZERO, "g", -share),
+            ]
+            continue
+        lot_qty = sum((p.qty_base for p in held), ZERO)
+        target = sum((p.value for p in held), ZERO) + share
+        remainder_at = next((p for p in held if p.location == ON_HAND), held[-1])
+        deltas: dict[str, Decimal] = {}
+        for p in held:
+            if p is not remainder_at:
+                deltas[p.location] = round_money(p.qty_base * target / lot_qty) - p.value
+        deltas[remainder_at.location] = share - sum(deltas.values(), ZERO)
+        for location, delta in deltas.items():
+            if delta != 0:
+                lines.append(LineSpec(lot.item_id, location, ZERO, lot.base_uom, delta, lot.lot_id))
+        lines.append(LineSpec(lot.item_id, "CONVERSION_COST", ZERO, lot.base_uom, -share, lot.lot_id))
+    return TrueUpPlan(
+        lines=tuple(lines),
+        share={lot.pack_line_id: s for lot, s in zip(lots, shares, strict=True)},
+        written_off=written_off,
+    )
+
+
+# ---------- what costing reads about a completed run (MP07) ----------
+
+
+@dataclass(frozen=True)
+class IssueMove:
+    journal_id: uuid.UUID
+    direction: str  # ISSUE, RETURN, or ISSUE for packaging taken at completion
+    qty_base: Decimal
+    value: Decimal
+
+
+@dataclass(frozen=True)
+class MaterialFacts:
+    item_id: uuid.UUID
+    item_code: str
+    role: str  # INGREDIENT (issued to WIP) or PACKAGING (taken at completion)
+    base_uom: str
+    stock_uom: str
+    qty_base: Decimal  # net issued, or used (damaged included)
+    value: Decimal  # at book value (WAC)
+    moves: tuple[IssueMove, ...]
+
+
+@dataclass(frozen=True)
+class ConversionFacts:
+    run_cost_id: uuid.UUID
+    kind: str
+    amount: Decimal
+    incurred_on: date
+    journal_id: uuid.UUID | None
+
+
+@dataclass(frozen=True)
+class PackFacts:
+    pack_line_id: uuid.UUID
+    pack: PackStd
+    bulk_allocated_g: Decimal
+    good_units: int
+    used: dict[uuid.UUID, Decimal]  # packaging item -> base qty used, damaged included
+    damaged: dict[uuid.UUID, Decimal]
+    lot_id: uuid.UUID | None
+    lot_no: str | None
+    lot_qty: Decimal  # units of the lot wherever they are now (on hand, in transit, sold)
+    lot_value: Decimal
+
+
+@dataclass(frozen=True)
+class RunCostingFacts:
+    run_id: uuid.UUID
+    run_no: str
+    cost_status: str
+    run_date: date
+    batch_multiplier: Decimal
+    recipe: RecipeStd
+    packs: tuple[PackFacts, ...]
+    materials: tuple[MaterialFacts, ...]
+    conversion: tuple[ConversionFacts, ...]
+    completion_journal_id: uuid.UUID
+    written_off: Decimal  # value the completion and true-ups sent to SCRAP (decision E4)

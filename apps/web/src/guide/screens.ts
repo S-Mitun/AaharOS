@@ -22,9 +22,9 @@ export const SCREENS: Record<string, Screen> = {
   batchCosts: { name: "Batch → Run costs", route: "/production/batch", mp: "MP07", built: false },
   profitLeaks: {
     name: "Where profit leaks",
-    route: "/owner/profit-leaks",
+    route: "/leaks",
     mp: "MP07",
-    built: false,
+    built: true,
   },
   salesOrder: { name: "Salesman app → New order", route: "/sales/order", mp: "MP08", built: false },
   orderInbox: { name: "Admin → Order inbox", route: "/admin/orders", mp: "MP09", built: false },

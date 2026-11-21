@@ -35,6 +35,8 @@ Everything marked **DEMO** is fictional and must be replaced and verified (by a 
 | G15 | Inter-state e-way bill threshold | ₹50,000 consignment value (config). Distributor B's ₹6,300 is below it. |
 | G17 | 500 g pack (seed data only) | **DEMO**: `murukku_500g` in `pouch_500g`, 10 packets per outer carton (the same `carton_20` box), 90 days shelf life. Not part of the benchmark run. |
 | G18 | Pouches used in the NIT run | Pouches taken from the store = good packets + damaged pouches (188 + 6 = 194); the damaged go to SCRAP at no value. |
+| G19 | Standard rates and the conversion standard | The 200 g standard cost card uses the opening rates (A2) and this run's labour 1,200 + gas 600 as the conversion standard per batch: 28.85 per packet. No 500 g card (no input rate for `pouch_500g`). |
+| G20 | Overheads | Monthly overheads are not absorbed into lots in v1 (MP11 reports them); costing shows direct cost. |
 | G16 | Payment terms | 45 days (MSME written-agreement maximum) unless a customer has shorter terms; verify with CA. |
 
 ## Not assumed

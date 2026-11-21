@@ -93,3 +93,11 @@ class CompleteBody(BaseModel):
 
     def masses(self) -> tuple[Decimal, Decimal]:
         return Decimal(self.scrap_g), Decimal(self.loss_g)
+
+
+class RunCostBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["LABOUR", "GAS_POWER", "OTHER"]
+    amount: Annotated[str, StringConstraints(pattern=r"^\d{1,12}(\.\d{1,2})?$")]  # rupees
+    incurred_on: date | None = None

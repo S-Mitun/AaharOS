@@ -4,7 +4,8 @@ Built: the audit hash chain of every organization (MP03); law 1 re-summed from e
 balance projection rebuilt from `stock_lines` and diffed (MP04; diff only, never repair); every posted receipt's
 stock value equal to its lines (MP05); S6, the WIP of every completed production run is zero (MP06), with the mass
 balance gap of each run reported (shown, never failed: law 3 is an explained gap, not a forced zero). The other laws
-are added by MP11 and are listed here as NOT BUILT, never as passing.
+are added by MP11 and are listed here as NOT BUILT, never as passing. MP07 adds law 2 per run: the value each completed
+run put into its lots and SCRAP equals its materials and its run costs.
 """
 
 import sys
@@ -20,7 +21,6 @@ from app.modules.procurement import service as procurement
 from app.modules.production import service as production
 
 NOT_BUILT = (
-    ("Law 2 value: lot value = run cost", "MP11"),
     ("Law 3 mass balance per run", "MP11"),
     ("Law 4 tax: lines = GST summary = export", "MP11"),
 )
@@ -73,6 +73,14 @@ def run(session: Session) -> tuple[bool, list[str]]:
         lines.append(
             "PASS  S6 run WIP: every completed run consumed exactly its net issues (WIP zero per run and item)"
         )
+
+    value = production.run_value_mismatches(session)
+    ok = ok and not value
+    if value:
+        lines.append(f"FAIL  law 2 value per run: {len(value)} completed runs whose lots + write-offs differ from cost")
+        lines.extend(f"        {row}" for row in value[:20])
+    else:
+        lines.append("PASS  law 2 value per run: lots (wherever they are) + write-offs = materials + run costs")
 
     gaps = production.mass_balance_gaps(session)
     lines.append(f"INFO  mass balance: {len(gaps)} completed runs show an unexplained gap (reported, not failed)")

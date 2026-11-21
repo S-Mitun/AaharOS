@@ -37,14 +37,21 @@ from app.modules.ledger import service as ledger
 from app.modules.ledger.domain import LineSpec
 from app.modules.production import domain
 from app.modules.production.domain import (
+    ConversionFacts,
     IssuedMaterial,
+    IssueMove,
+    LotPosition,
+    LotState,
     MassBalance,
+    MaterialFacts,
     PackagingUse,
     PackedMass,
+    PackFacts,
     Packing,
     PackOutcome,
     PackStd,
     RecipeStd,
+    RunCostingFacts,
     RunError,
     StdLine,
     Variance,
@@ -55,6 +62,7 @@ from app.modules.production.models import (
     MaterialIssueLine,
     OilSession,
     ProductionRun,
+    RunCost,
     RunPackLine,
 )
 from app.modules.recipe import service as recipes
@@ -1050,3 +1058,313 @@ def mass_balance_gaps(session: Session) -> list[dict[str, str]]:
                 }
             )
     return out
+
+
+# ---------- run costs (MP07, ADR-0014 decisions F1-F3) ----------
+
+
+@dataclass(frozen=True)
+class RunCostResult:
+    run_cost_id: uuid.UUID
+    journal_id: uuid.UUID
+    replayed: bool
+
+
+def _lot_states(session: Session, organization_id: uuid.UUID, run: ProductionRun) -> list[LotState]:
+    """The run's pack lines in completion order, each with where its lot's units are now (under the item locks)."""
+    ordered = _ordered(run, _pack_lines(session, run.id))
+    units = catalog.units_for(session, {pack.fg_item_id for _, pack in ordered})
+    for item_id in sorted({pack.fg_item_id for _, pack in ordered}, key=str):
+        ledger.lock_item_stores(session, organization_id, item_id)
+    states = []
+    for pl, pack in ordered:
+        positions: tuple[LotPosition, ...] = ()
+        if pl.lot_id is not None:
+            positions = tuple(
+                LotPosition(code, q, v)
+                for code, q, v in ledger.lot_positions(session, pack.fg_item_id, pl.lot_id)
+                if q > 0
+            )
+        states.append(
+            LotState(pl.id, pl.bulk_allocated_g, pack.fg_item_id, units[pack.fg_item_id].base_uom, pl.lot_id, positions)
+        )
+    return states
+
+
+def record_run_cost(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    run_id: uuid.UUID,
+    kind: str,
+    amount: Decimal,
+    incurred_on: date | None = None,
+    idempotency_key: uuid.UUID | None = None,
+) -> RunCostResult:
+    """A direct run cost (labour, gas/power, other) on a COMPLETED run with PROVISIONAL costs. One savepoint: the
+    run_costs row, a value-only COST_TRUE_UP journal that spreads it over the run's lots, and an audit row."""
+    money = domain.check_run_cost(kind, amount)
+    on = incurred_on or business_date()
+    digest = idempotency.request_hash(
+        {"op": "run_cost", "run_id": str(run_id), "kind": kind, "amount": money, "incurred_on": on.isoformat()}
+    )
+    try:
+        with session.begin_nested():
+            if idempotency_key is not None:
+                stored = idempotency.claim(session, organization_id, idempotency_key, digest)
+                if stored is not None:
+                    body = _replayed_ids(stored, "run_cost_id")
+                    return RunCostResult(uuid.UUID(body["run_cost_id"]), uuid.UUID(body["journal_id"]), replayed=True)
+            run = _lock_run(session, run_id)
+            _require_status(run, "COMPLETED", "take run costs (record them once the output is posted)")
+            if run.cost_status != "PROVISIONAL":
+                raise RunError("costs_final", f"run {run.run_no}'s costs are FINAL: no more run costs can be added")
+            recipe = RecipeStd.from_snapshot(run.recipe_snapshot or {})
+            plan = domain.plan_true_up(
+                money, _lot_states(session, organization_id, run), bulk_item_id=recipe.bulk_item_id
+            )
+            cost_id = uuid.uuid4()
+            posted = ledger.post(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                kind="COST_TRUE_UP",
+                source_type="run_cost",
+                source_id=cost_id,
+                posting_date=on,
+                lines=plan.lines,
+            )
+            session.execute(
+                insert(RunCost).values(
+                    id=cost_id,
+                    organization_id=organization_id,
+                    run_id=run_id,
+                    kind=kind,
+                    amount=money,
+                    incurred_on=on,
+                    journal_id=posted.journal_id,
+                    created_by=actor_id,
+                )
+            )
+            audit.record(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                action="run.cost",
+                entity_type="run_cost",
+                entity_id=cost_id,
+                after={
+                    "run_no": run.run_no,
+                    "kind": kind,
+                    "amount": money,
+                    "incurred_on": on,
+                    "journal_id": posted.journal_id,
+                    "shares": {str(k): v for k, v in plan.share.items()},
+                    "written_off": {str(k): v for k, v in plan.written_off.items() if v},
+                },
+            )
+            if idempotency_key is not None:
+                idempotency.complete(
+                    session,
+                    organization_id,
+                    idempotency_key,
+                    201,
+                    {"run_cost_id": cost_id, "journal_id": posted.journal_id},
+                )
+    except DBAPIError as exc:
+        raise _db_error(exc) from exc
+    return RunCostResult(cost_id, posted.journal_id, replayed=False)
+
+
+def finalise_costs(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, run_id: uuid.UUID
+) -> None:
+    """PROVISIONAL -> FINAL (decision F3): the run takes no more run costs; its cost per unit is final."""
+    run = _lock_run(session, run_id)
+    _require_status(run, "COMPLETED", "have its costs finalised")
+    if run.cost_status == "FINAL":
+        raise RunError("costs_final", f"run {run.run_no}'s costs are already FINAL")
+    total = session.execute(
+        select(func.coalesce(func.sum(RunCost.amount), 0)).where(RunCost.run_id == run_id)
+    ).scalar_one()
+    try:
+        with session.begin_nested():
+            session.execute(update(ProductionRun).where(ProductionRun.id == run_id).values(cost_status="FINAL"))
+            audit.record(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                action="run.cost.finalise",
+                entity_type="production_run",
+                entity_id=run_id,
+                before={"cost_status": "PROVISIONAL"},
+                after={"cost_status": "FINAL", "run_no": run.run_no, "conversion_total": Decimal(total)},
+            )
+    except DBAPIError as exc:
+        raise _db_error(exc) from exc
+    session.expire(run)
+
+
+# ---------- what costing reads (MP07) ----------
+
+
+def costing_facts(session: Session, run_id: uuid.UUID) -> RunCostingFacts:
+    """Everything costing needs about a COMPLETED run, read from the run, its issues and its journals."""
+    run = session.execute(select(ProductionRun).where(ProductionRun.id == run_id)).scalar_one_or_none()
+    if run is None:
+        raise NotFoundError("run_not_found", "unknown production run")
+    if run.status != "COMPLETED" or run.recipe_snapshot is None:
+        raise RunError("run_not_completed", f"run {run.run_no} is {run.status}: costing needs a completed run")
+    completion = ledger.journal_for(session, "RUN_COMPLETION", "production_run", run_id)
+    if completion is None:
+        raise RunError("no_completion_journal", f"run {run.run_no} has no completion journal")
+
+    moves: dict[uuid.UUID, list[IssueMove]] = defaultdict(list)
+    for direction, journal_id, item_id, qty, value in session.execute(
+        select(
+            MaterialIssue.direction,
+            MaterialIssue.journal_id,
+            MaterialIssueLine.item_id,
+            MaterialIssueLine.qty_base,
+            MaterialIssueLine.value,
+        )
+        .join(MaterialIssue, MaterialIssue.id == MaterialIssueLine.issue_id)
+        .where(MaterialIssue.run_id == run_id)
+        .order_by(MaterialIssue.issue_no)
+    ).all():
+        moves[item_id].append(IssueMove(journal_id, direction, qty, value))
+    completion_lines = ledger.journal_lines(session, completion)
+    packaging: dict[uuid.UUID, tuple[Decimal, Decimal]] = {}
+    for ln in completion_lines:
+        if ln.location == "PACK_STORE":
+            q, v = packaging.get(ln.item_id, (Decimal(0), Decimal(0)))
+            packaging[ln.item_id] = (q - ln.qty_base, v - ln.value)
+    ids = set(moves) | set(packaging)
+    codes, units = catalog.codes_for(session, ids), catalog.units_for(session, ids)
+    materials = []
+    for item_id, item_moves in moves.items():
+        sign = {"ISSUE": 1, "RETURN": -1}
+        materials.append(
+            MaterialFacts(
+                item_id,
+                codes[item_id],
+                "INGREDIENT",
+                units[item_id].base_uom,
+                units[item_id].stock_uom,
+                sum((sign[m.direction] * m.qty_base for m in item_moves), Decimal(0)),
+                sum((sign[m.direction] * m.value for m in item_moves), Decimal(0)),
+                tuple(item_moves),
+            )
+        )
+    for item_id, (q, v) in packaging.items():
+        materials.append(
+            MaterialFacts(
+                item_id,
+                codes[item_id],
+                "PACKAGING",
+                units[item_id].base_uom,
+                units[item_id].stock_uom,
+                q,
+                v,
+                (IssueMove(completion, "ISSUE", q, v),),
+            )
+        )
+    materials.sort(key=lambda m: (m.role, m.item_code))
+
+    conversion = tuple(
+        ConversionFacts(c.id, c.kind, c.amount, c.incurred_on, c.journal_id)
+        for c in session.execute(select(RunCost).where(RunCost.run_id == run_id).order_by(RunCost.created_at)).scalars()
+    )
+    true_ups = [c.journal_id for c in conversion if c.journal_id is not None]
+    written_off = sum(
+        (
+            ln.value
+            for j in (completion, *true_ups)
+            for ln in ledger.journal_lines(session, j)
+            if ln.location == "SCRAP"
+        ),
+        Decimal(0),
+    )
+    packs = []
+    for pl, pack in _ordered(run, _pack_lines(session, run_id)):
+        held = [] if pl.lot_id is None else ledger.lot_positions(session, pack.fg_item_id, pl.lot_id)
+        held = [(c, q, v) for c, q, v in held if q > 0]
+        packs.append(
+            PackFacts(
+                pack_line_id=pl.id,
+                pack=pack,
+                bulk_allocated_g=pl.bulk_allocated_g,
+                good_units=pl.good_units or 0,
+                used={uuid.UUID(k): Decimal(v) for k, v in (pl.packaging_actual or {}).items()},
+                damaged={uuid.UUID(k): Decimal(v) for k, v in (pl.damage or {}).items()},
+                lot_id=pl.lot_id,
+                lot_no=None if pl.lot_id is None else ledger.lot_no(session, pl.lot_id),
+                lot_qty=sum((q for _, q, _ in held), Decimal(0)),
+                lot_value=sum((v for _, _, v in held), Decimal(0)),
+            )
+        )
+    return RunCostingFacts(
+        run_id=run.id,
+        run_no=run.run_no,
+        cost_status=run.cost_status,
+        run_date=run.run_date,
+        batch_multiplier=run.batch_multiplier,
+        recipe=RecipeStd.from_snapshot(run.recipe_snapshot),
+        packs=tuple(packs),
+        materials=tuple(materials),
+        conversion=conversion,
+        completion_journal_id=completion,
+        written_off=written_off,
+    )
+
+
+def run_value_mismatches(session: Session) -> list[dict[str, str]]:
+    """Law 2 per run (make integrity): for every COMPLETED run, the value its completion and true-ups put into its
+    lots and into SCRAP = its net material issues + the packaging its completion took + its run costs. Read from the
+    material issue lines, run_costs and the journals' lines, so a dispatch (which only moves lot value) never
+    matters. Empty means law 2 holds per run (sees all organizations as the owner)."""
+    rows = session.execute(
+        text(
+            """
+            WITH done AS (
+              SELECT r.id, r.organization_id, r.run_no, j.id AS completion
+                FROM production_runs r
+                JOIN stock_journals j ON j.source_type = 'production_run' AND j.source_id = r.id
+                                     AND j.kind = 'RUN_COMPLETION'
+               WHERE r.status = 'COMPLETED'
+            ), issued AS (
+              SELECT mi.run_id, sum(CASE mi.direction WHEN 'ISSUE' THEN l.value ELSE -l.value END) AS v
+                FROM material_issues mi JOIN material_issue_lines l ON l.issue_id = mi.id GROUP BY mi.run_id
+            ), costs AS (
+              SELECT run_id, sum(amount) AS v FROM run_costs GROUP BY run_id
+            ), packaging AS (
+              SELECT d.id AS run_id, -sum(sl.value) AS v
+                FROM done d JOIN stock_lines sl ON sl.journal_id = d.completion
+                JOIN locations l ON l.id = sl.location_id AND l.code = 'PACK_STORE' GROUP BY d.id
+            ), output AS (
+              SELECT d.id AS run_id, sum(sl.value) AS v
+                FROM done d
+                JOIN stock_journals j ON j.id = d.completion
+                     OR (j.kind = 'COST_TRUE_UP' AND j.id IN (SELECT journal_id FROM run_costs WHERE run_id = d.id))
+                JOIN stock_lines sl ON sl.journal_id = j.id
+                JOIN locations l ON l.id = sl.location_id
+               WHERE (j.kind = 'RUN_COMPLETION' AND l.code IN ('FG_STORE', 'SCRAP'))
+                  OR (j.kind = 'COST_TRUE_UP' AND l.code <> 'CONVERSION_COST')
+               GROUP BY d.id
+            )
+            SELECT d.organization_id, d.run_no,
+                   coalesce(i.v, 0) + coalesce(p.v, 0) + coalesce(c.v, 0) AS inputs, coalesce(o.v, 0) AS outputs
+              FROM done d
+              LEFT JOIN issued i ON i.run_id = d.id
+              LEFT JOIN packaging p ON p.run_id = d.id
+              LEFT JOIN costs c ON c.run_id = d.id
+              LEFT JOIN output o ON o.run_id = d.id
+             WHERE coalesce(i.v, 0) + coalesce(p.v, 0) + coalesce(c.v, 0) <> coalesce(o.v, 0)
+            """
+        )
+    ).all()
+    return [
+        {"organization_id": str(o), "run_no": n, "materials_and_costs": str(i), "into_lots_and_scrap": str(v)}
+        for o, n, i, v in rows
+    ]

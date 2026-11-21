@@ -1,26 +1,72 @@
 # PROGRESS
 
-## Status: MP06 done, not committed (branch feat/mp06-production-run, from 903d1a3) / MP07 next
+## Status: MP07 done, not committed (branch feat/mp07-costing, from 3ec11ba) / MP08 next
 
-## Benchmark scoreboard: 9/26
+## Benchmark scoreboard: 12/26
 - **Green:**
   - 1 flour closing 120 kg, 2 oil 19.5 L, 3 pouches 306, 15 spice 3.8 kg / cartons 21 (MP04)
   - 16 flour WAC ₹43.125/kg after the purchase (MP05), an `Explained` value from `valuation.wac`
-  - **4 FG after run 238, 6 yield −6.00% flagged, 7 oil +5.00% flagged, 20 pouch flexible +3.19% flagged** (MP06;
-    assertion 20 also checks that the batch view −3.00% is not flagged)
+  - 4 FG after run 238, 6 yield −6.00% flagged, 7 oil +5.00% flagged, 20 pouch flexible +3.19% flagged (MP06)
+  - **17 run cost ₹5,855.00 (materials ₹4,055.00 by item + labour ₹1,200 + gas ₹600), 18 cost per good packet ₹31.14
+    with FIFO ₹30.90 / LAST ₹31.54 (only WAC posts), 19 waterfall ₹431.20 U with every component equal to the
+    oracle's** (MP07)
 - They are replayed through the real services into a fresh BENCHMARK tenant (`app/modules/judge/replay.py`):
   - J0 opening, valued; J1 as a purchase receipt
-  - run B-001 created and started (recipe and pack snapshots and the 3% tolerance frozen)
-  - J2 as a real material issue `MI/26-27/000001` at WAC; J3 as the real `complete_run` of B-001 (stand-in removed)
+  - run B-001 created and started; J2 a real material issue at WAC; J3 the real `complete_run`
+  - J8 step 8: labour and gas as run costs (value-only true-ups), then the costs finalised (B-001 FINAL, ₹5,855.00)
 - Oracle integrity: 10/10 checks pass (the sha256 guard on `inputs` + `nit_expected` included). No green row turned
   red.
 
 Red items and the MP that turns them green:
-- MP07: 17 run cost, 18 cost per packet, 19 waterfall
 - MP09: 13 Distributor B shortage
 - MP10: 5, 8–12, 14, 21, 22, 25
 - MP11: 26 integrity
 - MP12: 23 shortage attribution, 24 runway
+
+## Done in MP07 (costing, the waterfall, Explain-this-number)
+- **Gate met:**
+  - 17, 18, 19 green (12/26); B-001's lot value = run cost exactly (₹5,855.00, FINAL).
+  - Law 2 per run passes in `make integrity` (new check `production.run_value_mismatches`; run on the dev DB: OK).
+  - The waterfall property test passes (`costing/tests/test_run_costing.py::test_waterfall_sums_exactly`): the parts
+    always sum exactly to actual − standard, and any rounding is an explicit part. The NIT run needs none.
+  - NIT's real order proven ahead of MP10 (`tests/db/test_costing.py::test_run_costs_in_nit_order_after_a_sale`, with a
+    stand-in dispatch journal): sold 100 = ₹3,114.36, on hand 88 = ₹2,740.64.
+  - No green row turned red; full suite with 500 state-machine examples.
+- **Decisions F1–F8 (approved; [ADR-0014](adr/0014-costing-true-up-and-waterfall.md)):**
+  - F1 run costs only on COMPLETED runs, each a COST_TRUE_UP at once (`production` owns `run_costs`)
+  - F2 cumulative spread over wherever the lot is, on hand takes the remainder; zero-good share to SCRAP
+  - F3 explicit "finalise run costs" → FINAL
+  - F4 standard cost cards append-only (migration 0008), found by run date
+  - F5 the waterfall rules (price, usage, yield, unallocated bulk, conversion spend, explicit rounding)
+  - F6 sensitivity as of each issue; book value where a method has no answer (LAST before any purchase)
+  - F7 overhead absorption deferred to MP11
+  - F8 a plain sign-in page
+- **Backend:**
+  - `production`: `domain.plan_true_up` (pure), `service.record_run_cost`, `finalise_costs`, `costing_facts`,
+    `run_value_mismatches`; the facts dataclasses live in `production.domain` so `costing.domain` stays pure
+  - `costing`: `domain.py` (card lines, run cost, cost per good unit and per lot, waterfall, sensitivity; all
+    `Explained`), `service.py` (cards create / list / `card_for`, `run_costing`), `api.py`
+  - `valuation.sensitivity_at`; `ledger.lot_positions`, `lock_item_stores`, `journal_lines`, `journal_for`;
+    `recipe.active_recipe_snapshot`
+  - migration 0008: standard cost cards and lines insert-only
+  - `python -m app.cli.record_fixture`: records the web test fixture from a fresh replay
+- **API** (all in the generated route × role tests): `GET /api/runs/{id}/costing`, `GET/POST /api/standard-cost-cards`
+  (`report.read` / `recipe.manage`), `POST /api/runs/{id}/costs` and `/costs/finalise` (`run.cost`).
+- **Seeds:** the 200 g standard cost card (opening rates, conversion 1,200 + 600 per batch, ₹28.85) in `setup_section5`.
+- **Web:** `<Num>` with the ⓘ "Explain this number" popover (formula, method, sourced inputs; Escape closes and
+  returns focus); `/leaks` (completed batches) and `/leaks/{run}` (run cost, cost per good packet, standard, ranked
+  waterfall with bars, checks worded as things to verify, method comparison); `/sign-in`; nav links. Exact decimal
+  strings and BigInt only, no floats (`lib/decimal.ts`).
+- **Tests:** backend 431 (was 386), web 26 (was 19), all passing. New: `production/tests/test_true_up.py` (6, one
+  property), `costing/tests/test_run_costing.py` (9, one property), `tests/db/test_costing.py` (6), 25 generated
+  RBAC cases, `src/leaks/leaks.test.tsx` (7, on a fixture recorded from a real replay).
+- **Checks run:** ruff check / format clean, mypy --strict clean, import-linter 2/2 kept, `alembic check` clean
+  (migration 0008 applied to the dev DB), float grep clean, web typecheck / lint (no warnings) / build clean,
+  benchmark 12/26 (oracle 10/10), `make integrity` OK.
+- **Not checked live in the browser:** the dev DB's DEMO logins belong to the DEMO factory, which has no runs (it was
+  seeded before MP06), and the benchmark tenants that have runs have no logins. Adding the DEMO auditor to a
+  benchmark tenant was blocked by the session's permission rules, so the page is verified by the vitest tests on a
+  recorded real API response, not on :5180. The API container was not restarted on the new code.
 
 ## Done in MP06 (recipe, pack specs and the atomic production run)
 - **Gate met:**
@@ -396,6 +442,9 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP07: [ADR-0014](adr/0014-costing-true-up-and-waterfall.md): F1 run costs after completion as true-ups, F2
+  cumulative spread, F3 explicit FINAL, F4 append-only cards by run date, F5 waterfall rules, F6 as-of-issue
+  sensitivity, F7 overheads deferred, F8 a plain sign-in.
 - MP06: [ADR-0013](adr/0013-production-run-and-variance-engine.md): E1 variances on read from the frozen snapshot,
   E2 strict flag on unfavourable only, E3 numbering, E4 zero-good write-off to SCRAP; returns at the run's own
   average; reads of recipes and runs need `report.read`.
@@ -457,7 +506,16 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **The dev DB's DEMO factory has no recipe yet:** `make seed-demo` adds master data on its first run only, and the
   DEMO factory was seeded in MP05. Fresh databases get the recipe, pack specs and tolerance.
 - **Mass balance is reported, not yet a pass/fail law:** the rule for an acceptable gap is MP11.
-- **No login screen yet.** The API supports login; the web app gets its login and role shells with MP08.
+- **Only the 200 g pack has a standard cost card:** the inputs give no rate for `pouch_500g`, so 500 g runs show
+  their run cost but no waterfall (the page says why). Add a card through `POST /api/standard-cost-cards`.
+- **Multi-pack waterfalls need matching cards:** a run whose pack lines' cards disagree on ingredient rates or
+  conversion gets no single waterfall (a reason is shown).
+- **Overheads are not absorbed** (F7): costing is direct cost; MP11 reports absorbed overheads.
+- **The dispatch in `test_costing.py` is a test stand-in** (a raw DISPATCH journal); MP10 builds the real dispatch,
+  replays step 5 before step 8, and turns assertion 22 green.
+- **Sign-in only, no role shells yet:** `/sign-in` and `/leaks` work for any role with `report.read`; MP08 adds the
+  role home screens.
+- **No login screen yet.** (Superseded in MP07 by the plain `/sign-in`; MP08 builds the role shells.) The API supports login; the web app gets its login and role shells with MP08.
 - **CSRF:** relies on SameSite cookies plus the CORS allow-list; there is no CSRF token (docs/security.md).
 - **Multiple tabs:** two tabs refreshing with the same refresh token at the same instant revoke the session (safe,
   and the user re-logs in).
@@ -472,25 +530,120 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-1. The user reviews MP06 and commits on branch `feat/mp06-production-run` (proposed message below).
-2. Then MP07 (costing, the waterfall, Explain-this-number), plan first: run costs (labour ₹1,200, gas ₹600) through
-   the COST_TRUE_UP journal; cost per good packet ₹31.14; the waterfall ₹431.20 U from the run's snapshot and actuals
-   (`production.service.run_analysis`); FIFO / LAST per packet -> assertions 17, 18, 19.
+1. The user reviews MP07 and commits on branch `feat/mp07-costing` (proposed message below).
+2. Then MP08 (salesman PWA with an offline outbox), plan first.
 
 Proposed commit message:
 ```
-feat(production): MP06 recipes, pack specs and the atomic production run
+feat(costing): MP07 run costs, standard cards, the variance waterfall and Explain-this-number
 
-- recipe: versioned recipes and pack specs (DRAFT -> ACTIVE -> RETIRED) and run snapshots
-- production: runs B-001.., material issues and returns (MI/26-27/..), an atomic
-  complete_run, and the variance engine, packing and mass balance computed on read
-  from the frozen snapshot (ADR-0013, decisions E1-E4)
-- replay: J2 is a real material issue and J3 the real completion of run B-001
-- integrity: S6 (WIP of every completed run is zero); mass-balance gaps reported
-- benchmark 9/26 (4, 6, 7, 20 green); 386 tests
+- production: run costs on completed runs as value-only COST_TRUE_UP journals spread over
+  wherever the lot is (ledger.md J8), explicit FINAL, costing facts, law 2 per run
+- costing: standard cost cards (append-only, migration 0008), run cost and cost per good unit,
+  the waterfall (price, usage, yield, conversion; exact, explicit rounding), FIFO/LAST as of issue
+- replay: step 8 labour + gas recorded and finalised on B-001 (5,855.00)
+- web: <Num> with the "Explain this number" popover, Where profit leaks, a plain sign-in
+- benchmark 12/26 (17, 18, 19 green); 431 backend + 26 web tests (ADR-0014)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ```
+
+### Record: the MP07 plan as approved (implemented above)
+
+Figures checked by hand against the oracle before writing this plan:
+- Run cost = materials 4,055.00 (flour 1,725 + oil 1,470 + spice 240 + pouches 485 + cartons 135) + labour 1,200 +
+  gas 600 = **5,855.00**; per good packet 5,855 / 188 = 31.143617 → **₹31.14**.
+- Sensitivity: only flour has two price layers. FIFO flour 1,680 (−45) → 5,810.00 / 188 = **30.90**; LAST flour
+  1,800 (+75) → 5,930.00 / 188 = **31.54**. Oil, spice, pouches and cartons have one layer, so all methods agree.
+- Waterfall: standard of 188 good = per-batch standard 5,120 (ingredients 3,320 + conversion 1,800) × 188 / 200 +
+  packaging standard 3.25 × 188 = 4,812.80 + 611.00 = **5,423.80**; actual − standard = **431.20 U** =
+  yield 12 × 25.60 = 307.20 + oil usage 0.5 L × 140 = 70.00 + flour price (43.125 − 42) × 40 = 45.00 + pouch usage
+  (194 − 188) × 2.50 = 15.00 + carton usage (9 − 9.4) × 15 = −6.00 + conversion spend (1,800 − 1,800) = 0.
+
+Decisions that need a yes or no:
+- **F1. Run costs are recorded only on COMPLETED runs, by `production`, and each one posts a COST_TRUE_UP journal at
+  once.** `run_costs` belongs to production and is insert-only with its `journal_id` (migration 0003), so a cost
+  entered during the run could not be attached to the completion later without a migration. `costing` (L6) only
+  reads. *Alternative:* allow costs on IN_PROGRESS runs and let `complete_run` absorb them with a CONVERSION_COST
+  line (needs migration 0008 to relax `run_costs` and a change to the MP06 completion).
+- **F2. The true-up spreads cumulatively, as ledger.md J8 does.** For each lot: new target = its share of the run's
+  conversion costs (by bulk allocated, last lot takes the rounding remainder) + what it already holds. Each position
+  that holds the lot's units (CUSTOMER, IN_TRANSIT, FG_STORE) gets round(qty / lot qty × target) − value already
+  there; FG_STORE (on hand) takes the remainder. Two true-ups (labour, then gas) therefore end exactly where one would.
+  A zero-good line's share goes to SCRAP on the bulk item (E4). The lot's positions are locked first, so a dispatch
+  cannot read a half-updated lot value.
+  - Benchmark: dispatch is MP10, so in MP07's replay all 188 are on hand and B-001 ends at 5,855.00. A pure test
+    proves NIT's order now (100 sold first: CUSTOMER +957.45, FG_STORE +842.55), and MP10 replays the real order.
+- **F3. Cost status becomes FINAL by an explicit "finalise run costs" action** (`run.cost`); no run cost is accepted
+  after FINAL. The replay records labour and gas, then finalises. *Alternative:* FINAL automatically once both a
+  LABOUR and a GAS_POWER cost exist.
+- **F4. Standard cost cards are stored, append-only, and a run uses the card in force on its run date.**
+  - One card per pack spec version and version number, effective-dated: ingredient lines per batch × standard rate,
+    conversion per batch, packaging per good unit × standard rate, `per_unit` to 6 dp.
+  - Migration 0008 makes `standard_cost_cards` and `standard_cost_lines` insert-only (trigger + grants), so a past
+    run's waterfall can never be revalued by editing a card. A new card version is how standards change.
+  - Production (L5) cannot import costing (L6), so the card is found by run date when the costing is read, not frozen
+    into the run snapshot. Seed: the 200 g card from the inputs at opening rates (A2) and step 8's labour + gas as the
+    conversion standard, 28.85 (the same arithmetic D3 already uses for OPEN-LOT). No 500 g card: there is no input
+    rate for `pouch_500g`, so its waterfall says "no standard cost card".
+- **F5. Waterfall rules.** Price = (actual rate − standard rate) × actual qty; usage = (actual qty − standard qty) ×
+  standard rate, with ingredients against the batch standard and packaging against the flexible standard; yield =
+  per-batch standard × (expected − good) / expected; conversion spend = actual − standard per batch × multiplier.
+  Each component is rounded half up to paise; if the rounded parts do not sum to actual − standard, an explicit
+  "rounding" line shows the difference (never silent). Multi-pack runs: computed when every pack line's card has the
+  same per-batch rates; otherwise refused with a reason (known gap). A Hypothesis property checks the sum is exact.
+- **F6. Sensitivity re-values each of the run's issue movements as of that movement.** `valuation.sensitivity_at`
+  replays the item's history *before* the journal that issued it (the material issue, or the completion for
+  packaging), so later purchases do not leak in. Returns are scaled by net / issued quantity. Only WAC ever posts.
+- **F7. Monthly overhead absorption is deferred to MP11 (reports).** It needs machine-hours per run and monthly
+  overhead amounts, and neither has a table yet; it does not affect the benchmark. MP07 shows direct (marginal) cost
+  only, labelled. *Alternative:* add both now (migration 0008 columns, inputs on the completion, an allocation
+  rule), about half a day more.
+- **F8. The "Where profit leaks" page needs a way to sign in.** There is no login screen until MP08. Recommendation:
+  add a plain sign-in page now (email + password → the existing `/api/auth/login`, no role shells; MP08 builds those),
+  so the page and the `<Num>` ⓘ popover read the authenticated `GET /api/runs/{id}/costing` and can be checked live.
+  *Alternative:* a public read-only endpoint for the newest BENCHMARK tenant's run only (no login, fictional data),
+  which Judge Mode (MP15) could reuse; it needs an owner-side lookup across tenants.
+
+Steps:
+1. **Migration 0008:** standard cost cards and lines insert-only (immutability triggers, SELECT + INSERT grants);
+   `alembic check`; the generic migration up/down test covers it.
+2. **`valuation.sensitivity_at(item, qty, before_journal_id)`** with a pure test that a later purchase does not change
+   it.
+3. **`production`:**
+   - `domain.plan_true_up` (pure): the F2 split, laws 1–2 by construction; tests for the J8 figures (957.45 /
+     842.55), all-on-hand (+1,800.00 to FG_STORE), two true-ups equal to one, and a zero-good line (SCRAP).
+   - `service.record_run_cost` (COMPLETED and PROVISIONAL only; kinds LABOUR / GAS_POWER / OTHER; amount as a
+     decimal string; Idempotency-Key; one savepoint: run_costs row + COST_TRUE_UP journal + audit row) and
+     `service.finalise_costs` (→ FINAL, audited).
+   - `service.costing_facts(run_id)`: what costing needs, read from the ledger and the run (net issue values per item,
+     packaging values from the completion journal, lot values, conversion costs, the snapshot).
+4. **`costing`:**
+   - `domain.py` (pure): run cost by item and kind, cost per good unit (6 dp, shown to paise), FG lot unit cost, the F5
+     waterfall, the F6 sensitivity totals. Every figure an `Explained` value with source refs (run, issue, journal,
+     card). Property test: the waterfall sums exactly to actual − standard.
+   - `service.py`: create / list standard cost cards; `run_costing(run_id)`.
+   - API: `GET /api/runs/{id}/costing` (`report.read`), `POST /api/runs/{id}/costs` and
+     `POST /api/runs/{id}/costs/finalise` (`run.cost`), `GET /api/standard-cost-cards` (`report.read`),
+     `POST /api/standard-cost-cards` (`recipe.manage`). Generated route × role tests cover them.
+5. **Seeds and the replay:** the 200 g standard card in `setup_section5`; step 8 (labour 1,200 + gas 600) recorded
+   on B-001, then finalised. **Turn green:** 17 (5,855.00 = 4,055.00 + 1,200 + 600), 18 (31.14; FIFO 30.90, LAST
+   31.54), 19 (431.20 U and every component equal to the oracle's). Keep 1–4, 6, 7, 15, 16, 20 green;
+   `tests/db/test_replay.py` gains B-001 on hand 188 / 5,855.00, FINAL. Assertion 22 stays with MP10 (it needs the
+   dispatch).
+6. **Integrity:** law 2 per run moves from "not built" to a real check: for every completed run, the value of its
+   lots wherever they are (on hand, in transit, sold) + what it wrote off = its net materials + its conversion costs.
+7. **Web:**
+   - `<Num>`: value plus an ⓘ popover with the formula, inputs and their sources (keyboard and screen-reader usable).
+   - "Where profit leaks" page for a run: the waterfall as ranked ₹ cards (unfavourable first), flags from MP06, and
+     "check" prompts worded as questions to verify, never as causes ("Check the frying temperature log and oil
+     top-ups for run B-001"). Every number from the API.
+   - The F8 sign-in. Vitest tests with a recorded API response; checked live in the browser on :5180.
+8. **Docs:** ADR-0014 (F1–F8), ledger.md (J8 as built), invariants L2 test ids, bom.md / assumptions (standard rates
+   = opening rates, conversion standard = step 8), this file.
+
+**Gate:** 17, 18, 19 green (12/26); lot value = run cost exactly (5,855.00) and law 2 per run passes in `make
+integrity`; the waterfall property test passes; no green row turns red; full suite with 500 state-machine examples.
 
 ### Record: the MP06 plan as approved (implemented above)
 

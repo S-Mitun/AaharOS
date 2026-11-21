@@ -13,6 +13,7 @@
   - run B-001 created and started: recipe and pack snapshots frozen with the tolerance in force on the run date
   - J2 step 2 as a real material issue for B-001 at WAC (production -> valuation)
   - J3 step 3 as the real `complete_run` of B-001: 188 good, 194 pouches used (6 damaged), 9 cartons
+  - J8 step 8: labour 1,200 and gas/power 600 as run costs (value-only true-ups), then the costs finalised
 """
 
 import uuid
@@ -27,7 +28,9 @@ from app.core import effective_settings
 from app.core.explained import Explained
 from app.modules.audit import service as audit
 from app.modules.catalog import service as catalog
+from app.modules.costing import service as costing
 from app.modules.costing.domain import StandardCost, StandardLine, standard_cost
+from app.modules.costing.service import RunCosting
 from app.modules.identity import service as identity
 from app.modules.ledger import service as ledger
 from app.modules.procurement import service as procurement
@@ -103,6 +106,7 @@ class StockReplay:
     closing_value: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, location) -> rupees
     run_id: uuid.UUID | None = None
     run: RunAnalysis | None = None  # B-001's variances, packing and mass balance, computed from its snapshot
+    costing: RunCosting | None = None  # B-001's run cost, cost per packet, waterfall and sensitivity (MP07)
 
     def closing_in(self, item: str, store: str) -> Decimal:
         return self.closing.get((item, store), Decimal(0))
@@ -273,6 +277,19 @@ def setup_section5_bom(
             session, organization_id=organization_id, actor_id=actor_id, version_id=version
         )
         versions[p_code] = version
+
+    # the 200 g standard cost card (decision F4): opening rates (A2), step 8's labour and gas as the conversion standard
+    opening = oracle["inputs"]["opening_stock"]
+    run_costs = oracle["inputs"]["steps"]["8_run_costs"]
+    costing.create_card(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        pack_spec_version_id=versions[pack_code],
+        effective_from=SETTINGS_FROM,
+        rates={ids[ln["item"]]: Decimal(opening[ln["item"]]["rate"]) for ln in bom["lines"]},
+        conversion={kind: Decimal(run_costs[kind]) for kind in ("labour", "gas_power")},
+    )
     return recipe_version, versions
 
 
@@ -385,8 +402,23 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
         ],
     ).journal_id
 
+    # J8 step 8: labour and gas/power for B-001, each a value-only COST_TRUE_UP over the lot (F1, F2), then FINAL (F3).
+    # Dispatch arrives with MP10, so in this replay all 188 packets are still on hand when the costs are recorded.
+    for kind, step_key in (("LABOUR", "labour"), ("GAS_POWER", "gas_power")):
+        replay.journals[f"J8 {step_key}"] = production.record_run_cost(
+            session,
+            organization_id=org,
+            actor_id=None,
+            run_id=run_id,
+            kind=kind,
+            amount=Decimal(steps["8_run_costs"][step_key]),
+            incurred_on=POSTING_DATE,
+        ).journal_id
+    production.finalise_costs(session, organization_id=org, actor_id=None, run_id=run_id)
+
     session.commit()
     replay.run = production.run_analysis(session, run_id)
+    replay.costing = costing.run_costing(session, run_id)
 
     by_id = {str(i): c for c, i in ids.items()}
     for row in ledger.balances(session, include_virtual=True):

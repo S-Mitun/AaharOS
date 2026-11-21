@@ -102,6 +102,25 @@ def sensitivity(session: Session, item_id: uuid.UUID, qty_base: Decimal) -> dict
     return out
 
 
+def sensitivity_at(
+    session: Session, item_id: uuid.UUID, qty_base: Decimal, before_journal_id: uuid.UUID
+) -> dict[str, dict[str, Any]]:
+    """What issuing `qty_base` would have cost under each method **as of** the journal that issued it: the history
+    is replayed up to, not including, that journal, so later purchases never leak in (ADR-0014, decision F6)."""
+    moves = history(session, item_id)
+    keys = [m.key for m in moves]
+    if str(before_journal_id) not in keys:
+        raise ValuationError("journal_not_in_history", "that journal did not move this item's pool")
+    earlier = moves[: keys.index(str(before_journal_id))]
+    out: dict[str, dict[str, Any]] = {}
+    for name, method in domain.METHODS.items():
+        try:
+            out[name] = {"value": method.issue_value(earlier, qty_base), "posts": method.posts}
+        except ValuationError as exc:
+            out[name] = {"value": None, "posts": method.posts, "reason": exc.message}
+    return out
+
+
 def gain_value(session: Session, item_id: uuid.UUID, qty_base: Decimal) -> tuple[Decimal, str]:
     """Value for stock found in a count (WAC, else last receipt price, else ₹0 with basis NO_COST_YET)."""
     return domain.gain_value(history(session, item_id), qty_base)

@@ -35,7 +35,7 @@ def test_closing_values_equal_the_ledger_design(replay: Any) -> None:
     assert v[("pouch_200g", "PACK_STORE")] == D("765.00")  # 1,250.00 - 485.00 (194 at 2.50)
     assert v[("carton_20", "PACK_STORE")] == D("315.00")  # 450.00 - 135.00
     assert v.get(("flour", "WIP"), D(0)) == 0 and replay.closing.get(("flour", "WIP"), D(0)) == 0
-    assert v[("murukku_200g", "FG_STORE")] == D("1442.50") + D("4055.00")  # OPEN-LOT at standard + B-001 materials
+    assert v[("murukku_200g", "FG_STORE")] == D("1442.50") + D("5855.00")  # OPEN-LOT at standard + B-001 after J8
     assert replay.closing[("murukku_200g", "FG_STORE")] == 238
 
 
@@ -45,7 +45,7 @@ def test_lots_carry_their_own_value(replay: Any, app_engine: Engine) -> None:
         rows = {
             r["lot_no"]: (r["qty"], r["value"]) for r in ledger.balances(s, item_id=replay.item_ids["murukku_200g"])
         }
-    assert rows == {"OPEN-LOT": ("50", "1442.50"), "B-001": ("188", "4055.00")}
+    assert rows == {"OPEN-LOT": ("50", "1442.50"), "B-001": ("188", "5855.00")}  # materials 4,055 + run costs 1,800
 
 
 def test_standard_cost_and_sensitivity(replay: Any) -> None:

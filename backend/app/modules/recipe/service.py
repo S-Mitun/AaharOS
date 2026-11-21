@@ -463,6 +463,16 @@ def version_status(
     return status
 
 
+def active_recipe_snapshot(session: Session, recipe_id: uuid.UUID) -> dict[str, Any]:
+    """The snapshot of a recipe's ACTIVE version (what a standard cost card is built from)."""
+    found = session.execute(
+        select(RecipeVersion.id).where(RecipeVersion.recipe_id == recipe_id, RecipeVersion.status == domain.ACTIVE)
+    ).scalar_one_or_none()
+    if found is None:
+        raise NotFoundError("no_active_version", "this recipe has no ACTIVE version")
+    return recipe_snapshot(session, found)
+
+
 def active_recipe_version(session: Session, recipe_code: str) -> uuid.UUID:
     found = session.execute(
         select(RecipeVersion.id)

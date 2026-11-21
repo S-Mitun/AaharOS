@@ -1,0 +1,1390 @@
+{
+  "costing": {
+    "cost": {
+      "conversion": {
+        "formula": "Σ direct run costs (labour, gas/power, other)",
+        "inputs": [
+          {
+            "label": "labour",
+            "source": {
+              "id": "0004f8a3-5cce-4329-ba02-59c201e9d426",
+              "type": "run_cost"
+            },
+            "unit": "INR",
+            "value": "1200.00"
+          },
+          {
+            "label": "gas_power",
+            "source": {
+              "id": "c7ccd662-1fe0-47c0-933f-115549d6172f",
+              "type": "run_cost"
+            },
+            "unit": "INR",
+            "value": "600.00"
+          }
+        ],
+        "method": null,
+        "unit": "INR",
+        "value": "1800.00"
+      },
+      "lots": [
+        {
+          "formula": "lot value / good units",
+          "inputs": [
+            {
+              "label": "lot value (on hand, in transit and sold)",
+              "source": {
+                "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                "type": "production_run"
+              },
+              "unit": "INR",
+              "value": "5855.00"
+            },
+            {
+              "label": "good units",
+              "source": {
+                "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                "type": "production_run"
+              },
+              "unit": "packet",
+              "value": "188"
+            }
+          ],
+          "method": "B-001",
+          "unit": "INR/packet",
+          "value": "31.143617"
+        }
+      ],
+      "materials": {
+        "formula": "Σ materials at book value (net issues + packaging taken at completion)",
+        "inputs": [
+          {
+            "label": "cooking_oil 10.5 L",
+            "source": {
+              "id": "9199780c-5995-4379-a198-cd7e33e90daf",
+              "type": "stock_journal"
+            },
+            "unit": "INR",
+            "value": "1470.00"
+          },
+          {
+            "label": "flour 40 kg",
+            "source": {
+              "id": "9199780c-5995-4379-a198-cd7e33e90daf",
+              "type": "stock_journal"
+            },
+            "unit": "INR",
+            "value": "1725.00"
+          },
+          {
+            "label": "spice_mix 1.2 kg",
+            "source": {
+              "id": "9199780c-5995-4379-a198-cd7e33e90daf",
+              "type": "stock_journal"
+            },
+            "unit": "INR",
+            "value": "240.00"
+          },
+          {
+            "label": "carton_20 9 piece",
+            "source": {
+              "id": "246c4c3c-64f7-494f-8ce3-6ee89af90665",
+              "type": "stock_journal"
+            },
+            "unit": "INR",
+            "value": "135.00"
+          },
+          {
+            "label": "pouch_200g 194 piece",
+            "source": {
+              "id": "246c4c3c-64f7-494f-8ce3-6ee89af90665",
+              "type": "stock_journal"
+            },
+            "unit": "INR",
+            "value": "485.00"
+          }
+        ],
+        "method": "WAC",
+        "unit": "INR",
+        "value": "4055.00"
+      },
+      "per_good_unit": {
+        "formula": "run cost / good units",
+        "inputs": [
+          {
+            "label": "run cost",
+            "source": {
+              "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+              "type": "production_run"
+            },
+            "unit": "INR",
+            "value": "5855.00"
+          },
+          {
+            "label": "good units",
+            "source": {
+              "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+              "type": "production_run"
+            },
+            "unit": "packet",
+            "value": "188"
+          }
+        ],
+        "method": "WAC",
+        "unit": "INR/packet",
+        "value": "31.143617"
+      },
+      "per_good_unit_display": "31.14",
+      "total": {
+        "formula": "materials + direct run costs",
+        "inputs": [
+          {
+            "label": "materials",
+            "source": {
+              "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+              "type": "production_run"
+            },
+            "unit": "INR",
+            "value": "4055.00"
+          },
+          {
+            "label": "direct run costs",
+            "source": {
+              "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+              "type": "production_run"
+            },
+            "unit": "INR",
+            "value": "1800.00"
+          }
+        ],
+        "method": "WAC",
+        "unit": "INR",
+        "value": "5855.00"
+      },
+      "written_off": "0.00"
+    },
+    "cost_status": "FINAL",
+    "lots": [
+      {
+        "good_units": 188,
+        "lot_no": "B-001",
+        "lot_value": "5855.00",
+        "pack_spec": "MURUKKU-200G"
+      }
+    ],
+    "note": "Direct (marginal) cost: monthly overheads are not absorbed into lots (ADR-0014, F7).",
+    "run_date": "2026-11-21",
+    "run_id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+    "run_no": "B-001",
+    "sensitivity": {
+      "FIFO": {
+        "book_value_used_for": [],
+        "per_good_unit": "30.904255",
+        "per_good_unit_display": "30.90",
+        "posts": false,
+        "total": {
+          "formula": "run cost with each issue re-valued under this method, as of that issue",
+          "inputs": [
+            {
+              "label": "cooking_oil",
+              "source": null,
+              "unit": "INR",
+              "value": "1470.00"
+            },
+            {
+              "label": "flour",
+              "source": null,
+              "unit": "INR",
+              "value": "1680.00"
+            },
+            {
+              "label": "spice_mix",
+              "source": null,
+              "unit": "INR",
+              "value": "240.00"
+            },
+            {
+              "label": "carton_20",
+              "source": null,
+              "unit": "INR",
+              "value": "135.00"
+            },
+            {
+              "label": "pouch_200g",
+              "source": null,
+              "unit": "INR",
+              "value": "485.00"
+            }
+          ],
+          "method": "FIFO",
+          "unit": "INR",
+          "value": "5810.00"
+        },
+        "unit": "INR/packet"
+      },
+      "LAST": {
+        "book_value_used_for": [
+          "carton_20",
+          "cooking_oil",
+          "pouch_200g",
+          "spice_mix"
+        ],
+        "per_good_unit": "31.542553",
+        "per_good_unit_display": "31.54",
+        "posts": false,
+        "total": {
+          "formula": "run cost with each issue re-valued under this method, as of that issue",
+          "inputs": [
+            {
+              "label": "cooking_oil",
+              "source": null,
+              "unit": "INR",
+              "value": "1470.00"
+            },
+            {
+              "label": "flour",
+              "source": null,
+              "unit": "INR",
+              "value": "1800.00"
+            },
+            {
+              "label": "spice_mix",
+              "source": null,
+              "unit": "INR",
+              "value": "240.00"
+            },
+            {
+              "label": "carton_20",
+              "source": null,
+              "unit": "INR",
+              "value": "135.00"
+            },
+            {
+              "label": "pouch_200g",
+              "source": null,
+              "unit": "INR",
+              "value": "485.00"
+            }
+          ],
+          "method": "LAST",
+          "unit": "INR",
+          "value": "5930.00"
+        },
+        "unit": "INR/packet"
+      },
+      "WAC": {
+        "book_value_used_for": [],
+        "per_good_unit": "31.143617",
+        "per_good_unit_display": "31.14",
+        "posts": true,
+        "total": {
+          "formula": "run cost with each issue re-valued under this method, as of that issue",
+          "inputs": [
+            {
+              "label": "cooking_oil",
+              "source": null,
+              "unit": "INR",
+              "value": "1470.00"
+            },
+            {
+              "label": "flour",
+              "source": null,
+              "unit": "INR",
+              "value": "1725.00"
+            },
+            {
+              "label": "spice_mix",
+              "source": null,
+              "unit": "INR",
+              "value": "240.00"
+            },
+            {
+              "label": "carton_20",
+              "source": null,
+              "unit": "INR",
+              "value": "135.00"
+            },
+            {
+              "label": "pouch_200g",
+              "source": null,
+              "unit": "INR",
+              "value": "485.00"
+            }
+          ],
+          "method": "WAC",
+          "unit": "INR",
+          "value": "5855.00"
+        },
+        "unit": "INR/packet"
+      }
+    },
+    "waterfall": {
+      "actual": {
+        "formula": "materials + direct run costs",
+        "inputs": [
+          {
+            "label": "run",
+            "source": {
+              "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+              "type": "production_run"
+            },
+            "unit": "",
+            "value": "0"
+          }
+        ],
+        "method": null,
+        "unit": "INR",
+        "value": "5855.00"
+      },
+      "components": [
+        {
+          "direction": "UNFAVOURABLE",
+          "explained": {
+            "formula": "per-batch standard x share of bulk x (expected - good) / expected",
+            "inputs": [
+              {
+                "label": "per-batch standard (ingredients + conversion)",
+                "source": {
+                  "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+                  "type": "standard_cost_card"
+                },
+                "unit": "INR",
+                "value": "5120"
+              },
+              {
+                "label": "share of bulk",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "x",
+                "value": "1"
+              },
+              {
+                "label": "expected units",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "packet",
+                "value": "200"
+              },
+              {
+                "label": "good units",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "packet",
+                "value": "188"
+              }
+            ],
+            "method": null,
+            "unit": "INR",
+            "value": "307.20"
+          },
+          "item_code": "murukku_200g",
+          "kind": "YIELD",
+          "label": "yield loss MURUKKU-200G",
+          "note": null,
+          "value": "307.20"
+        },
+        {
+          "direction": "UNFAVOURABLE",
+          "explained": {
+            "formula": "(actual qty - batch standard qty) x standard rate",
+            "inputs": [
+              {
+                "label": "actual qty",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "L",
+                "value": "10.5"
+              },
+              {
+                "label": "batch standard qty",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "L",
+                "value": "10"
+              },
+              {
+                "label": "standard rate",
+                "source": {
+                  "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+                  "type": "standard_cost_card"
+                },
+                "unit": "INR/L",
+                "value": "140"
+              }
+            ],
+            "method": null,
+            "unit": "INR",
+            "value": "70.00"
+          },
+          "item_code": "cooking_oil",
+          "kind": "USAGE",
+          "label": "cooking_oil usage",
+          "note": null,
+          "value": "70.00"
+        },
+        {
+          "direction": "UNFAVOURABLE",
+          "explained": {
+            "formula": "actual value - standard rate x actual qty",
+            "inputs": [
+              {
+                "label": "actual value",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "INR",
+                "value": "1725.00"
+              },
+              {
+                "label": "actual qty",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "kg",
+                "value": "40"
+              },
+              {
+                "label": "standard rate",
+                "source": {
+                  "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+                  "type": "standard_cost_card"
+                },
+                "unit": "INR/kg",
+                "value": "42"
+              }
+            ],
+            "method": null,
+            "unit": "INR",
+            "value": "45.00"
+          },
+          "item_code": "flour",
+          "kind": "PRICE",
+          "label": "flour price",
+          "note": null,
+          "value": "45.00"
+        },
+        {
+          "direction": "UNFAVOURABLE",
+          "explained": {
+            "formula": "(used - qty per good unit x good units) x standard rate",
+            "inputs": [
+              {
+                "label": "used",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "piece",
+                "value": "194"
+              },
+              {
+                "label": "flexible standard",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "piece",
+                "value": "188"
+              },
+              {
+                "label": "standard rate",
+                "source": {
+                  "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+                  "type": "standard_cost_card"
+                },
+                "unit": "INR/piece",
+                "value": "2.5"
+              }
+            ],
+            "method": null,
+            "unit": "INR",
+            "value": "15.00"
+          },
+          "item_code": "pouch_200g",
+          "kind": "USAGE",
+          "label": "pouch_200g usage",
+          "note": "6 damaged",
+          "value": "15.00"
+        },
+        {
+          "direction": "NONE",
+          "explained": {
+            "formula": "actual direct run costs - conversion standard per batch x batch multiplier",
+            "inputs": [
+              {
+                "label": "actual run costs",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "INR",
+                "value": "1800.00"
+              },
+              {
+                "label": "conversion standard",
+                "source": {
+                  "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+                  "type": "standard_cost_card"
+                },
+                "unit": "INR",
+                "value": "1800"
+              }
+            ],
+            "method": null,
+            "unit": "INR",
+            "value": "0.00"
+          },
+          "item_code": null,
+          "kind": "CONVERSION",
+          "label": "conversion spend",
+          "note": null,
+          "value": "0.00"
+        },
+        {
+          "direction": "FAVOURABLE",
+          "explained": {
+            "formula": "(used - qty per good unit x good units) x standard rate",
+            "inputs": [
+              {
+                "label": "used",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "piece",
+                "value": "9"
+              },
+              {
+                "label": "flexible standard",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "piece",
+                "value": "9.4"
+              },
+              {
+                "label": "standard rate",
+                "source": {
+                  "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+                  "type": "standard_cost_card"
+                },
+                "unit": "INR/piece",
+                "value": "15"
+              }
+            ],
+            "method": null,
+            "unit": "INR",
+            "value": "-6.00"
+          },
+          "item_code": "carton_20",
+          "kind": "USAGE",
+          "label": "carton_20 usage",
+          "note": null,
+          "value": "-6.00"
+        }
+      ],
+      "direction": "UNFAVOURABLE",
+      "standard": {
+        "formula": "per-batch standard x good share + packaging standard x good units",
+        "inputs": [
+          {
+            "label": "card per unit",
+            "source": {
+              "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+              "type": "standard_cost_card"
+            },
+            "unit": "INR",
+            "value": "28.850000"
+          }
+        ],
+        "method": null,
+        "unit": "INR",
+        "value": "5423.80"
+      },
+      "total": {
+        "formula": "actual - standard of the good output = Σ parts",
+        "inputs": [
+          {
+            "label": "actual",
+            "source": {
+              "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+              "type": "production_run"
+            },
+            "unit": "INR",
+            "value": "5855.00"
+          },
+          {
+            "label": "standard",
+            "source": {
+              "id": "5b631904-bfb2-49a4-b5a8-604d062d6267",
+              "type": "standard_cost_card"
+            },
+            "unit": "INR",
+            "value": "5423.80"
+          }
+        ],
+        "method": null,
+        "unit": "INR",
+        "value": "431.20"
+      }
+    },
+    "waterfall_unavailable": null
+  },
+  "run": {
+    "analysis": {
+      "expected_bulk_g": "40000",
+      "flags": [
+        "cooking_oil 5.00%",
+        "yield MURUKKU-200G -6.00%",
+        "pouch_200g 3.19%"
+      ],
+      "ingredients": [
+        {
+          "actual": "10.5",
+          "beyond_tolerance": true,
+          "direction": "UNFAVOURABLE",
+          "drives_alert": true,
+          "explained": {
+            "formula": "(actual - standard) / standard x 100; standard = recipe qty per batch x batch multiplier",
+            "inputs": [
+              {
+                "label": "standard",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "L",
+                "value": "10"
+              },
+              {
+                "label": "actual",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "L",
+                "value": "10.5"
+              },
+              {
+                "label": "recipe qty per batch",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "L",
+                "value": "10"
+              },
+              {
+                "label": "batch multiplier",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "x",
+                "value": "1"
+              },
+              {
+                "label": "tolerance",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "%",
+                "value": "3"
+              }
+            ],
+            "method": "batch standard",
+            "unit": "%",
+            "value": "5.00"
+          },
+          "flagged": true,
+          "item_id": "eed0813d-63ee-4512-b39d-62c4c67ff957",
+          "label": "cooking_oil",
+          "note": null,
+          "standard": "10",
+          "tolerance_pct": "3",
+          "unit": "L",
+          "variance_pct": "5.00",
+          "view": "PER_BATCH"
+        },
+        {
+          "actual": "40",
+          "beyond_tolerance": false,
+          "direction": "ON_STANDARD",
+          "drives_alert": true,
+          "explained": {
+            "formula": "(actual - standard) / standard x 100; standard = recipe qty per batch x batch multiplier",
+            "inputs": [
+              {
+                "label": "standard",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "kg",
+                "value": "40"
+              },
+              {
+                "label": "actual",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "kg",
+                "value": "40"
+              },
+              {
+                "label": "recipe qty per batch",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "kg",
+                "value": "40"
+              },
+              {
+                "label": "batch multiplier",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "x",
+                "value": "1"
+              },
+              {
+                "label": "tolerance",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "%",
+                "value": "3"
+              }
+            ],
+            "method": "batch standard",
+            "unit": "%",
+            "value": "0"
+          },
+          "flagged": false,
+          "item_id": "9da05fb9-1306-4cca-867d-71fd755a2b81",
+          "label": "flour",
+          "note": null,
+          "standard": "40",
+          "tolerance_pct": "3",
+          "unit": "kg",
+          "variance_pct": "0.00",
+          "view": "PER_BATCH"
+        },
+        {
+          "actual": "1.2",
+          "beyond_tolerance": false,
+          "direction": "ON_STANDARD",
+          "drives_alert": true,
+          "explained": {
+            "formula": "(actual - standard) / standard x 100; standard = recipe qty per batch x batch multiplier",
+            "inputs": [
+              {
+                "label": "standard",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "kg",
+                "value": "1.2"
+              },
+              {
+                "label": "actual",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "kg",
+                "value": "1.2"
+              },
+              {
+                "label": "recipe qty per batch",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "kg",
+                "value": "1.2"
+              },
+              {
+                "label": "batch multiplier",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "x",
+                "value": "1"
+              },
+              {
+                "label": "tolerance",
+                "source": {
+                  "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                  "type": "production_run"
+                },
+                "unit": "%",
+                "value": "3"
+              }
+            ],
+            "method": "batch standard",
+            "unit": "%",
+            "value": "0"
+          },
+          "flagged": false,
+          "item_id": "bdf10129-1934-4706-bb5d-1365fd6dea76",
+          "label": "spice_mix",
+          "note": null,
+          "standard": "1.2",
+          "tolerance_pct": "3",
+          "unit": "kg",
+          "variance_pct": "0.00",
+          "view": "PER_BATCH"
+        }
+      ],
+      "mass_balance": {
+        "expected_bulk": "40",
+        "explained": {
+          "formula": "expected bulk - good packed - scrap - loss",
+          "inputs": [
+            {
+              "label": "expected bulk",
+              "source": {
+                "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                "type": "production_run"
+              },
+              "unit": "kg",
+              "value": "40"
+            },
+            {
+              "label": "good packed (good units x net)",
+              "source": {
+                "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                "type": "production_run"
+              },
+              "unit": "kg",
+              "value": "37.6"
+            },
+            {
+              "label": "recorded scrap",
+              "source": {
+                "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                "type": "production_run"
+              },
+              "unit": "kg",
+              "value": "0"
+            },
+            {
+              "label": "recorded loss",
+              "source": {
+                "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                "type": "production_run"
+              },
+              "unit": "kg",
+              "value": "0"
+            }
+          ],
+          "method": "mass balance",
+          "unit": "kg",
+          "value": "2.4"
+        },
+        "gap_after_giveaway": "2.4",
+        "giveaway": null,
+        "good_packed": "37.6",
+        "loss": "0",
+        "pack_lines": [
+          {
+            "giveaway": null,
+            "good_units": 188,
+            "net_g": "200",
+            "pack_spec": "MURUKKU-200G",
+            "packed": "37.6"
+          }
+        ],
+        "scrap": "0",
+        "unallocated_bulk": "0",
+        "unexplained_gap": "2.4",
+        "unit": "kg"
+      },
+      "pack_lines": [
+        {
+          "bulk_allocated_g": "40000",
+          "expected_units": "200",
+          "good_units": 188,
+          "lot_no": "B-001",
+          "pack_line_id": "ab37ffd4-70aa-48dd-8352-65f69f5b0d95",
+          "pack_spec": "MURUKKU-200G",
+          "pack_spec_version": 1,
+          "packaging": [
+            {
+              "batch_view": {
+                "actual": "9",
+                "beyond_tolerance": true,
+                "direction": "FAVOURABLE",
+                "drives_alert": false,
+                "explained": {
+                  "formula": "(actual - standard) / standard x 100; standard = qty per good unit x expected units",
+                  "inputs": [
+                    {
+                      "label": "standard",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "10"
+                    },
+                    {
+                      "label": "actual",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "9"
+                    },
+                    {
+                      "label": "qty per good unit",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "0.05"
+                    },
+                    {
+                      "label": "expected units",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "packet",
+                      "value": "200"
+                    },
+                    {
+                      "label": "tolerance",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "%",
+                      "value": "3"
+                    }
+                  ],
+                  "method": "batch standard (shown for comparison only)",
+                  "unit": "%",
+                  "value": "-10.00"
+                },
+                "flagged": false,
+                "item_id": "9f12ce02-3807-4ed0-96b8-ac6577285dba",
+                "label": "carton_20",
+                "note": null,
+                "standard": "10",
+                "tolerance_pct": "3",
+                "unit": "piece",
+                "variance_pct": "-10.00",
+                "view": "BATCH_VIEW"
+              },
+              "flexible": {
+                "actual": "9",
+                "beyond_tolerance": true,
+                "direction": "FAVOURABLE",
+                "drives_alert": true,
+                "explained": {
+                  "formula": "(actual - standard) / standard x 100; standard = qty per good unit x good units",
+                  "inputs": [
+                    {
+                      "label": "standard",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "9.4"
+                    },
+                    {
+                      "label": "actual",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "9"
+                    },
+                    {
+                      "label": "qty per good unit",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "0.05"
+                    },
+                    {
+                      "label": "good units",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "packet",
+                      "value": "188"
+                    },
+                    {
+                      "label": "tolerance",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "%",
+                      "value": "3"
+                    }
+                  ],
+                  "method": "flexible standard",
+                  "unit": "%",
+                  "value": "-4.26"
+                },
+                "flagged": false,
+                "item_id": "9f12ce02-3807-4ed0-96b8-ac6577285dba",
+                "label": "carton_20",
+                "note": "8 loose packets not cartoned",
+                "standard": "9.4",
+                "tolerance_pct": "3",
+                "unit": "piece",
+                "variance_pct": "-4.26",
+                "view": "PER_GOOD_UNIT"
+              }
+            },
+            {
+              "batch_view": {
+                "actual": "194",
+                "beyond_tolerance": false,
+                "direction": "FAVOURABLE",
+                "drives_alert": false,
+                "explained": {
+                  "formula": "(actual - standard) / standard x 100; standard = qty per good unit x expected units",
+                  "inputs": [
+                    {
+                      "label": "standard",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "200"
+                    },
+                    {
+                      "label": "actual",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "194"
+                    },
+                    {
+                      "label": "qty per good unit",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "1"
+                    },
+                    {
+                      "label": "expected units",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "packet",
+                      "value": "200"
+                    },
+                    {
+                      "label": "tolerance",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "%",
+                      "value": "3"
+                    }
+                  ],
+                  "method": "batch standard (shown for comparison only)",
+                  "unit": "%",
+                  "value": "-3.00"
+                },
+                "flagged": false,
+                "item_id": "30325af3-198f-4089-bd98-9787e46fb224",
+                "label": "pouch_200g",
+                "note": null,
+                "standard": "200",
+                "tolerance_pct": "3",
+                "unit": "piece",
+                "variance_pct": "-3.00",
+                "view": "BATCH_VIEW"
+              },
+              "flexible": {
+                "actual": "194",
+                "beyond_tolerance": true,
+                "direction": "UNFAVOURABLE",
+                "drives_alert": true,
+                "explained": {
+                  "formula": "(actual - standard) / standard x 100; standard = qty per good unit x good units",
+                  "inputs": [
+                    {
+                      "label": "standard",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "188"
+                    },
+                    {
+                      "label": "actual",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "194"
+                    },
+                    {
+                      "label": "qty per good unit",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "piece",
+                      "value": "1"
+                    },
+                    {
+                      "label": "good units",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "packet",
+                      "value": "188"
+                    },
+                    {
+                      "label": "tolerance",
+                      "source": {
+                        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                        "type": "production_run"
+                      },
+                      "unit": "%",
+                      "value": "3"
+                    }
+                  ],
+                  "method": "flexible standard",
+                  "unit": "%",
+                  "value": "3.19"
+                },
+                "flagged": true,
+                "item_id": "30325af3-198f-4089-bd98-9787e46fb224",
+                "label": "pouch_200g",
+                "note": null,
+                "standard": "188",
+                "tolerance_pct": "3",
+                "unit": "piece",
+                "variance_pct": "3.19",
+                "view": "PER_GOOD_UNIT"
+              }
+            }
+          ],
+          "packing": {
+            "explained": {
+              "formula": "full cartons, loose = divmod(good units, units per carton)",
+              "inputs": [
+                {
+                  "label": "good units",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "unit",
+                  "value": "188"
+                },
+                {
+                  "label": "units per carton",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "unit",
+                  "value": "20"
+                },
+                {
+                  "label": "loose units",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "unit",
+                  "value": "8"
+                }
+              ],
+              "method": null,
+              "unit": "carton",
+              "value": "9"
+            },
+            "full_cartons": 9,
+            "loose_units": 8,
+            "units_per_carton": 20
+          },
+          "yield": {
+            "actual": "188",
+            "beyond_tolerance": true,
+            "direction": "UNFAVOURABLE",
+            "drives_alert": true,
+            "explained": {
+              "formula": "(good - expected) / expected x 100; expected = bulk allocated / net per unit",
+              "inputs": [
+                {
+                  "label": "standard",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "packet",
+                  "value": "200"
+                },
+                {
+                  "label": "actual",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "packet",
+                  "value": "188"
+                },
+                {
+                  "label": "bulk allocated",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "g",
+                  "value": "40000"
+                },
+                {
+                  "label": "net per unit",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "g",
+                  "value": "200"
+                },
+                {
+                  "label": "tolerance",
+                  "source": {
+                    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+                    "type": "production_run"
+                  },
+                  "unit": "%",
+                  "value": "3"
+                }
+              ],
+              "method": "yield",
+              "unit": "%",
+              "value": "-6.00"
+            },
+            "flagged": true,
+            "item_id": "2da02376-a95a-462d-8136-1792d52715c2",
+            "label": "yield MURUKKU-200G",
+            "note": null,
+            "standard": "200",
+            "tolerance_pct": "3",
+            "unit": "packet",
+            "variance_pct": "-6.00",
+            "view": "YIELD"
+          }
+        }
+      ],
+      "tolerance_pct": "3",
+      "unallocated_bulk_g": "0"
+    },
+    "batch_multiplier": "1",
+    "completed_at": "2026-11-21T11:33:08.494683+00:00",
+    "cost_status": "FINAL",
+    "fill_weight_samples": [],
+    "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+    "issues": [
+      {
+        "direction": "ISSUE",
+        "id": "2a032b63-21e5-4113-8fe4-b90f5c13fe4c",
+        "issue_no": "MI/26-27/000001",
+        "journal_id": "9199780c-5995-4379-a198-cd7e33e90daf",
+        "lines": [
+          {
+            "item_code": "cooking_oil",
+            "item_id": "eed0813d-63ee-4512-b39d-62c4c67ff957",
+            "qty": "10.5",
+            "uom": "L",
+            "value": "1470.00"
+          },
+          {
+            "item_code": "flour",
+            "item_id": "9da05fb9-1306-4cca-867d-71fd755a2b81",
+            "qty": "40",
+            "uom": "kg",
+            "value": "1725.00"
+          },
+          {
+            "item_code": "spice_mix",
+            "item_id": "bdf10129-1934-4706-bb5d-1365fd6dea76",
+            "qty": "1.2",
+            "uom": "kg",
+            "value": "240.00"
+          }
+        ],
+        "posting_date": "2026-11-21"
+      }
+    ],
+    "loss_g": "0",
+    "oil_sessions": [],
+    "recipe": {
+      "bulk_item_code": "murukku_bulk",
+      "code": "MURUKKU",
+      "name": "DEMO Murukku dough and fry",
+      "version": 1
+    },
+    "recipe_version_id": "f3099a45-6470-453e-90b4-31487059428a",
+    "run_date": "2026-11-21",
+    "run_no": "B-001",
+    "scrap_g": "0",
+    "scrap_reason": null,
+    "started_at": "2026-11-21T11:33:08.494683+00:00",
+    "status": "COMPLETED"
+  },
+  "runs": {
+    "runs": [
+      {
+        "cost_status": "FINAL",
+        "good_units": 188,
+        "id": "cb473b69-cd7f-44c1-a621-410f9a49c4b0",
+        "recipe": "MURUKKU v1",
+        "run_date": "2026-11-21",
+        "run_no": "B-001",
+        "status": "COMPLETED"
+      }
+    ]
+  }
+}

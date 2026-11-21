@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.context import CORRELATION_HEADER, CorrelationIdMiddleware
 from app.core.errors import install_error_handlers
 from app.modules.audit.api import router as audit_router
+from app.modules.costing.api import router as costing_router
 from app.modules.identity.api import auth_router, identity_router
 from app.modules.judge.api import router as guide_router
 from app.modules.ledger.api import router as stock_router
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(purchases_router)
     app.include_router(recipes_router)
     app.include_router(runs_router)
+    app.include_router(costing_router)
     return app
 
 
