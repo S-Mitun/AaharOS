@@ -205,3 +205,62 @@ def test_law4_holds_with_a_credit_note_and_a_cancelled_invoice(nit: Any, app_eng
     assert table13["documents"] == "1" and "(1 cancelled)" in table13["description"]
     assert export["cdnr"][0]["nt"][0]["itms"][0]["itm_det"]["txval"] == "300.00"
     assert _uuid.UUID(str(nit.invoice_a_id))
+
+
+# ---------- module 5: bank statement, Tally XML, evidence pack, row 26 ----------
+
+
+def test_bank_statement_drawing_power(nit: Any, app_engine: Engine) -> None:
+    from app.modules.reports import exports
+
+    with scoped(app_engine, nit) as s:
+        r = exports.bank_statement(s, DAY)
+        owed = D(reports.receivables_ageing(s, DAY).totals["outstanding"])  # 3,875 less any credit note above
+    rows = {row["what"]: row for row in r.rows}
+    assert rows["Raw materials"]["value"] == "8665.00"  # flour 5,175 + oil 2,730 + spice 760
+    assert rows["Packaging"]["value"] == "1080.00"  # pouches 765 + cartons 315
+    assert rows["Finished goods"]["value"] == "2740.64"
+    debts = (owed * D("0.60")).quantize(D("0.01"))
+    assert rows["Book debts up to 90 days"]["eligible"] == str(debts)  # 60% of book debts up to 90 days
+    assert D(r.totals["eligible"]) == D("9364.23") + debts  # stock 12,485.64 x 75% + debts
+
+
+def test_tally_xml_and_evidence_pack(nit: Any, api_app: Any) -> None:
+    import zipfile
+    from xml.etree import ElementTree
+
+    client = login_client(api_app, nit.auditor)
+    xml = client.get("/api/reports/tally-xml?date_from=2026-11-01&date_to=2026-11-30")
+    assert xml.status_code == 200
+    root = ElementTree.fromstring(xml.content)  # noqa: S314 - our own generated file, not untrusted input
+    (voucher,) = root.iter("VOUCHER")
+    amounts = {e.findtext("LEDGERNAME"): e.findtext("AMOUNT") for e in voucher.iter("ALLLEDGERENTRIES.LIST")}
+    assert amounts["DEMO Retailer A"] == "-7875.00"  # the party is debited the total
+    assert (amounts["CGST Output"], amounts["SGST Output"]) == ("187.50", "187.50")
+    assert sum(D(a) for a in amounts.values()) == 0  # a balanced voucher
+
+    pack = client.get("/api/reports/evidence-pack?date_from=2026-11-01&date_to=2026-11-30")
+    assert pack.status_code == 200 and pack.headers["content-type"] == "application/zip"
+    z = zipfile.ZipFile(io.BytesIO(pack.content))
+    names = set(z.namelist())
+    for expected in (
+        "reports/sales_register.csv",
+        "reports/gst_summary.csv",
+        "ledger/stock_lines.csv",
+        "audit/verification.json",
+        "integrity.json",
+        "assumptions.md",
+        "tally/sales_vouchers_DEMO.xml",
+    ):
+        assert expected in names, expected
+    import json
+
+    audit_result = json.loads(z.read("audit/verification.json"))
+    assert audit_result["ok"] is True and len(audit_result["chain_head"]["last_hash"]) == 64
+    assert all(c["ok"] for c in json.loads(z.read("integrity.json")))
+    assert "A3:" in z.read("assumptions.md").decode()
+
+
+def test_the_nit_tenant_passes_every_integrity_check(nit: Any) -> None:
+    assert len(nit.integrity) == 8
+    assert [c["check"] for c in nit.integrity if not c["ok"]] == []

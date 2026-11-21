@@ -36,11 +36,26 @@ async function parse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+let refreshing: Promise<boolean> | null = null;
+
+/**
+ * Refresh the session once for everyone who needs it (single flight). Refresh tokens rotate and a reused one revokes
+ * the session (ADR-0010), so two parallel refreshes from the same tab would sign the user out.
+ */
+export function refreshSession(): Promise<boolean> {
+  refreshing ??= send("POST", "/api/auth/refresh")
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing;
+}
+
 export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res = await send(method, path, body);
   if (res.status === 401 && !path.startsWith("/api/auth/")) {
-    const refreshed = await send("POST", "/api/auth/refresh");
-    if (refreshed.ok) res = await send(method, path, body);
+    if (await refreshSession()) res = await send(method, path, body);
   }
   return parse<T>(res);
 }

@@ -299,6 +299,11 @@ def test_a25_eway_bill(stock_replay: Any, oracle: dict[str, Any]) -> None:
 
 
 @A(26, "Integrity: 4 conservation laws, balance rebuild, audit chain", "MP11")
-@pending("MP11")
-def test_a26_integrity() -> None:
-    not_built("MP11")
+def test_a26_integrity(stock_replay: Any) -> None:
+    """MP11: on the NIT tenant, the audit chain is intact, the four conservation laws hold (quantity per journal,
+    value per run, mass per run with the gap disclosed, tax lines = GST summary = export), balances rebuild
+    identically from the ledger, every invoice adds up and no store promises more than it holds."""
+    checks = {c["check"]: c["ok"] for c in stock_replay.integrity}
+    assert len(checks) == 8
+    assert all(checks.values()), [name for name, ok in checks.items() if not ok]
+    assert any(name.startswith("Law 3") for name in checks) and any(name.startswith("Law 4") for name in checks)

@@ -370,5 +370,6 @@ def catalogue() -> list[dict[str, str]]:
         "stock-summary": "Stock summary (opening, in, out, closing by quantity and value)",
         "production": "Production report (planned vs actual, yield, waste, variance in rupees)",
         "receivables-ageing": "Receivables ageing (0-15, 16-45, 46-90, 90+, MSME 45-day marker)",
+        "bank-statement": "Stock and book-debts statement for the bank (drawing power)",
     }
     return [{"name": k, "title": v} for k, v in titles.items()]

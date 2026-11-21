@@ -154,11 +154,12 @@ export const SCREENS: Record<string, Screen> = {
     label: "Reports",
     route: "/auditor/reports",
     mp: "MP11",
-    built: false,
+    built: true,
     group: "Auditor",
     icon: "▤",
-    description: "Stock ledger, GST summary, the four conservation laws and the evidence pack.",
-    permission: "audit.read",
+    description:
+      "Registers, stock, production, ageing, GST, month-end close and the evidence pack.",
+    permission: "report.read",
   },
   judge: {
     name: "Judge Mode",

@@ -46,6 +46,7 @@ from app.modules.production.domain import TOLERANCE_SETTING
 from app.modules.production.service import RunAnalysis
 from app.modules.recipe import service as recipes
 from app.modules.recipe.domain import PackLineIn, RecipeLineIn
+from app.modules.reports import close
 from app.modules.sales import service as sales
 from app.modules.sales.domain import OrderLineIn
 from app.modules.tax import service as tax
@@ -139,6 +140,7 @@ class StockReplay:
     dispatch_a: dict[str, Any] | None = None  # the dispatch view (row 21: lots)
     statement_a: dict[str, Any] | None = None  # Retailer A's statement after the payment (row 12)
     b001_lot: dict[str, tuple[Decimal, Decimal]] = field(default_factory=dict)  # location -> (qty, value) (row 22)
+    integrity: list[dict[str, Any]] = field(default_factory=list)  # MP11: the tenant's 8 integrity checks (row 26)
     closing: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, store) -> qty in stock unit
     closing_value: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, location) -> rupees
     run_id: uuid.UUID | None = None
@@ -277,6 +279,8 @@ def setup_section5_tax(
         tax.EWAY_THRESHOLDS["INTRA"]: EWAY_THRESHOLD_DEMO,
         tax.ROUND_TO_RUPEE: "false",
         "gst.b2cl_threshold": B2CL_THRESHOLD_DEMO,
+        "bank.stock_margin_pct": Decimal("25"),  # MP11: DEMO drawing-power margins
+        "bank.debtors_margin_pct": Decimal("40"),
     }
     for key, value in settings.items():
         tax.put_setting(
@@ -582,6 +586,7 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
     replay.run = production.run_analysis(session, run_id)
     replay.costing = costing.run_costing(session, run_id)
     replay.b_card = sales.inbox_card(session, replay.order_ids["6_order_B"])
+    replay.integrity = close.integrity_checks(session, org)  # row 26 (MP11)
     replay.invoice_a = billing.invoice_view(session, invoice_a.invoice_id)
     replay.dispatch_a = dispatch.dispatch_view(session, dispatched.dispatch_id)
     replay.statement_a = collections.statement(session, s5.customer_ids["RET-A"], on=POSTING_DATE)

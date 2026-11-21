@@ -94,9 +94,9 @@ describe("the shell", () => {
 
   it("shows an honest Coming page for a screen not built yet, with no numbers", async () => {
     serveSignedOut();
-    renderAt("/auditor/reports");
-    expect(await screen.findByRole("heading", { name: /Reports/ })).toBeInTheDocument();
-    expect(screen.getByText(/Coming in MP11/)).toBeInTheDocument();
+    renderAt("/judge");
+    expect(await screen.findByRole("heading", { name: /Judge Mode/ })).toBeInTheDocument();
+    expect(screen.getByText(/Coming in MP15/)).toBeInTheDocument();
     expect(document.querySelector("main")?.textContent).not.toMatch(/₹\s?\d/); // no amounts (the icon is a glyph)
   });
 

@@ -110,6 +110,16 @@ def verify(session: Session, organization_id: uuid.UUID) -> ChainVerdict:
     )
 
 
+def chain_head(session: Session, organization_id: uuid.UUID) -> dict[str, Any] | None:
+    """MP11: the current head of the organization's chain (last sequence and hash), for the evidence pack."""
+    head = session.execute(
+        select(AuditChainHead).where(AuditChainHead.organization_id == organization_id)
+    ).scalar_one_or_none()
+    if head is None:
+        return None
+    return {"last_seq": head.last_seq, "last_hash": bytes(head.last_hash).hex()}
+
+
 def organizations_with_audit(session: Session) -> list[uuid.UUID]:
     """Every organization that has audit rows or a chain head (used by `make integrity`, as the owner)."""
     heads = set(session.execute(select(AuditChainHead.organization_id)).scalars())

@@ -9,6 +9,7 @@ import { InvoicePage } from "./admin/InvoicePage";
 import { InvoicesPage } from "./admin/InvoicesPage";
 import { OrderCardPage } from "./admin/OrderCardPage";
 import { HomePage } from "./pages/HomePage";
+import { ReportsPage } from "./reports/ReportsPage";
 import { LeaksIndexPage, LeaksPage } from "./pages/LeaksPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SignInPage } from "./pages/SignInPage";
@@ -35,6 +36,11 @@ const BUILT: Record<string, ReactNode> = {
   invoices: (
     <Gate permission="invoice.post" what="invoices and dispatch">
       <InvoicesPage />
+    </Gate>
+  ),
+  reports: (
+    <Gate permission="report.read" what="reports">
+      <ReportsPage />
     </Gate>
   ),
   collections: (

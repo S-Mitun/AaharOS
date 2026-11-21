@@ -1,9 +1,9 @@
 # PROGRESS
 
-## Status: MP10 done, not committed (branch feat/mp10-invoices from feat/mp09-order-inbox, MP09 = 529c6fa; the MP09 review
-  fixes are also uncommitted on this branch) / MP11 next
+## Status: MP11 done (branch feat/mp11-reports, one commit per module; module 5 + docs in the last) / MP12 next
 
-## Benchmark scoreboard: 23/26
+
+## Benchmark scoreboard: 24/26
 - **Green:**
   - 1 flour closing 120 kg, 2 oil 19.5 L, 3 pouches 306, 15 spice 3.8 kg / cartons 21 (MP04)
   - 16 flour WAC ₹43.125/kg after the purchase (MP05), an `Explained` value from `valuation.wac`
@@ -16,6 +16,8 @@
   - **5 FG 88 after dispatch; 8–11 invoice A ₹7,500.00 + CGST ₹187.50 + SGST ₹187.50 = ₹7,875.00; 12 outstanding
     ₹3,875.00; 14 B's IGST ₹300 in full / ₹220 on 88; 21 FEFO 50 from OPEN-LOT + 100 from B-001; 22 sold 100 =
     ₹3,114.36 + on hand 88 = ₹2,740.64; 25 B's e-way bill not required (₹6,300 ≤ ₹50,000), reason shown** (MP10)
+  - **26 integrity on the NIT tenant: audit chain, laws 1–4 (law 3 with B-001's 2.4 kg gap disclosed and flagged,
+    law 4 = tax lines = GST summary = GSTR-1 export), balance rebuild, invoices add up, no over-promised stock** (MP11)
 - They are replayed through the real services into a fresh BENCHMARK tenant (`app/modules/judge/replay.py`):
   - J0 opening, valued; J1 as a purchase receipt
   - run B-001 created and started; J2 a real material issue at WAC; J3 the real `complete_run`
@@ -30,8 +32,42 @@
   red.
 
 Red items and the MP that turns them green:
-- MP11: 26 integrity
 - MP12: 23 shortage attribution, 24 runway
+
+## Done in MP11 (reports, GST export, month-end close, evidence pack)
+- **Gate met:** **24/26** (row 26 green; no green row turned red), oracle 10/10; `make integrity` OK with every law built
+  (no "not built yet" lines); Playwright 7/7 (repeat-order time printed 358 ms, automated).
+- **Five commits, one per module** (the user asked to commit after each module): 2c14cbb report engine and core
+  reports; ea761d7 GST summary, export, law 4; a8244e5 law 3; 828ac06 close cockpit and period lock / reopen; the last
+  commit holds the evidence pack, Tally XML, bank statement, the Auditor screen, row 26 and the docs.
+- **Decisions K1–K9 (approved; [ADR-0018](adr/0018-reports-gst-close-and-evidence.md)).**
+- **Backend:** `reports` (domain: one report shape + CSV / XLSX / printable; service: sales and purchase registers,
+  stock summary and ledger, production, receivables ageing; gst: GSTR-1 tables 4A/5/7/9B/12/13 + 3B 3.1, the
+  GSTR-1-shaped JSON, law 4; close: cockpit, close / reopen; exports: evidence pack ZIP, Tally XML, bank statement);
+  `ledger.movement_summary`, `stock_lines_export`, `lock_period` / `reopen_period` / `period_locks` / `is_locked`;
+  `billing.register_rows`, `documents_issued`; `production.domain.mass_law`, `mass_law_results`;
+  `audit.chain_head`; migration 0011 (lock history, reopen once with a reason, one active lock per month);
+  `openpyxl==3.1.5`; DEMO settings `gst.b2cl_threshold` (₹1,00,000), `bank.stock_margin_pct` (25),
+  `bank.debtors_margin_pct` (40), topped up on the DEMO factory.
+- **API:** `GET /api/reports`, `/api/reports/{name}?format=json|csv|xlsx|html` (sales-register, purchase-register,
+  stock-summary, stock-ledger, production, receivables-ageing, bank-statement, gst-summary), `/api/reports/gstr1-export`,
+  `/api/reports/tally-xml`, `/api/reports/evidence-pack`, `/api/reports/close`; `POST /api/reports/close/lock`
+  (`period.lock`), `/api/reports/close/reopen` (`period.reopen`).
+- **Web:** Auditor → Reports (tabs Reports, GST, Close month, Evidence; any `report.read` role), drill-down links,
+  downloads; tour step 9 is the real clicks.
+- **Fixed in passing (real bug, found on the live check):** parallel requests with an expired access cookie each
+  refreshed; the second reused the rotated token and the server revoked the session, so a reload after 15 minutes
+  signed the user out. Single-flight refresh now (`refreshSession` in `lib/api.ts`), used by the start-up session check
+  and the outbox; test `src/lib/api.test.ts`.
+- **Checks run:** backend **747 passed** (was 665; full suite incl. 500 state-machine examples), ruff / format clean,
+  mypy --strict clean, import-linter 2/2, `alembic check` clean (0011 applied to the dev DB); web **62 passed**,
+  typecheck / lint / build clean; float grep clean; live on :5180 as the DEMO admin: the Close Cockpit shows the
+  open order and 8 passing integrity checks (the DEMO month was left open).
+- **New tests:** `tests/db/test_reports.py` (11: totals = direct SQL, stock closing = projection, production and
+  ageing figures, formats, GST 4A / 3B and the export, a changed export detected, law 4 with a credit note and a
+  cancelled invoice, bank drawing power, Tally voucher balances, evidence pack contents, the NIT tenant's integrity),
+  `tests/db/test_close.py` (3), `production/tests/test_mass_law.py` (3), `src/reports/reports.test.tsx` (2),
+  `src/lib/api.test.ts` (1).
 
 ## Review of MP09 (2026-11-21, before MP10)
 - **Fixed, real bug:** choosing "today's list price" for a stale order applied the list in force at receipt, not the
@@ -593,6 +629,8 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP11: [ADR-0018](adr/0018-reports-gst-close-and-evidence.md): K1–K9 (report engine, reports, GST export and law 4,
+  law 3 with flagged gaps, close and reopen with history, evidence pack, Tally XML, bank statement, Reports screen).
 - MP10: [ADR-0017](adr/0017-tax-invoices-dispatch-and-collections.md): J1–J10 (tax engine, invoices, cancel and
   credit notes, document, settings, FEFO dispatch, mock e-way, collections, NIT-order replay, screens).
 - MP09: [ADR-0016](adr/0016-order-approval-reservations-and-shortage-options.md): H1–H10 (approval under locks,
@@ -674,6 +712,11 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **ADMIN cannot create orders** (`order.create` is SALESMAN and OWNER): phoned-in orders are entered by the owner or
   the salesman for now.
 - **Credit notes are value-only:** returned goods (stock back, food safety) are MP13.
+- **GSTR-1 export is for review only** (portal-shaped JSON, never filed); amendments (tables 9A/9C) and e-invoicing
+  are out of scope.
+- **Reports run synchronously;** very large ranges may be slow (the stock ledger caps at 2,000 movements per view).
+- **Tally XML uses default ledger names** ("Sales GST (local)", "CGST Output" …); map them to the real ledgers on import.
+- **The B2CL threshold, bank margins and e-way thresholds are DEMO settings;** set the real figures.
 - **No payment reversal (bounced cheque) document yet;** payments and allocations are insert-only.
 - **The invoice PDF is the browser's print-to-PDF** of a server-rendered page; a server-made PDF file is MP17.
 - **WhatsApp / email share a text summary only** (no public PDF link, nothing sent by the server).
@@ -689,10 +732,10 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **E2E tenants accumulate** (one SIM organization per `make e2e`, ADR-0006: no deletes).
 - **BENCHMARK replay orders carry no salesman** (BENCHMARK tenants have no logins).
 - **CSRF:** relies on SameSite cookies plus the CORS allow-list; there is no CSRF token (docs/security.md).
-- **Multiple tabs:** two tabs refreshing with the same refresh token at the same instant revoke the session (safe,
-  and the user re-logs in).
-- **Audit chain head:** stored in the same database. A superuser rewriting rows *and* the head is caught only
-  against an exported head hash, which the evidence pack records (MP11).
+- **Multiple tabs:** two *tabs* refreshing at the same instant can still revoke the session (safe; the user signs in
+  again). Within one tab, refresh is single-flight since MP11.
+- **Audit chain head:** stored in the same database; since MP11 the evidence pack exports it, so keep a copy
+  outside AaharOS to catch a superuser rewriting rows *and* the head.
 - **DEMO passwords:** they default to `change-me-demo` when `.env` sets none. Set real ones before hosting (MP17).
   `AAHAR_AUTH_SECRET` must be set outside dev/test; the app refuses to start with the DEMO default.
 - `erd.mmd` was edited for the MP02 fixes but not re-rendered (no Mermaid renderer available locally). The
@@ -703,20 +746,24 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-Run MP11 (reports, GST exports, month-end close, evidence pack → row 26, laws 3 and 4 in full) in a fresh session:
-read the MP11 section of docs/MASTER_PACK.md, show the plan (it touches tax exports and period locks) and wait for
-approval.
+Run MP12 (owner morning brief, material runway, batch planner, reorder → rows 23 shortage attribution, 24 runway) in a
+fresh session: read the MP12 section of docs/MASTER_PACK.md, show the plan and wait for approval. Keep committing one
+module at a time (the user's standing request since MP11).
 
 Before starting:
-- The user commits first: the MP09 review fixes, then MP10 (proposed messages in the session that built them). Then
-  branch `feat/mp11-reports` from `feat/mp10-invoices`.
+- Branch `feat/mp12-planning` from `feat/mp11-reports`.
 - One frontend and one backend in Docker: web http://localhost:5180, API http://localhost:8180 (`/docs`). After a
   dependency change rebuild the API image (`docker compose build api && docker compose up -d api`).
 - Everything runs in Docker; never two pytest runs at once; host Python is cp1252 / CRLF; long heredocs break the Bash
   tool, so write scripts with the editor tools.
-- MP11 inherits: invoices with tax lines (law 4 per document already checked by `make integrity`), credit notes,
-  payments, dispatch journals (COGS at CUSTOMER), `billing.tax_line_mismatches`, the Auditor → Reports registry entry
-  (`reports`), and the period-lock trigger on invoices, credit notes, payments and stock journals.
+- MP12 inherits: `production.next_batch_for` (the MP09 planner stub the batch planner replaces), stock balances and
+  WAC, the recipe and pack snapshots, the oracle's `material_runway_after_run` and `shortage_attribution_B`, and the
+  Owner group in the sidebar.
+- Supabase: the user has a Supabase account connected; it fits the hosted demo (MP17) as managed PostgreSQL. Nothing
+  was created there.
+
+### Record: the MP11 plan as approved (implemented above)
+Approved by the user on 2026-11-21 as recommended (K1–K9, one commit per module); see ADR-0018.
 
 ### Record: the MP10 plan as approved (implemented above)
 Approved by the user on 2026-11-21 as recommended (J1–J10); see ADR-0017 for the decisions as built.

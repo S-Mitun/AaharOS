@@ -918,6 +918,41 @@ def reopen_period(
     )
 
 
+def stock_lines_export(session: Session, date_from: date, date_to: date) -> list[dict[str, Any]]:
+    """MP11 evidence pack: every stock line of the range with its journal, source document and lot."""
+    rows = session.execute(
+        text(
+            """
+            SELECT j.posting_date, j.kind, j.source_type, j.source_id, j.id, sl.line_no, i.code, l.code, lt.lot_no,
+                   sl.qty_base, sl.value, j.reason
+              FROM stock_lines sl
+              JOIN stock_journals j ON j.id = sl.journal_id
+              JOIN items i ON i.id = sl.item_id
+              JOIN locations l ON l.id = sl.location_id
+              LEFT JOIN lots lt ON lt.id = sl.lot_id
+             WHERE j.posting_date BETWEEN :f AND :t
+             ORDER BY j.posting_date, j.posted_at, j.id, sl.line_no
+            """
+        ),
+        {"f": date_from, "t": date_to},
+    ).all()
+    keys = (
+        "posting_date",
+        "kind",
+        "source_type",
+        "source_id",
+        "journal_id",
+        "line_no",
+        "item",
+        "location",
+        "lot",
+        "qty_base",
+        "value",
+        "reason",
+    )
+    return [dict(zip(keys, (str(v) if v is not None else None for v in r), strict=True)) for r in rows]
+
+
 def over_reserved(session: Session) -> list[dict[str, str]]:
     """Integrity (MP09): no store position may have more ACTIVE reservations than it holds on hand. Empty means
     every promise is covered by stock (sees all orgs as the owner)."""

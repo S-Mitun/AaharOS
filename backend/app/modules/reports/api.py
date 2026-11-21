@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.modules.identity.service import Principal, require
-from app.modules.reports import close, domain, gst, service
+from app.modules.reports import close, domain, exports, gst, service
 from app.modules.reports.domain import Report
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -119,6 +119,29 @@ def reopen_month(
     )
     session.commit()
     return close.cockpit(session, principal.organization_id, body.month)
+
+
+@router.get("/bank-statement")
+def bank_statement(_principal: Reader, session: DbSession, as_of: date | None = None, format: Format = "json") -> Any:
+    return render(exports.bank_statement(session, as_of), format)
+
+
+@router.get("/tally-xml")
+def tally(_principal: Reader, session: DbSession, date_from: date, date_to: date) -> Response:
+    return Response(
+        exports.tally_xml(session, date_from, date_to),
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="tally_sales_{date_from}_{date_to}_DEMO.xml"'},
+    )
+
+
+@router.get("/evidence-pack")
+def evidence(principal: Reader, session: DbSession, date_from: date, date_to: date) -> Response:
+    return Response(
+        exports.evidence_pack(session, principal.organization_id, date_from, date_to),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="evidence_pack_{date_from}_{date_to}_DEMO.zip"'},
+    )
 
 
 @router.get("/gst-summary")

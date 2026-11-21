@@ -1,4 +1,4 @@
-import { ApiError, apiGet } from "../lib/api";
+import { ApiError, apiGet, refreshSession } from "../lib/api";
 import { cacheGet, cachePut } from "./db";
 import type {
   Catalog,
@@ -26,13 +26,7 @@ export async function sendOrder(entry: OutboxEntry): Promise<SendResult> {
     });
   try {
     let res = await post();
-    if (res.status === 401) {
-      const refreshed = await fetch("/api/auth/refresh", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (refreshed.ok) res = await post();
-    }
+    if (res.status === 401 && (await refreshSession())) res = await post();
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (res.ok && typeof data.order_no === "string") {
       return {

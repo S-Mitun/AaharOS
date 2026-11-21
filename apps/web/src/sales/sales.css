@@ -796,3 +796,15 @@
 .tax-options li {
   margin-bottom: 0.5rem;
 }
+
+/* MP11: reports */
+.checklist {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.report tfoot td {
+  border-top: 2px solid var(--text);
+}

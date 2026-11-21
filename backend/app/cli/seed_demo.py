@@ -13,6 +13,7 @@ import os
 import sys
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
@@ -183,6 +184,12 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
             effective_from=SETTINGS_FROM,
         )
         added.append("GSTR-1 B2CL threshold")
+    for key, margin in (("bank.stock_margin_pct", Decimal("25")), ("bank.debtors_margin_pct", Decimal("40"))):
+        if effective_settings.value_on(app_session, key, date.today()) is None:
+            tax.put_setting(
+                app_session, organization_id=org_id, actor_id=None, key=key, value=margin, effective_from=SETTINGS_FROM
+            )
+            added.append(f"DEMO {key}")
     for code, limit in CREDIT_LIMITS.items():  # MP09: only where no limit was ever set
         customer_id = sales.customer_id_by_code(app_session, code)
         if customer_id is not None and sales.credit_limit_of(app_session, customer_id) == 0:

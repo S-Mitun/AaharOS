@@ -57,6 +57,11 @@ the moment you approve, and can never go below zero.
 verdict) → **Record dispatch**. Collections → the customer → **Record payment**: it is applied to the oldest unpaid
 invoice, and the rest stays owed.
 
+**Then check the month:** Reports (any admin, owner or auditor) → pick a report and dates → **Show**, or download CSV,
+Excel or Print / PDF. **GST** has the month's GSTR-1 tables and GSTR-3B 3.1 and a GSTR-1 file for your CA (for review,
+never filed). **Close month** lists what is still open and runs the four conservation laws; closing locks the month
+against new postings. **Evidence** downloads the whole month in one ZIP.
+
 ## Test logins
 
 `make seed-demo` creates the DEMO organization `DEMO-FACTORY` with one login per role. Every password is

@@ -268,9 +268,10 @@ export const STEPS: GuideStep[] = [
     who: { role: "Auditor", login: "Auditor (read-only)" },
     screen: "reports",
     actions: [
-      "Log in as the Auditor. Every screen is read-only.",
-      "Reports → this month → Sales register, GST summary, Purchase register, Stock ledger, Production report, Receivables ageing.",
-      "Click any row to open the document behind it. Export to CSV, Excel or PDF.",
+      "Sign in → tap “Auditor” → password. Every screen is read-only for this role.",
+      "Sidebar → Reports. Pick a report (sales register, purchase register, stock summary, production, receivables ageing, bank statement) and the dates → Show. Download it as CSV, Excel or Print / PDF.",
+      "GST tab: this month's GSTR-1 tables and GSTR-3B 3.1, and the GSTR-1 file for your CA. Close month tab: the checklist and the four conservation laws. Evidence tab: the whole month in one ZIP.",
+      "Tap Open on any row to see the document behind it.",
     ],
     expect: [
       { label: "GST summary: CGST", key: "nit_expected.invoice_A.cgst", unit: "INR" },

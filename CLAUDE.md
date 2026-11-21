@@ -51,7 +51,7 @@ Modules talk through `service.py` interfaces, never by importing another module'
 - `make benchmark`: run the 9 NIT steps and print the scoreboard against the oracle
 - `make test`: backend unit + integration tests
 - `make e2e`: Playwright (own compose service, profile `e2e`) on a fresh SIM scratch tenant from `app.cli.seed_e2e`; needs `make up`
-- `make integrity`: audit hash chain, law 1 per journal, balance rebuild diff, receipt values, S6 run WIP, law 2 per run, reservations covered, invoice tax lines = header (built); laws 3-4 in full in MP11
+- `make integrity`: audit hash chain, laws 1-4 (law 3 flags gaps above tolerance, law 4 = tax lines = GST summary = GSTR-1 export), balance rebuild diff, receipt values, S6 run WIP, reservations covered, invoice tax lines = header
 - `make sim`: generate the synthetic 24-month dataset (fixed seed)
 - `make ml-eval`: backtests vs baselines + planted-truth recovery report
 
