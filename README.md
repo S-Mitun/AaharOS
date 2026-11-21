@@ -47,6 +47,11 @@ back to the right step. The sidebar lists every screen by role; a screen not bui
 with its number (SO/26-27/…) and ₹7,500.00 ex-tax. Turn the network off (browser dev tools → Offline) and save
 another: it says **Saved on phone**, then sends itself when you go back online.
 
+**Then decide as the factory:** Sign out → **Factory admin** → you land on the **Order inbox**. Open the order: the
+card shows available to promise (on hand − reserved), the shortage, the credit check, and one button per option:
+approve all, **send what is available now and backorder the rest**, wait for the next batch, or reject. Stock is held
+the moment you approve, and can never go below zero.
+
 ## Test logins
 
 `make seed-demo` creates the DEMO organization `DEMO-FACTORY` with one login per role. Every password is
@@ -62,8 +67,8 @@ Set your own before exposing the app anywhere.
 | Owner | `owner@aaharos-demo.invalid` | Everything, including staff and reopening a closed month |
 
 The full permission matrix and the session design are in [docs/security.md](docs/security.md). The API is live from
-MP03 (`POST /api/auth/login`); the salesman app is live from MP08 (a salesman lands on **Today**); the other role
-screens arrive with their MPs. The sign-in page has one-tap buttons that fill each DEMO email.
+MP03 (`POST /api/auth/login`); the salesman app is live from MP08 (a salesman lands on **Today**) and the order inbox
+from MP09 (an admin lands on it); the other role screens arrive with their MPs. The sign-in page has one-tap buttons that fill each DEMO email.
 
 ## Stack (and why)
 PostgreSQL gives exact NUMERIC arithmetic, real transactions and constraint triggers, so the ledger's correctness is

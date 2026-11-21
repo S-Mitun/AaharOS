@@ -94,10 +94,12 @@ describe("the shell", () => {
 
   it("shows an honest Coming page for a screen not built yet, with no numbers", async () => {
     serveSignedOut();
-    renderAt("/admin/orders");
-    expect(await screen.findByRole("heading", { name: /Order inbox/ })).toBeInTheDocument();
-    expect(screen.getByText(/Coming in MP09/)).toBeInTheDocument();
-    expect(document.querySelector("main")?.textContent).not.toMatch(/₹/);
+    renderAt("/admin/invoices");
+    expect(
+      await screen.findByRole("heading", { name: /Invoices and dispatch/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Coming in MP10/)).toBeInTheDocument();
+    expect(document.querySelector("main")?.textContent).not.toMatch(/₹\s?\d/); // no amounts (the icon is a glyph)
   });
 
   it("asks a visitor to sign in on a screen that needs data", async () => {

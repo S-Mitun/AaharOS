@@ -75,7 +75,7 @@ export const SCREENS: Record<string, Screen> = {
     label: "Order inbox",
     route: "/admin/orders",
     mp: "MP09",
-    built: false,
+    built: true,
     group: "Admin",
     icon: "✉",
     description: "Approve, part-approve or reject orders against available-to-promise stock.",
@@ -190,5 +190,7 @@ export const ROLE_GROUP: Record<string, Group> = {
 
 /** Where each role lands after sign-in (G7). Roles whose shells come later land on today's pages. */
 export function homeFor(role: string): string {
-  return role === "SALESMAN" ? SCREENS.salesToday!.route : SCREENS.profitLeaks!.route;
+  if (role === "SALESMAN") return SCREENS.salesToday!.route;
+  if (role === "ADMIN") return SCREENS.orderInbox!.route;
+  return SCREENS.profitLeaks!.route;
 }

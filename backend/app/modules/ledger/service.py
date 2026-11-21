@@ -721,6 +721,45 @@ def lock_item_stores(session: Session, organization_id: uuid.UUID, item_id: uuid
     lock_positions(session, organization_id, [(item_id, loc) for loc in stores])
 
 
+def active_reservations(
+    session: Session, order_line_ids: Sequence[uuid.UUID]
+) -> list[tuple[uuid.UUID, uuid.UUID, Decimal]]:
+    """(reservation, order line, qty) for every ACTIVE reservation of these order lines (MP09)."""
+    if not order_line_ids:
+        return []
+    rows = session.execute(
+        select(Reservation.id, Reservation.order_line_id, Reservation.qty_base)
+        .where(Reservation.order_line_id.in_(set(order_line_ids)), Reservation.status == "ACTIVE")
+        .order_by(Reservation.created_at)
+    ).tuples()
+    return list(rows.all())
+
+
+def over_reserved(session: Session) -> list[dict[str, str]]:
+    """Integrity (MP09): no store position may have more ACTIVE reservations than it holds on hand. Empty means
+    every promise is covered by stock (sees all orgs as the owner)."""
+    rows = session.execute(
+        text(
+            """
+            WITH r AS (
+              SELECT organization_id, item_id, location_id, sum(qty_base) AS reserved
+                FROM reservations WHERE status = 'ACTIVE' GROUP BY organization_id, item_id, location_id
+            ), b AS (
+              SELECT organization_id, item_id, location_id, sum(qty_base) AS on_hand
+                FROM inventory_balances GROUP BY organization_id, item_id, location_id
+            )
+            SELECT r.organization_id, r.item_id, r.reserved, coalesce(b.on_hand, 0)
+              FROM r LEFT JOIN b USING (organization_id, item_id, location_id)
+             WHERE r.reserved > coalesce(b.on_hand, 0)
+            """
+        )
+    ).all()
+    return [
+        {"organization_id": str(o), "item_id": str(i), "reserved": str(normalise(r)), "on_hand": str(normalise(h))}
+        for o, i, r, h in rows
+    ]
+
+
 def items_held_at(session: Session, location_codes: Sequence[str]) -> list[uuid.UUID]:
     """Items with a non-zero quantity summed over the given locations."""
     return list(

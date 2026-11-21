@@ -1368,3 +1368,36 @@ def run_value_mismatches(session: Session) -> list[dict[str, str]]:
         {"organization_id": str(o), "run_no": n, "materials_and_costs": str(i), "into_lots_and_scrap": str(v)}
         for o, n, i, v in rows
     ]
+
+
+def next_batch_for(session: Session, fg_item_id: uuid.UUID) -> dict[str, Any] | None:
+    """The earliest batch not yet completed (DRAFT or IN_PROGRESS) that will pack this finished good, with its
+    planned packets (expected units of its pack lines for the item). None if no batch is planned. MP12 replaces this
+    stub with the batch planner."""
+    versions = recipes.pack_spec_versions_for(session, fg_item_id)
+    if not versions:
+        return None
+    row = session.execute(
+        select(
+            ProductionRun.id,
+            ProductionRun.run_no,
+            ProductionRun.run_date,
+            ProductionRun.status,
+            func.sum(RunPackLine.expected_units),
+        )
+        .join(RunPackLine, RunPackLine.run_id == ProductionRun.id)
+        .where(ProductionRun.status.in_(("DRAFT", "IN_PROGRESS")), RunPackLine.pack_spec_version_id.in_(versions))
+        .group_by(ProductionRun.id, ProductionRun.run_no, ProductionRun.run_date, ProductionRun.status)
+        .order_by(ProductionRun.run_date, ProductionRun.run_no)
+        .limit(1)
+    ).one_or_none()
+    if row is None:
+        return None
+    run_id, run_no, run_date, status, planned = row
+    return {
+        "run_id": str(run_id),
+        "run_no": run_no,
+        "run_date": run_date.isoformat(),
+        "status": status,
+        "planned_packets": str(int(planned)),
+    }

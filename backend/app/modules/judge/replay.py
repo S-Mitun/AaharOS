@@ -27,6 +27,7 @@ from typing import Any, Final
 from sqlalchemy.orm import Session
 
 from app.core import effective_settings
+from app.core.errors import DomainError
 from app.core.explained import Explained
 from app.modules.audit import service as audit
 from app.modules.catalog import service as catalog
@@ -82,6 +83,8 @@ CUSTOMERS: Final = (
     ("RET-A", "DEMO Retailer A", "RETAILER", "33", "33DEMOA0000A1Z0"),  # Tamil Nadu: CGST + SGST
     ("DIST-B", "DEMO Distributor B", "DISTRIBUTOR", "29", "29DEMOB0000B1Z0"),  # Karnataka: IGST
 )
+# MP09 (H7): fictional DEMO credit limits in rupees; NIT gives none. 0 would mean "no limit set".
+CREDIT_LIMITS: Final[dict[str, Decimal]] = {"RET-A": Decimal("25000.00"), "DIST-B": Decimal("100000.00")}
 
 
 @dataclass
@@ -107,6 +110,9 @@ class StockReplay:
     flour_wac_after_purchase: Explained | None = None
     flour_issue_sensitivity: dict[str, dict[str, Any]] = field(default_factory=dict)
     orders: dict[str, str] = field(default_factory=dict)  # step -> SO number (MP08)
+    order_ids: dict[str, uuid.UUID] = field(default_factory=dict)  # step -> sales order id
+    b_card: dict[str, Any] | None = None  # MP09: Distributor B's inbox card after Retailer A's approval
+    b_full_refusal: str | None = None  # MP09: the code a full approval of B is refused with
     closing: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, store) -> qty in stock unit
     closing_value: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, location) -> rupees
     run_id: uuid.UUID | None = None
@@ -182,6 +188,7 @@ def setup_section5(
             kind=kind,
             state_code=state,
             gstin=gstin,
+            credit_limit=CREDIT_LIMITS[code],
         )
         for code, name, kind, state, gstin in CUSTOMERS
     }
@@ -444,11 +451,12 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
         ).journal_id
     production.finalise_costs(session, organization_id=org, actor_id=None, run_id=run_id)
 
-    # MP08: steps 4 and 6 as SUBMITTED orders at the price list's price; approval, invoices and dispatch are MP09-MP10.
+    # MP08-MP09: step 4 order A; step 5 (first half) the admin approves it, reserving 150 of the 238 packets;
+    # step 6 order B. Invoice and dispatch (the rest of step 5) are MP10.
     assert s5.price_list_id is not None
     price = Decimal(str(inputs["selling_price_ex_tax"])).quantize(Decimal("0.01"))
     for step, customer in (("4_order_A", "RET-A"), ("6_order_B", "DIST-B")):
-        replay.orders[step] = sales.receive_order(
+        placed = sales.receive_order(
             session,
             organization_id=org,
             actor_id=None,
@@ -456,11 +464,22 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
             price_list_id=s5.price_list_id,
             lines=[OrderLineIn(ids[FINISHED], int(steps[step]["qty"]), price)],
             order_date=POSTING_DATE,
-        ).order_no
+        )
+        replay.orders[step], replay.order_ids[step] = placed.order_no, placed.order_id
+        if step == "4_order_A":
+            sales.approve_order(session, organization_id=org, actor_id=None, order_id=placed.order_id)
+
+    # step 6, the admin's view: B's card shows the shortage, and a full approval is refused with nothing written
+    try:
+        with session.begin_nested():
+            sales.approve_order(session, organization_id=org, actor_id=None, order_id=replay.order_ids["6_order_B"])
+    except DomainError as exc:
+        replay.b_full_refusal = exc.code
 
     session.commit()
     replay.run = production.run_analysis(session, run_id)
     replay.costing = costing.run_costing(session, run_id)
+    replay.b_card = sales.inbox_card(session, replay.order_ids["6_order_B"])
 
     by_id = {str(i): c for c, i in ids.items()}
     for row in ledger.balances(session, include_virtual=True):

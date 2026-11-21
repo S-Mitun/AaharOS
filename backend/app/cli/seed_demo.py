@@ -26,6 +26,7 @@ from app.modules.catalog import service as catalog
 from app.modules.identity import service as identity
 from app.modules.identity.domain import hash_password
 from app.modules.judge.replay import (
+    CREDIT_LIMITS,
     EXTRA_ITEMS,
     ITEMS,
     PRICE_LIST_CODE,
@@ -150,6 +151,13 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
     if PRICE_LIST_CODE not in {p["code"] for p in sales.list_price_lists(app_session)}:
         setup_section5_price_list(app_session, oracle, org_id, ids)
         added.append("price list GENERAL v1")
+    for code, limit in CREDIT_LIMITS.items():  # MP09: only where no limit was ever set
+        customer_id = sales.customer_id_by_code(app_session, code)
+        if customer_id is not None and sales.credit_limit_of(app_session, customer_id) == 0:
+            sales.set_credit_limit(
+                app_session, organization_id=org_id, actor_id=None, customer_id=customer_id, limit=limit
+            )
+            added.append(f"credit limit {code}")
     return added
 
 

@@ -17,7 +17,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Final
 
-from app.core.errors import DomainError
+from app.core.errors import ConflictError, DomainError
 from app.core.explained import Explained, ExplainedInput, SourceRef
 from app.core.money import round_money
 
@@ -181,3 +181,200 @@ def check_new_price_list(items: Mapping[uuid.UUID, Decimal], fg_items: set[uuid.
             raise TypeError("prices are Decimals")
         if price < 0 or price != round_money(price):
             raise OrderError("bad_price", "prices are in rupees with at most two decimals", {"item_id": str(item_id)})
+
+
+# ---------- MP09: deciding on an order (ADR-0016) ----------
+
+# Which statuses each decision may start from. Anything else is a conflict (409): the order was already decided.
+ALLOWED_FROM: Final[dict[str, frozenset[str]]] = {
+    "approve": frozenset({"SUBMITTED"}),
+    "approve_backorder": frozenset({"PART_APPROVED"}),
+    "reject": frozenset({"SUBMITTED", "PART_APPROVED"}),
+    "cancel": frozenset({"APPROVED", "PART_APPROVED"}),
+    "amend_price": frozenset({"SUBMITTED", "PART_APPROVED", "APPROVED"}),
+    "amend_qty": frozenset({"PART_APPROVED", "APPROVED"}),
+    "wait": frozenset({"SUBMITTED"}),
+}
+OPEN_STATUSES: Final = frozenset({"SUBMITTED", "PART_APPROVED"})
+
+
+def require_status(action: str, status: str) -> None:
+    if status not in ALLOWED_FROM[action]:
+        raise ConflictError(
+            "order_already_decided",
+            f"this order is {status}, so it cannot take this action now",
+            {"status": status, "action": action},
+        )
+
+
+def require_reason(reason: str | None, what: str) -> str:
+    text = (reason or "").strip()
+    if len(text) < 3:
+        raise OrderError("reason_required", f"{what} needs a reason")
+    return text
+
+
+@dataclass(frozen=True)
+class LineState:
+    line_no: int
+    item_id: uuid.UUID
+    requested: int
+    approved: int
+    backordered: int
+
+
+@dataclass(frozen=True)
+class LineDecision:
+    line_no: int
+    item_id: uuid.UUID
+    target: int  # packets the factory agrees to supply (requested, or less with a reason)
+    reserve: int  # packets reserved now
+    backorder: int  # packets owed later
+
+
+def agreed_quantities(lines: Sequence[LineState], agreed: Mapping[int, int]) -> dict[int, int]:
+    """Packets to supply per line: the request, or a lower agreed quantity (an amendment, which needs a reason)."""
+    by_no = {ln.line_no: ln for ln in lines}
+    for line_no in agreed:
+        if line_no not in by_no:
+            raise OrderError("unknown_line", "no such line on this order", {"line_no": line_no})
+    out: dict[int, int] = {}
+    for ln in lines:
+        qty = agreed.get(ln.line_no, ln.requested)
+        if isinstance(qty, bool) or not isinstance(qty, int) or qty < 0 or qty > ln.requested:
+            raise OrderError(
+                "bad_agreed_qty",
+                "an agreed quantity is a whole number of packets from 0 to the quantity ordered",
+                {"line_no": ln.line_no, "requested": ln.requested},
+            )
+        out[ln.line_no] = qty
+    if not any(out.values()):
+        raise OrderError("nothing_to_supply", "every line is at zero: reject the order instead")
+    return out
+
+
+def approval_plan(
+    lines: Sequence[LineState], agreed: Mapping[int, int], available: Mapping[uuid.UUID, int], partial: bool
+) -> list[LineDecision]:
+    """Full approval reserves every agreed packet or nothing (refused with the shortage per line). Partial approval
+    reserves what is available and backorders the rest; it is refused only if nothing at all can be reserved."""
+    plan = []
+    short: list[dict[str, Any]] = []
+    for ln in lines:
+        target = agreed[ln.line_no]
+        avail = max(0, available.get(ln.item_id, 0))
+        reserve = min(target, avail)
+        if reserve < target and not partial:
+            short.append(
+                {
+                    "line_no": ln.line_no,
+                    "item_id": str(ln.item_id),
+                    "requested": target,
+                    "available": avail,
+                    "shortage": target - avail,
+                }
+            )
+        plan.append(LineDecision(ln.line_no, ln.item_id, target, reserve, target - reserve))
+    if short:
+        raise OrderError(
+            "insufficient_available",
+            "not enough stock is available to promise for a full approval: send what is available and backorder"
+            " the rest, wait for the next batch, or reject",
+            {"lines": short},
+        )
+    if sum(d.reserve for d in plan) == 0:
+        raise OrderError("nothing_available", "no stock is available to promise for this order today")
+    return plan
+
+
+def backorder_plan(lines: Sequence[LineState], available: Mapping[uuid.UUID, int]) -> list[LineDecision]:
+    """Cover backordered packets from stock that has become available. Refused if none can be covered."""
+    plan = []
+    for ln in lines:
+        reserve = min(ln.backordered, max(0, available.get(ln.item_id, 0)))
+        plan.append(
+            LineDecision(ln.line_no, ln.item_id, ln.approved + ln.backordered, reserve, ln.backordered - reserve)
+        )
+    if sum(d.reserve for d in plan) == 0:
+        raise OrderError("nothing_available", "no stock is available to promise for the backorder yet")
+    return plan
+
+
+def status_after(lines: Sequence[tuple[int, int]]) -> str:
+    """(approved, backordered) per line -> APPROVED when nothing is owed, else PART_APPROVED."""
+    return "APPROVED" if all(back == 0 for _, back in lines) else "PART_APPROVED"
+
+
+def reduce_line(approved: int, backordered: int, new_target: int) -> tuple[int, int]:
+    """Amend an approved line down: the backorder shrinks first, then the approved (reserved) packets.
+    Returns (approved, backordered)."""
+    current = approved + backordered
+    if isinstance(new_target, bool) or not isinstance(new_target, int) or new_target < 0 or new_target >= current:
+        raise OrderError(
+            "bad_agreed_qty",
+            "an amendment can only lower the agreed quantity (raise it with a new order)",
+            {"agreed": current},
+        )
+    cut = current - new_target
+    from_back = min(cut, backordered)
+    return approved - (cut - from_back), backordered - from_back
+
+
+def shortage(open_qty: int, available: int) -> int:
+    return max(0, open_qty - max(0, available))
+
+
+def stock_explained(on_hand: int, reserved: int) -> Explained:
+    """Available to promise = on hand (in non-expired lots, at FG_STORE) - reserved for approved orders."""
+    return Explained(
+        value=Decimal(on_hand - reserved),
+        unit="packets",
+        formula="on hand - reserved",
+        inputs=(
+            ExplainedInput("On hand (finished-goods store, not expired)", Decimal(on_hand), "packets"),
+            ExplainedInput("Reserved for approved orders", Decimal(reserved), "packets"),
+        ),
+        method="Available to promise",
+    )
+
+
+def shortage_explained(open_qty: int, available: int) -> Explained:
+    return Explained(
+        value=Decimal(shortage(open_qty, available)),
+        unit="packets",
+        formula="max(0, packets to decide - available to promise)",
+        inputs=(
+            ExplainedInput("Packets to decide on this order", Decimal(open_qty), "packets"),
+            ExplainedInput("Available to promise", Decimal(max(0, available)), "packets"),
+        ),
+        method="Shortage",
+    )
+
+
+@dataclass(frozen=True)
+class CreditCheck:
+    limit: Decimal | None  # None: no limit set (0 in the master data)
+    outstanding: Explained
+    exposure: Explained
+    over_limit: bool
+
+
+def credit_check(limit: Decimal, outstanding: Explained, order_value: Decimal) -> CreditCheck:
+    """Outstanding + this order (ex-tax) against the customer's credit limit. A limit of 0 means none is set."""
+    exposure = Explained(
+        value=round_money(outstanding.value + order_value),
+        unit="INR",
+        formula="outstanding + this order (ex-tax)",
+        inputs=(
+            ExplainedInput("Outstanding", outstanding.value, "INR"),
+            ExplainedInput("This order (ex-tax)", order_value, "INR"),
+        ),
+        method="Credit exposure",
+    )
+    has_limit = limit > 0
+    return CreditCheck(
+        limit=limit if has_limit else None,
+        outstanding=outstanding,
+        exposure=exposure,
+        over_limit=has_limit and exposure.value > limit,
+    )

@@ -28,7 +28,8 @@ def replay(app_engine: Engine) -> Any:
 
 
 def test_steps_4_and_6_are_submitted_orders(replay: Any, app_engine: Engine) -> None:
-    """MP08: the two orders exist, SUBMITTED, priced from the price list, numbered SO/26-27/000001 and 000002."""
+    """MP08-MP09: the two orders exist, priced from the price list, numbered SO/26-27/000001 and 000002; A is approved
+    at step 5 (MP09), B waits for the admin's decision."""
     assert replay.orders == {"4_order_A": "SO/26-27/000001", "6_order_B": "SO/26-27/000002"}
     with Session(app_engine) as s:
         org_scope(s, replay.organization_id)
@@ -39,7 +40,7 @@ def test_steps_4_and_6_are_submitted_orders(replay: Any, app_engine: Engine) -> 
             )
         ).all()
     assert [tuple(r) for r in rows] == [
-        ("SO/26-27/000001", "SUBMITTED", "RET-A", 150, D("50.00")),
+        ("SO/26-27/000001", "APPROVED", "RET-A", 150, D("50.00")),
         ("SO/26-27/000002", "SUBMITTED", "DIST-B", 120, D("50.00")),
     ]
 

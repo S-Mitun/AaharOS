@@ -1,8 +1,8 @@
 # PROGRESS
 
-## Status: MP08 done, not committed (branch feat/mp08-salesman-pwa from feat/mp07-costing) / MP09 next
+## Status: MP09 done, not committed (branch feat/mp09-order-inbox from feat/mp08-salesman-pwa, MP08 = 9528f5f) / MP10 next
 
-## Benchmark scoreboard: 12/26
+## Benchmark scoreboard: 13/26
 - **Green:**
   - 1 flour closing 120 kg, 2 oil 19.5 L, 3 pouches 306, 15 spice 3.8 kg / cartons 21 (MP04)
   - 16 flour WAC ₹43.125/kg after the purchase (MP05), an `Explained` value from `valuation.wac`
@@ -10,20 +10,64 @@
   - **17 run cost ₹5,855.00 (materials ₹4,055.00 by item + labour ₹1,200 + gas ₹600), 18 cost per good packet ₹31.14
     with FIFO ₹30.90 / LAST ₹31.54 (only WAC posts), 19 waterfall ₹431.20 U with every component equal to the
     oracle's** (MP07)
+  - **13 Distributor B: requested 120, available 88, shortage 32 flagged; a full approval refused with nothing
+    written; FG never negative; not invoiced** (MP09)
 - They are replayed through the real services into a fresh BENCHMARK tenant (`app/modules/judge/replay.py`):
   - J0 opening, valued; J1 as a purchase receipt
   - run B-001 created and started; J2 a real material issue at WAC; J3 the real `complete_run`
   - J8 step 8: labour and gas as run costs (value-only true-ups), then the costs finalised (B-001 FINAL, ₹5,855.00)
-  - (MP08) steps 4 and 6 as SUBMITTED orders SO/26-27/000001 (Retailer A, 150) and 000002 (Distributor B, 120) at the
-    DEMO general price list v1 (₹50.00 = `selling_price_ex_tax`); no row changes (13 is MP09)
+  - (MP08) steps 4 and 6 as orders SO/26-27/000001 (Retailer A, 150) and 000002 (Distributor B, 120) at the DEMO
+    general price list v1 (₹50.00 = `selling_price_ex_tax`)
+  - (MP09) step 5's approval of Retailer A (150 of 238 reserved), then Distributor B's inbox card for row 13
 - Oracle integrity: 10/10 checks pass (the sha256 guard on `inputs` + `nit_expected` included). No green row turned
   red.
 
 Red items and the MP that turns them green:
-- MP09: 13 Distributor B shortage
 - MP10: 5, 8–12, 14, 21, 22, 25
 - MP11: 26 integrity
 - MP12: 23 shortage attribution, 24 runway
+
+## Done in MP09 (order inbox, available to promise, reservations, shortage options)
+- **Gate met:**
+  - row 13 green: **13/26**, oracle 10/10, no green row turned red
+  - the race tests pass: two orders of 150 against 238 approved at the same instant → exactly one APPROVED, the
+    other `insufficient_available`; two approvals of one order → one APPROVED, one `order_already_decided`
+  - `make integrity` OK, with a new check: no store position promises more than it holds
+  - `make e2e` (run as its two commands): **6/6** (new: the admin approves in the inbox and the salesman's phone shows
+    Approved); repeat-order time printed 366 ms (automated)
+- **Decisions H1–H10 (approved; [ADR-0016](adr/0016-order-approval-reservations-and-shortage-options.md)):** H1 full
+  approval all-or-nothing under the order and item locks; H2 partial + backorder, filled later; H3 reject / cancel with
+  a reason release stock; H4 stale orders need a price choice; H5 amendments never overwrite the salesman's values;
+  H6 wait for the next batch (planner stub); H7 credit check warns, override needs a reason (outstanding provider for
+  MP10); H8 the replay approves A at step 5; H9 race tests; H10 the inbox and card screens.
+- **Backend:**
+  - `sales.domain` (pure): allowed status changes, agreed quantities, the approval plan (full / partial), the
+    backorder plan, status after, amending down, shortage, `Explained` available-to-promise and shortage, the credit
+    check
+  - `sales.service`: `approve_order`, `approve_backorder`, `reject_order`, `cancel_order`, `amend_line`,
+    `wait_for_batch`, `inbox(view)`, `inbox_card`, `get_order_any`, `set_credit_limit`, `credit_limit_of`,
+    `register_outstanding_provider`; `create_customer` takes a credit limit; order views carry approved /
+    backordered / final price
+  - helpers: `ledger.active_reservations`, `ledger.over_reserved` (integrity), `recipe.pack_spec_versions_for`,
+    `production.next_batch_for`
+  - seeds: DEMO credit limits (RET-A ₹25,000, DIST-B ₹1,00,000); `make seed-demo` set them on the DEMO factory
+- **API** (all in the generated route × role tests): `GET /api/inbox?view=`, `GET /api/inbox/{id}`,
+  `POST /api/orders/{id}/approve | approve-backorder | reject | cancel | wait` (`order.approve`),
+  `POST /api/orders/{id}/amend` (`order.amend`); each decision returns the refreshed card.
+- **Web:** `src/admin/` (InboxPage with filter chips, OrderCardPage with the stock line and shortage as ⓘ numbers,
+  credit, the stale choice, one button per option, backorder, cancel / reject, history); the Order inbox is built in
+  the registry; an admin lands on it after sign-in; tour steps 5 and 6 rewritten to the real clicks (invoicing marked
+  "Coming in MP10").
+- **Checks run:** backend **556 passed** (was 496; full suite incl. 500 state-machine examples, 2 min 58 s), ruff
+  check / format clean, mypy --strict clean, import-linter 2/2 kept, `alembic check` clean (no migration in MP09);
+  web **58 passed** (was 55), typecheck, lint (no warnings) and build clean (emits `sw.js`); float grep clean;
+  benchmark 13/26 and `make integrity` OK re-run after the last edits.
+- **New tests:** `sales/tests/test_approval.py` (11, one property: never reserves above available or beyond the
+  request), `tests/db/test_inbox.py` (9, incl. both race tests), `test_replay.py` updated (A approved),
+  `src/admin/admin.test.tsx` (3), Playwright scenario 6.
+- **Checked live on :5180** as the DEMO Factory admin: landed on the inbox; Salesman A's 150-packet order shows
+  "Short of stock" against the DEMO factory's 50 packets (available 50, shortage 100), the three options and the
+  credit check within ₹25,000. Left undecided for the user to try.
 
 ## Done in MP08 (one app shell, the salesman PWA, the offline outbox, the orders API)
 - **Gate met:**
@@ -497,6 +541,8 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP09: [ADR-0016](adr/0016-order-approval-reservations-and-shortage-options.md): H1–H10 (approval under locks,
+  partial + backorder, release on reject / cancel, stale choice, amendments, wait, credit, races, the inbox).
 - MP08: [ADR-0015](adr/0015-orders-prices-and-the-offline-outbox.md): G1 server prices and stale flag, G2 whole
   packets, G3 SO numbers on receipt, G4 UUIDv7 keys, G5 outbox + sync + PWA, G6 device cache wiped at logout, G7
   role landing, G8 Playwright on a SIM tenant, G9 one app with one screen registry.
@@ -569,12 +615,15 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **Overheads are not absorbed** (F7): costing is direct cost; MP11 reports absorbed overheads.
 - **The dispatch in `test_costing.py` is a test stand-in** (a raw DISPATCH journal); MP10 builds the real dispatch,
   replays step 5 before step 8, and turns assertion 22 green.
-- **Only the salesman shell is built (MP08):** other roles land on `/leaks`; their shells come with MP09 (inbox),
-  MP10 (invoices), MP11 (reports). Unbuilt screens show an honest "Coming in MPxx" page.
-- **ADMIN cannot create orders** (`order.create` is SALESMAN and OWNER): an order phoned in to the factory is an MP09
-  decision.
-- **Stale orders are flagged, not resolved:** the admin chooses the price at approval (MP09). The flag is computed on
-  read from versions known at receipt (no column).
+- **Salesman (MP08) and admin inbox (MP09) are built:** other roles land on `/leaks`; their screens come with MP10
+  (invoices), MP11 (reports). Unbuilt screens show an honest "Coming in MPxx" page.
+- **ADMIN cannot create orders** (`order.create` is SALESMAN and OWNER): phoned-in orders are entered by the owner or
+  the salesman for now.
+- **Outstanding is ₹0.00 until MP10** registers the collections provider (H7); the credit check counts only this order.
+- **"Wait for the next batch" holds no stock:** another order may take it first; the card shows live ATP.
+- **The inbox lists at most 200 orders per view** (no paging yet).
+- **Stale orders:** the flag is computed on read from versions known at receipt (no column); the admin chooses the
+  price at approval (MP09).
 - **The service worker is in the production build only;** the Vite dev server does not register it, so "opens with no
   network" holds for the hosted demo (MP17), not for :5180. Offline order capture works on :5180 once the app is
   loaded.
@@ -595,21 +644,26 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-Run MP09 (order inbox, approval with reservations, Distributor B's shortage → row 13) in a fresh session: read the MP09
-section of docs/MASTER_PACK.md, show the plan (it touches stock reservations) and wait for approval.
+Run MP10 (tax engine, invoices, dispatch FEFO, collections → rows 5, 8–12, 14, 21, 22, 25) in a fresh session: read the
+MP10 section of docs/MASTER_PACK.md, show the plan (it touches tax, stock and money) and wait for approval.
 
 Before starting:
-- The user commits MP08 first (see the proposed message in the session that built it). Then branch
-  `feat/mp09-order-inbox` from `feat/mp08-salesman-pwa`.
-- One frontend and one backend, both in Docker: web http://localhost:5180 (Vite, proxies `/api`, polls for edits), API
-  http://localhost:8180 (Swagger at `/docs`). `docker compose up -d api web` starts them; both reload on code changes.
-- Everything runs in Docker: `docker compose run --rm -T api <cmd>` and `docker compose run --rm -T --no-deps web npm
-  run <test|lint|typecheck|build>`. Never run two pytest invocations at once. `make e2e` needs the stack up.
-- Host Python is cp1252 / CRLF: write files as UTF-8 with LF. Long heredocs break in the Bash tool; write files with the
-  editor tools.
-- MP09 inherits from MP08: SUBMITTED orders with `price_list_id`, the stale flag (`get_order.stale_detail`), the
-  `order_status_history` trail, the Admin group's "Order inbox" registry entry (`orderInbox`, flip `built`), and
-  `ledger.reserve` / `available_to_promise`.
+- The user commits MP09 first. Then branch `feat/mp10-invoices` from `feat/mp09-order-inbox`.
+- One frontend and one backend, both in Docker: web http://localhost:5180 (polls for edits), API http://localhost:8180
+  (Swagger at `/docs`). `docker compose up -d api web`. `make e2e` needs the stack up.
+- Everything runs in Docker (`docker compose run --rm -T api <cmd>`, `docker compose run --rm -T --no-deps web npm run
+  <cmd>`); never two pytest runs at once. Host Python is cp1252 / CRLF; long heredocs break the Bash tool, so write
+  scripts with the editor tools.
+- MP10 inherits from MP09: approved orders with ACTIVE reservations per order line (`ledger.active_reservations`);
+  invoice only approved packets and consume their reservations at dispatch (FEFO by lot); `price_final ?? price_captured`
+  is the invoice rate; register the outstanding provider (`sales.service.register_outstanding_provider`) from
+  collections; statuses INVOICED / DISPATCHED; the Admin registry entries `invoices` and `collections` (flip `built`);
+  the replay's step 5 dispatch must leave FG at 88 with B's card unchanged (row 13 stays green).
+
+### Record: the MP09 plan as approved (implemented above)
+Approved by the user on 2026-11-21 as recommended (H1–H10); see ADR-0016 for the decisions as built. Steps: domain
+rules with a property test; the approval service, card and next-batch read; API; seeds and replay (row 13); DB tests
+incl. the races; the inbox and card screens, admin landing and tour copy; one more Playwright scenario; docs.
 
 ### Record: the MP08 plan as approved (implemented above)
 **Approved MP08 plan** (approved by the user on 2026-11-21, G1–G8 as recommended, G9 added; salesman PWA with an offline outbox; the orders API). MP08 turns no benchmark row green on its

@@ -4,7 +4,7 @@ strings, never JSON numbers, so a float can never enter a money or quantity path
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -46,3 +46,38 @@ class PriceListBody(BaseModel):
 
     def prices(self) -> dict[uuid.UUID, Decimal]:
         return {i.item_id: Decimal(i.price_ex_tax) for i in self.items}
+
+
+class AgreedLineBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    line_no: Annotated[int, Field(ge=1, le=100)]
+    qty: Annotated[str, StringConstraints(pattern=r"^\d{1,7}$")]  # whole packets, may be 0 for a line
+
+
+class ApproveBody(BaseModel):
+    """MP09: approve in full (default) or partially; optional lower agreed quantities (with a reason), the price
+    choice for a stale order, and a reason to approve over the credit limit."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    partial: bool = False
+    agreed: Annotated[list[AgreedLineBody], Field(max_length=100)] = []
+    amend_reason: Annotated[str, StringConstraints(max_length=500)] | None = None
+    stale_price: Literal["captured", "current"] | None = None
+    credit_override_reason: Annotated[str, StringConstraints(max_length=500)] | None = None
+
+
+class ReasonBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+
+
+class AmendBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    line_no: Annotated[int, Field(ge=1, le=100)]
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+    price_ex_tax: PriceText | None = None
+    qty: Annotated[str, StringConstraints(pattern=r"^\d{1,7}$")] | None = None

@@ -512,6 +512,17 @@ def units_per_carton(session: Session, fg_item_ids: Sequence[uuid.UUID]) -> dict
     return out
 
 
+def pack_spec_versions_for(session: Session, fg_item_id: uuid.UUID) -> list[uuid.UUID]:
+    """Every pack spec version (any status) that packs this finished good (MP09: which runs will make it)."""
+    return list(
+        session.execute(
+            select(PackSpecVersion.id)
+            .join(PackSpec, PackSpec.id == PackSpecVersion.pack_spec_id)
+            .where(PackSpec.fg_item_id == fg_item_id)
+        ).scalars()
+    )
+
+
 # ---------- read models ----------
 
 

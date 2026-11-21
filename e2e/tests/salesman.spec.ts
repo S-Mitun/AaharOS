@@ -124,6 +124,30 @@ test("4. time to submit a repeat order (measured, printed)", async ({ page }) =>
   test.info().annotations.push({ type: "repeat-order-ms", description: String(ms) });
 });
 
+test("6. MP09: the admin approves in the inbox and the salesman's phone shows Approved", async ({
+  page,
+  browser,
+}) => {
+  await signIn(page, tenant.emails.SALESMAN);
+  await expect(page.getByText("DEMO Retailer A")).toBeVisible();
+  await newOrder(page, "5");
+  await expect(page.locator(".chip", { hasText: "Received by factory" })).toBeVisible();
+  const orderNo = (await page.locator(".order-no").textContent()) ?? "";
+
+  const adminContext = await browser.newContext();
+  const admin = await adminContext.newPage();
+  await signIn(admin, tenant.emails.ADMIN);
+  await expect(admin).toHaveURL(/\/admin\/orders$/);
+  await admin.getByText(orderNo).click();
+  await admin.getByRole("button", { name: "Approve all 5 packets" }).click();
+  await expect(admin.getByRole("status").filter({ hasText: /approved 5 packets/ })).toBeVisible();
+  await adminContext.close();
+
+  await page.goto("/sales/orders");
+  const row = page.locator(".order-row", { hasText: orderNo });
+  await expect(row.locator(".chip", { hasText: "Approved" })).toBeVisible();
+});
+
 test("5. a stale price is flagged when prices change while the phone is offline", async ({
   page,
   context,

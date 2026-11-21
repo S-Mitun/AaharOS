@@ -15,7 +15,7 @@ from app.core.db import get_session
 from app.modules.identity.service import Principal, require
 from app.modules.sales import service
 from app.modules.sales.domain import OrderLineIn
-from app.modules.sales.schemas import OrderBody, PriceListBody
+from app.modules.sales.schemas import AmendBody, ApproveBody, OrderBody, PriceListBody, ReasonBody
 
 router = APIRouter(prefix="/api", tags=["sales"])
 DbSession = Annotated[Session, Depends(get_session)]
@@ -123,3 +123,132 @@ def publish_price_list(
     session.commit()
     published = next(p for p in service.list_price_lists(session) if p["id"] == str(price_list_id))
     return published
+
+
+# ---------- MP09: the order inbox and decisions (ADR-0016) ----------
+# Each decision returns the refreshed inbox card, so the admin's screen always shows what the server now holds.
+
+
+@router.get("/inbox")
+def order_inbox(
+    _principal: Annotated[Principal, Depends(require("order.approve"))],
+    session: DbSession,
+    view: str = "to_decide",
+) -> dict[str, Any]:
+    return service.inbox(session, view)
+
+
+@router.get("/inbox/{order_id}")
+def order_card(
+    order_id: uuid.UUID,
+    _principal: Annotated[Principal, Depends(require("order.approve"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    return service.inbox_card(session, order_id)
+
+
+def _decided(session: Session, decision: service.Decision) -> dict[str, Any]:
+    session.commit()
+    return {
+        "decision": {"status": decision.status, "summary": decision.summary},
+        **service.inbox_card(session, decision.order_id),
+    }
+
+
+@router.post("/orders/{order_id}/approve")
+def approve(
+    order_id: uuid.UUID,
+    body: ApproveBody,
+    principal: Annotated[Principal, Depends(require("order.approve"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    decision = service.approve_order(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        order_id=order_id,
+        partial=body.partial,
+        agreed={a.line_no: int(a.qty) for a in body.agreed},
+        amend_reason=body.amend_reason,
+        stale_price=body.stale_price,
+        credit_override_reason=body.credit_override_reason,
+    )
+    return _decided(session, decision)
+
+
+@router.post("/orders/{order_id}/approve-backorder")
+def approve_backorder(
+    order_id: uuid.UUID,
+    principal: Annotated[Principal, Depends(require("order.approve"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    decision = service.approve_backorder(
+        session, organization_id=principal.organization_id, actor_id=principal.user_id, order_id=order_id
+    )
+    return _decided(session, decision)
+
+
+@router.post("/orders/{order_id}/reject")
+def reject(
+    order_id: uuid.UUID,
+    body: ReasonBody,
+    principal: Annotated[Principal, Depends(require("order.approve"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    decision = service.reject_order(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        order_id=order_id,
+        reason=body.reason,
+    )
+    return _decided(session, decision)
+
+
+@router.post("/orders/{order_id}/cancel")
+def cancel(
+    order_id: uuid.UUID,
+    body: ReasonBody,
+    principal: Annotated[Principal, Depends(require("order.approve"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    decision = service.cancel_order(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        order_id=order_id,
+        reason=body.reason,
+    )
+    return _decided(session, decision)
+
+
+@router.post("/orders/{order_id}/amend")
+def amend(
+    order_id: uuid.UUID,
+    body: AmendBody,
+    principal: Annotated[Principal, Depends(require("order.amend"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    decision = service.amend_line(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        order_id=order_id,
+        line_no=body.line_no,
+        reason=body.reason,
+        price=None if body.price_ex_tax is None else Decimal(body.price_ex_tax),
+        qty=None if body.qty is None else int(body.qty),
+    )
+    return _decided(session, decision)
+
+
+@router.post("/orders/{order_id}/wait")
+def wait(
+    order_id: uuid.UUID,
+    principal: Annotated[Principal, Depends(require("order.approve"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    decision = service.wait_for_batch(
+        session, organization_id=principal.organization_id, actor_id=principal.user_id, order_id=order_id
+    )
+    return _decided(session, decision)

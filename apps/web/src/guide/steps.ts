@@ -141,9 +141,9 @@ export const STEPS: GuideStep[] = [
     who: { role: "Admin", login: "Factory admin" },
     screen: "orderInbox",
     actions: [
-      "Order Inbox → Retailer A. “Available to promise” covers the order → Approve.",
-      "Create invoice. Tamil Nadu to Tamil Nadu, so the tax splits into CGST + SGST.",
-      "Download the invoice PDF, then Record dispatch. The oldest lot leaves first (FEFO).",
+      "Sign in → tap “Factory admin” → password. You land on the Order inbox.",
+      "Open DEMO Retailer A's order. “Available to promise” covers it (no shortage) → Approve all {inputs.steps.4_order_A.qty} packets. They are held for Retailer A at once.",
+      "Coming in MP10: Create invoice (Tamil Nadu to Tamil Nadu, so CGST + SGST), then Record dispatch: the oldest lot leaves first (FEFO).",
     ],
     expect: [
       { label: "Taxable value", key: "nit_expected.invoice_A.taxable", unit: "INR" },
@@ -177,8 +177,9 @@ export const STEPS: GuideStep[] = [
     screen: "orderInbox",
     actions: [
       "Sign in as Salesman B: Today → DEMO Distributor B (Karnataka) → New order → {inputs.steps.6_order_B.qty} packets → Save order. The stock hint already warns it is short.",
-      "As Admin, open the order. The card shows the shortage and three options: send what is available and backorder the rest, wait for the next batch, or reject.",
-      "Do not invoice it: stock can never go below zero.",
+      "As Factory admin: Order inbox → tap “Short” → DEMO Distributor B. The card shows available to promise and the shortage (tap ⓘ to see on hand − reserved).",
+      "Three options, in plain words: “Send 88 now, backorder 32”, “Wait for the next batch”, or “Reject”. Approving all 120 is refused: stock can never go below zero.",
+      "For NIT, leave it undecided (or try an option): it is not invoiced.",
     ],
     expect: [
       { label: "Requested", key: "nit_expected.distributor_B.requested", unit: "packets" },

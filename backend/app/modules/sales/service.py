@@ -9,7 +9,7 @@ Approval, reservations and the inbox arrive in MP09.
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -30,6 +30,7 @@ from app.modules.catalog import service as catalog
 from app.modules.identity import service as identity
 from app.modules.identity.service import Principal
 from app.modules.ledger import service as ledger
+from app.modules.production import service as production
 from app.modules.recipe import service as recipes
 from app.modules.sales import domain
 from app.modules.sales.domain import OrderError, OrderLineIn, PriceListVersion
@@ -102,8 +103,9 @@ def create_customer(
     kind: str,
     state_code: str,
     gstin: str | None = None,
+    credit_limit: Decimal = Decimal(0),
 ) -> uuid.UUID:
-    """Master data (MP05 seeds). Customer management screens arrive with MP09."""
+    """Master data (MP05 seeds; the credit limit from MP09). Customer management screens come later."""
     if kind not in CUSTOMER_KINDS:
         raise DomainError("unknown_customer_kind", f"customer kind must be one of {', '.join(CUSTOMER_KINDS)}")
     customer_id = uuid.uuid4()
@@ -116,6 +118,7 @@ def create_customer(
             kind=kind,
             state_code=state_code,
             gstin=gstin,
+            credit_limit=credit_limit,
             created_by=actor_id,
         )
     )
@@ -126,9 +129,45 @@ def create_customer(
         action="customer.create",
         entity_type="customer",
         entity_id=customer_id,
-        after={"code": code, "name": name, "kind": kind, "state_code": state_code, "gstin": gstin},
+        after={
+            "code": code,
+            "name": name,
+            "kind": kind,
+            "state_code": state_code,
+            "gstin": gstin,
+            "credit_limit": credit_limit,
+        },
     )
     return customer_id
+
+
+def set_credit_limit(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, customer_id: uuid.UUID, limit: Decimal
+) -> None:
+    """Master data: a customer's credit limit in rupees (0 = no limit set), audited."""
+    if limit < 0 or limit != round_money(limit):
+        raise OrderError("bad_credit_limit", "a credit limit is rupees, at least 0, with at most two decimals")
+    customer = session.execute(select(Customer).where(Customer.id == customer_id)).scalar_one_or_none()
+    if customer is None:
+        raise NotFoundError("customer_not_found", "unknown customer")
+    before = customer.credit_limit
+    customer.credit_limit = limit
+    session.flush()
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="customer.credit_limit",
+        entity_type="customer",
+        entity_id=customer_id,
+        before={"credit_limit": before},
+        after={"credit_limit": limit},
+    )
+
+
+def credit_limit_of(session: Session, customer_id: uuid.UUID) -> Decimal:
+    limit: Decimal = session.execute(select(Customer.credit_limit).where(Customer.id == customer_id)).scalar_one()
+    return limit
 
 
 def customer_id_by_code(session: Session, code: str) -> uuid.UUID | None:
@@ -522,7 +561,10 @@ def _stale_info(session: Session, order: SalesOrder, versions: list[PriceListVer
 
 
 def get_order(session: Session, principal: Principal, order_id: uuid.UUID) -> dict[str, Any]:
-    order = _order_or_404(session, principal, order_id)
+    return _order_view(session, _order_or_404(session, principal, order_id))
+
+
+def _order_view(session: Session, order: SalesOrder) -> dict[str, Any]:
     lines = _lines(session, {order.id})
     names = catalog.names_for(session, {ln.item_id for ln in lines})
     customer = session.execute(select(Customer).where(Customer.id == order.customer_id)).scalar_one()
@@ -556,7 +598,10 @@ def get_order(session: Session, principal: Principal, order_id: uuid.UUID) -> di
                 "item_code": names[ln.item_id][0],
                 "item_name": names[ln.item_id][1],
                 "qty": str(ln.qty_requested),
+                "approved": str(ln.qty_approved),
+                "backordered": str(ln.qty_backordered),
                 "price_ex_tax": str(ln.price_captured),
+                "price_final": None if ln.price_final is None else str(ln.price_final),
                 "value_ex_tax": str(
                     domain.OrderLinePlan(ln.line_no, ln.item_id, ln.qty_requested, ln.price_captured).value
                 ),
@@ -687,3 +732,602 @@ def summary(session: Session, principal: Principal, days: int = 30) -> dict[str,
         "note": ORDERED_NOT_INVOICED,
         "generated_at": datetime.now(UTC).isoformat(),
     }
+
+
+# ---------- MP09: the order inbox and decisions (ADR-0016) ----------
+
+OutstandingProvider = Callable[[Session, uuid.UUID], Explained]
+_outstanding_provider: OutstandingProvider | None = None
+WAITING_PREFIX = "Waiting for the next batch"
+
+
+def register_outstanding_provider(provider: OutstandingProvider | None) -> None:
+    """H7: collections (MP10, a higher layer) supplies what a customer owes; sales cannot import it."""
+    global _outstanding_provider
+    _outstanding_provider = provider
+
+
+def _outstanding(session: Session, customer_id: uuid.UUID) -> Explained:
+    if _outstanding_provider is not None:
+        return _outstanding_provider(session, customer_id)
+    return Explained(
+        value=Decimal("0.00"),
+        unit="INR",
+        formula="no invoices exist until MP10",
+        method="Outstanding",
+    )
+
+
+def _lock_order(session: Session, order_id: uuid.UUID) -> SalesOrder:
+    order = session.execute(select(SalesOrder).where(SalesOrder.id == order_id).with_for_update()).scalar_one_or_none()
+    if order is None:
+        raise NotFoundError("order_not_found", "unknown order")
+    return order
+
+
+def _states(lines: Sequence[OrderLine]) -> list[domain.LineState]:
+    return [
+        domain.LineState(ln.line_no, ln.item_id, ln.qty_requested, ln.qty_approved, ln.qty_backordered) for ln in lines
+    ]
+
+
+def _available(session: Session, organization_id: uuid.UUID, item_ids: set[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """Lock each item's stores (sorted, so two approvals never deadlock), then read available to promise."""
+    out = {}
+    for item_id in sorted(item_ids, key=str):
+        ledger.lock_item_stores(session, organization_id, item_id)
+        out[item_id] = int(ledger.available_to_promise(session, item_id)["available"])
+    return out
+
+
+def _price(ln: OrderLine) -> Decimal:
+    return ln.price_final if ln.price_final is not None else ln.price_captured
+
+
+def _history(
+    session: Session, org: uuid.UUID, actor: uuid.UUID | None, order_id: uuid.UUID, frm: str, to: str, reason: str
+) -> None:
+    session.execute(
+        insert(OrderStatusHistory).values(
+            organization_id=org,
+            order_id=order_id,
+            from_status=frm,
+            to_status=to,
+            actor_id=actor,
+            reason=reason,
+            created_by=actor,
+        )
+    )
+
+
+def _release_lines(
+    session: Session, org: uuid.UUID, actor: uuid.UUID | None, line_ids: Sequence[uuid.UUID], reason: str
+) -> int:
+    released = 0
+    for reservation_id, _line, qty in ledger.active_reservations(session, line_ids):
+        ledger.release(session, organization_id=org, actor_id=actor, reservation_id=reservation_id, reason=reason)
+        released += int(qty)
+    return released
+
+
+@dataclass(frozen=True)
+class Decision:
+    order_id: uuid.UUID
+    status: str
+    summary: str
+
+
+def approve_order(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    order_id: uuid.UUID,
+    partial: bool = False,
+    agreed: Mapping[int, int] | None = None,
+    amend_reason: str | None = None,
+    stale_price: str | None = None,
+    credit_override_reason: str | None = None,
+) -> Decision:
+    """H1/H2/H4/H7: approve in one savepoint. Full: every agreed packet reserved or nothing. Partial: reserve what is
+    available, backorder the rest. A stale order needs a price choice; over the credit limit needs a reason."""
+    order = _lock_order(session, order_id)
+    domain.require_status("approve", order.status)
+    lines = _lines(session, {order.id})
+    states = _states(lines)
+    agreed_qty = domain.agreed_quantities(states, dict(agreed or {}))
+    cut = any(agreed_qty[s.line_no] < s.requested for s in states)
+    reason = domain.require_reason(amend_reason, "agreeing to fewer packets than ordered") if cut else None
+
+    versions = _versions(session)
+    stale = _stale_info(session, order, versions)
+    new_prices: dict[int, Decimal] = {}
+    price_note = None
+    if stale is not None:
+        if stale_price not in ("captured", "current"):
+            raise OrderError(
+                "stale_price_choice_required",
+                "the phone showed an older price list: choose the phone's price or the current price",
+                {"in_force_price_list": stale["in_force_price_list"]},
+            )
+        if stale_price == "current":
+            current = {uuid.UUID(k): Decimal(v) for k, v in stale["current_prices"].items()}
+            pl = stale["in_force_price_list"]
+            price_note = f"price list {pl['code']} v{pl['version']} in force at receipt" if pl else "current price"
+            for ln in lines:
+                if ln.item_id not in current:
+                    raise OrderError("item_not_on_current_list", "a product is not on the current price list")
+                if current[ln.item_id] != ln.price_captured:
+                    new_prices[ln.line_no] = current[ln.item_id]
+
+    value = round_money(
+        sum(
+            (Decimal(agreed_qty[ln.line_no]) * new_prices.get(ln.line_no, _price(ln)) for ln in lines),
+            Decimal(0),
+        )
+    )
+    customer = session.execute(select(Customer).where(Customer.id == order.customer_id)).scalar_one()
+    credit = domain.credit_check(customer.credit_limit, _outstanding(session, customer.id), value)
+    override = None
+    if credit.over_limit:
+        if not (credit_override_reason or "").strip():
+            raise OrderError(
+                "credit_limit_exceeded",
+                "this order takes the customer over the credit limit: give a reason to approve anyway",
+                {"limit": str(credit.limit), "exposure": str(credit.exposure.value)},
+            )
+        override = domain.require_reason(credit_override_reason, "approving over the credit limit")
+
+    available = _available(session, organization_id, {s.item_id for s in states})
+    plan = domain.approval_plan(states, agreed_qty, available, partial)
+    by_no = {ln.line_no: ln for ln in lines}
+    new_status = domain.status_after([(d.reserve, d.backorder) for d in plan])
+    reserved = sum(d.reserve for d in plan)
+    owed = sum(d.backorder for d in plan)
+    summary = f"approved {reserved} packets" + (f", {owed} backordered" if owed else "")
+    notes = [n for n in (reason, price_note and f"price: {price_note}", override and f"credit: {override}") if n]
+    try:
+        with session.begin_nested():
+            for d in plan:
+                ln = by_no[d.line_no]
+                if d.reserve:
+                    ledger.reserve(
+                        session,
+                        organization_id=organization_id,
+                        actor_id=actor_id,
+                        order_line_id=ln.id,
+                        item_id=ln.item_id,
+                        qty_base=Decimal(d.reserve),
+                    )
+                ln.qty_approved = d.reserve
+                ln.qty_backordered = d.backorder
+                if d.line_no in new_prices:
+                    ln.price_final = new_prices[d.line_no]
+                    ln.amend_reason = f"stale price: {price_note}"
+            order.status = new_status
+            session.flush()
+            _history(
+                session, organization_id, actor_id, order.id, "SUBMITTED", new_status, "; ".join([summary, *notes])
+            )
+            audit.record(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                action="order.approve",
+                entity_type="sales_order",
+                entity_id=order.id,
+                before={"status": "SUBMITTED"},
+                after={
+                    "status": new_status,
+                    "partial": partial,
+                    "lines": [
+                        {
+                            "line_no": d.line_no,
+                            "agreed": d.target,
+                            "reserved": d.reserve,
+                            "backordered": d.backorder,
+                            "price_final": new_prices.get(d.line_no),
+                        }
+                        for d in plan
+                    ],
+                    "credit_exposure": credit.exposure.value,
+                    "credit_limit": credit.limit,
+                },
+                note="; ".join(notes) or None,
+            )
+    except DBAPIError as exc:
+        raise _db_error(exc) from exc
+    return Decision(order.id, new_status, summary)
+
+
+def approve_backorder(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, order_id: uuid.UUID
+) -> Decision:
+    """H2: cover backordered packets from stock that has become available."""
+    order = _lock_order(session, order_id)
+    domain.require_status("approve_backorder", order.status)
+    lines = _lines(session, {order.id})
+    states = _states(lines)
+    available = _available(session, organization_id, {s.item_id for s in states if s.backordered})
+    plan = domain.backorder_plan([s for s in states if s.backordered], available)
+    by_no = {ln.line_no: ln for ln in lines}
+    try:
+        with session.begin_nested():
+            for d in plan:
+                ln = by_no[d.line_no]
+                if d.reserve:
+                    ledger.reserve(
+                        session,
+                        organization_id=organization_id,
+                        actor_id=actor_id,
+                        order_line_id=ln.id,
+                        item_id=ln.item_id,
+                        qty_base=Decimal(d.reserve),
+                    )
+                ln.qty_approved += d.reserve
+                ln.qty_backordered = d.backorder
+            new_status = domain.status_after([(ln.qty_approved, ln.qty_backordered) for ln in lines])
+            order.status = new_status
+            session.flush()
+            covered = sum(d.reserve for d in plan)
+            left = sum(ln.qty_backordered for ln in lines)
+            summary = f"backorder: {covered} more packets reserved" + (f", {left} still owed" if left else "")
+            _history(session, organization_id, actor_id, order.id, "PART_APPROVED", new_status, summary)
+            audit.record(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                action="order.approve_backorder",
+                entity_type="sales_order",
+                entity_id=order.id,
+                before={"status": "PART_APPROVED"},
+                after={"status": new_status, "reserved": covered, "still_backordered": left},
+            )
+    except DBAPIError as exc:
+        raise _db_error(exc) from exc
+    return Decision(order.id, new_status, summary)
+
+
+def _close_order(
+    session: Session,
+    *,
+    action: str,
+    to_status: str,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    order_id: uuid.UUID,
+    reason: str,
+) -> Decision:
+    order = _lock_order(session, order_id)
+    domain.require_status(action, order.status)
+    text_reason = domain.require_reason(reason, "rejecting" if action == "reject" else "cancelling")
+    lines = _lines(session, {order.id})
+    before = order.status
+    try:
+        with session.begin_nested():
+            released = _release_lines(
+                session, organization_id, actor_id, [ln.id for ln in lines], f"order {to_status.lower()}: {text_reason}"
+            )
+            for ln in lines:
+                ln.qty_approved = 0
+                ln.qty_backordered = 0
+            order.status = to_status
+            session.flush()
+            summary = f"{to_status.lower()}: {text_reason}" + (f" ({released} packets released)" if released else "")
+            _history(session, organization_id, actor_id, order.id, before, to_status, summary)
+            audit.record(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                action=f"order.{action}",
+                entity_type="sales_order",
+                entity_id=order.id,
+                before={"status": before},
+                after={"status": to_status, "released_packets": released},
+                note=text_reason,
+            )
+    except DBAPIError as exc:
+        raise _db_error(exc) from exc
+    return Decision(order.id, to_status, summary)
+
+
+def reject_order(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, order_id: uuid.UUID, reason: str
+) -> Decision:
+    """H3: reject (SUBMITTED or PART_APPROVED), releasing any reservation."""
+    return _close_order(
+        session,
+        action="reject",
+        to_status="REJECTED",
+        organization_id=organization_id,
+        actor_id=actor_id,
+        order_id=order_id,
+        reason=reason,
+    )
+
+
+def cancel_order(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, order_id: uuid.UUID, reason: str
+) -> Decision:
+    """H3: cancel an approved order before invoicing, releasing its reservations."""
+    return _close_order(
+        session,
+        action="cancel",
+        to_status="CANCELLED",
+        organization_id=organization_id,
+        actor_id=actor_id,
+        order_id=order_id,
+        reason=reason,
+    )
+
+
+def amend_line(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    order_id: uuid.UUID,
+    line_no: int,
+    reason: str,
+    price: Decimal | None = None,
+    qty: int | None = None,
+) -> Decision:
+    """H5: change a line's price (into price_final) or lower its agreed quantity, with a reason. The salesman's
+    quantity and captured price are never overwritten. Lowering an approved line releases the difference."""
+    if (price is None) == (qty is None):
+        raise OrderError("one_change_at_a_time", "amend either the price or the quantity")
+    order = _lock_order(session, order_id)
+    domain.require_status("amend_price" if price is not None else "amend_qty", order.status)
+    text_reason = domain.require_reason(reason, "an amendment")
+    lines = _lines(session, {order.id})
+    line = next((ln for ln in lines if ln.line_no == line_no), None)
+    if line is None:
+        raise OrderError("unknown_line", "no such line on this order", {"line_no": line_no})
+    before: dict[str, Any] = {
+        "price_final": line.price_final,
+        "qty_approved": line.qty_approved,
+        "qty_backordered": line.qty_backordered,
+    }
+    try:
+        with session.begin_nested():
+            if price is not None:
+                if price < 0 or price != round_money(price):
+                    raise OrderError("bad_price", "prices are in rupees with at most two decimals")
+                line.price_final = price
+                line.amend_reason = text_reason
+                summary = f"line {line_no}: price {line.price_captured} -> {price} ({text_reason})"
+            else:
+                assert qty is not None
+                approved, back = domain.reduce_line(line.qty_approved, line.qty_backordered, qty)
+                if approved < line.qty_approved:
+                    _release_lines(session, organization_id, actor_id, [line.id], f"amended: {text_reason}")
+                    if approved:
+                        ledger.reserve(
+                            session,
+                            organization_id=organization_id,
+                            actor_id=actor_id,
+                            order_line_id=line.id,
+                            item_id=line.item_id,
+                            qty_base=Decimal(approved),
+                        )
+                line.qty_approved, line.qty_backordered = approved, back
+                if not any(ln.qty_approved + ln.qty_backordered for ln in lines):
+                    raise OrderError("nothing_to_supply", "every line would be at zero: cancel the order instead")
+                summary = f"line {line_no}: agreed {qty} packets ({text_reason})"
+            new_status = (
+                domain.status_after([(ln.qty_approved, ln.qty_backordered) for ln in lines])
+                if order.status != "SUBMITTED"
+                else "SUBMITTED"
+            )
+            old_status = order.status
+            order.status = new_status
+            session.flush()
+            _history(session, organization_id, actor_id, order.id, old_status, new_status, summary)
+            audit.record(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                action="order.amend",
+                entity_type="sales_order",
+                entity_id=order.id,
+                before=before,
+                after={
+                    "line_no": line_no,
+                    "price_final": line.price_final,
+                    "qty_approved": line.qty_approved,
+                    "qty_backordered": line.qty_backordered,
+                    "status": new_status,
+                },
+                note=text_reason,
+            )
+    except DBAPIError as exc:
+        raise _db_error(exc) from exc
+    return Decision(order.id, new_status, summary)
+
+
+def wait_for_batch(
+    session: Session, *, organization_id: uuid.UUID, actor_id: uuid.UUID | None, order_id: uuid.UUID
+) -> Decision:
+    """H6: keep the order open and record which batch it waits for (or that none is planned)."""
+    order = _lock_order(session, order_id)
+    domain.require_status("wait", order.status)
+    lines = _lines(session, {order.id})
+    names = catalog.names_for(session, {ln.item_id for ln in lines})
+    parts = []
+    for ln in lines:
+        batch = production.next_batch_for(session, ln.item_id)
+        name = names[ln.item_id][1]
+        parts.append(
+            f"{name}: no batch planned, ETA unknown"
+            if batch is None
+            else f"{name}: {batch['run_no']} planned for {batch['run_date']}, about {batch['planned_packets']} packets"
+        )
+    summary = f"{WAITING_PREFIX}. " + "; ".join(parts)
+    _history(session, organization_id, actor_id, order.id, "SUBMITTED", "SUBMITTED", summary)
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="order.wait",
+        entity_type="sales_order",
+        entity_id=order.id,
+        after={"status": "SUBMITTED", "note": summary},
+    )
+    return Decision(order.id, "SUBMITTED", summary)
+
+
+INBOX_VIEWS = ("to_decide", "short", "stale", "all")
+
+
+def _open_qty(ln: OrderLine, status: str) -> int:
+    if status == "SUBMITTED":
+        return ln.qty_requested
+    if status == "PART_APPROVED":
+        return ln.qty_backordered
+    return 0
+
+
+def inbox(session: Session, view: str = "to_decide") -> dict[str, Any]:
+    """Orders for the admin: open ones (SUBMITTED, PART_APPROVED) with their flags, newest receipts first."""
+    if view not in INBOX_VIEWS:
+        raise OrderError("unknown_view", f"view must be one of {', '.join(INBOX_VIEWS)}")
+    query = select(SalesOrder).order_by(SalesOrder.created_at.desc())
+    if view != "all":
+        query = query.where(SalesOrder.status.in_(domain.OPEN_STATUSES))
+    orders = list(session.execute(query.limit(200)).scalars())
+    lines = _lines(session, {o.id for o in orders})
+    by_order: dict[uuid.UUID, list[OrderLine]] = {}
+    for ln in lines:
+        by_order.setdefault(ln.order_id, []).append(ln)
+    customers = (
+        dict(
+            session.execute(select(Customer.id, Customer.name).where(Customer.id.in_({o.customer_id for o in orders})))
+            .tuples()
+            .all()
+        )
+        if orders
+        else {}
+    )
+    atp = {item: int(ledger.available_to_promise(session, item)["available"]) for item in {ln.item_id for ln in lines}}
+    waiting = _waiting_orders(session, [o.id for o in orders])
+    versions = _versions(session)
+    rows = []
+    for o in orders:
+        mine = by_order.get(o.id, [])
+        short = any(domain.shortage(_open_qty(ln, o.status), atp.get(ln.item_id, 0)) for ln in mine)
+        stale = _stale_info(session, o, versions) is not None
+        if (view == "short" and not short) or (view == "stale" and not stale):
+            continue
+        rows.append(
+            {
+                "id": str(o.id),
+                "order_no": o.order_no,
+                "order_date": o.order_date.isoformat(),
+                "received_at": o.created_at.isoformat(),
+                "status": o.status,
+                "customer_name": customers.get(o.customer_id),
+                "packets": str(sum(ln.qty_requested for ln in mine)),
+                "value_ex_tax": str(sum((ln.qty_requested * _price(ln) for ln in mine), Decimal(0))),
+                "short": short,
+                "stale": stale,
+                "waiting": o.id in waiting and o.status == "SUBMITTED",
+            }
+        )
+    return {"view": view, "orders": rows}
+
+
+def _waiting_orders(session: Session, order_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    if not order_ids:
+        return set()
+    return set(
+        session.execute(
+            select(OrderStatusHistory.order_id).where(
+                OrderStatusHistory.order_id.in_(order_ids), OrderStatusHistory.reason.like(f"{WAITING_PREFIX}%")
+            )
+        ).scalars()
+    )
+
+
+def inbox_card(session: Session, order_id: uuid.UUID) -> dict[str, Any]:
+    """Everything the admin needs to decide (H10): lines with captured vs current price, the stock line (on hand,
+    reserved, available to promise), the shortage, the credit check, the stale warning and the options."""
+    order = session.execute(select(SalesOrder).where(SalesOrder.id == order_id)).scalar_one_or_none()
+    if order is None:
+        raise NotFoundError("order_not_found", "unknown order")
+    lines = _lines(session, {order.id})
+    names = catalog.names_for(session, {ln.item_id for ln in lines})
+    customer = session.execute(select(Customer).where(Customer.id == order.customer_id)).scalar_one()
+    versions = _versions(session)
+    stale = _stale_info(session, order, versions)
+    current_list = domain.price_list_in_force(versions, order.customer_id, business_date())
+    current_prices = _list_prices(session, current_list.id) if current_list else {}
+    out_lines = []
+    total_short = 0
+    for ln in lines:
+        atp = ledger.available_to_promise(session, ln.item_id)
+        on_hand, reserved = int(atp["on_hand"]), int(atp["reserved"])
+        available = on_hand - reserved
+        open_qty = _open_qty(ln, order.status)
+        short = domain.shortage(open_qty, available)
+        total_short += short
+        batch = production.next_batch_for(session, ln.item_id) if short else None
+        out_lines.append(
+            {
+                "line_no": ln.line_no,
+                "item_id": str(ln.item_id),
+                "item_code": names[ln.item_id][0],
+                "item_name": names[ln.item_id][1],
+                "requested": str(ln.qty_requested),
+                "approved": str(ln.qty_approved),
+                "backordered": str(ln.qty_backordered),
+                "open": str(open_qty),
+                "price_captured": str(ln.price_captured),
+                "price_final": None if ln.price_final is None else str(ln.price_final),
+                "amend_reason": ln.amend_reason,
+                "price_current": None if ln.item_id not in current_prices else str(current_prices[ln.item_id]),
+                "available": domain.stock_explained(on_hand, reserved).to_json(),
+                "shortage": domain.shortage_explained(open_qty, available).to_json(),
+                "can_send_now": str(min(open_qty, max(0, available))),
+                "next_batch": batch,
+            }
+        )
+    value = round_money(
+        sum(
+            (
+                Decimal(ln.qty_requested if order.status == "SUBMITTED" else ln.qty_approved + ln.qty_backordered)
+                * _price(ln)
+                for ln in lines
+            ),
+            Decimal(0),
+        )
+    )
+    credit = domain.credit_check(customer.credit_limit, _outstanding(session, customer.id), value)
+    detail = get_order_any(session, order.id)
+    actions = sorted(a for a, allowed in domain.ALLOWED_FROM.items() if order.status in allowed)
+    return {
+        **detail,
+        "customer": {
+            **detail["customer"],
+            "kind": customer.kind,
+            "state_code": customer.state_code,
+        },
+        "card_lines": out_lines,
+        "shortage_total": str(total_short),
+        "credit": {
+            "limit": None if credit.limit is None else str(credit.limit),
+            "outstanding": credit.outstanding.to_json(),
+            "exposure": credit.exposure.to_json(),
+            "over_limit": credit.over_limit,
+        },
+        "stale_choice_needed": stale is not None and order.status == "SUBMITTED",
+        "waiting": order.status == "SUBMITTED" and order.id in _waiting_orders(session, [order.id]),
+        "actions": actions,
+    }
+
+
+def get_order_any(session: Session, order_id: uuid.UUID) -> dict[str, Any]:
+    """`get_order` for staff who see every order (the inbox): no salesman row filter."""
+    order = session.execute(select(SalesOrder).where(SalesOrder.id == order_id)).scalar_one_or_none()
+    if order is None:
+        raise NotFoundError("order_not_found", "unknown order")
+    return _order_view(session, order)

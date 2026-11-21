@@ -115,9 +115,19 @@ def test_a12_outstanding_a() -> None:
     "nit_expected.distributor_B.available",
     "nit_expected.distributor_B.shortage",
 )
-@pending("MP09")
-def test_a13_distributor_b_shortage() -> None:
-    not_built("MP09")
+def test_a13_distributor_b_shortage(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    """MP09: after Retailer A's approval reserves 150 of the 238 packets, Distributor B's inbox card shows the
+    shortage; a full approval is refused with nothing written; stock never goes negative; B is not invoiced."""
+    expected = oracle["nit_expected"]["distributor_B"]
+    card = stock_replay.b_card
+    (line,) = card["card_lines"]
+    assert Decimal(line["requested"]) == expected["requested"]
+    assert Decimal(line["available"]["value"]) == expected["available"]
+    assert Decimal(line["shortage"]["value"]) == expected["shortage"] > 0  # flagged
+    assert stock_replay.b_full_refusal == "insufficient_available"
+    assert card["status"] == "SUBMITTED" and card["status"] != "INVOICED"
+    assert line["approved"] == "0" and line["can_send_now"] == str(expected["available"])
+    assert stock_replay.closing_in("murukku_200g", "FG_STORE") >= 0  # no negative stock (238 on hand)
 
 
 @A(

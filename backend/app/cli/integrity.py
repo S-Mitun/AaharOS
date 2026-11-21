@@ -82,6 +82,14 @@ def run(session: Session) -> tuple[bool, list[str]]:
     else:
         lines.append("PASS  law 2 value per run: lots (wherever they are) + write-offs = materials + run costs")
 
+    promised = ledger.over_reserved(session)
+    ok = ok and not promised
+    if promised:
+        lines.append(f"FAIL  reservations: {len(promised)} positions promise more than they hold")
+        lines.extend(f"        {row}" for row in promised[:20])
+    else:
+        lines.append("PASS  reservations: no store position promises more than it holds on hand")
+
     gaps = production.mass_balance_gaps(session)
     lines.append(f"INFO  mass balance: {len(gaps)} completed runs show an unexplained gap (reported, not failed)")
     lines.extend(f"        {row}" for row in gaps[:20])
