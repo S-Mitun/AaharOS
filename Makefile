@@ -56,7 +56,7 @@ seed-demo:
 	$(API) python -m app.cli.seed_demo
 
 seed-benchmark:
-	@echo not built yet - MP05: BENCHMARK tenant seed && exit 1
+	$(API) python -m app.cli.seed_benchmark
 
 e2e:
 	@echo not built yet - MP08: Playwright && exit 1

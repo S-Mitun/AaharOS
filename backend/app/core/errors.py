@@ -36,6 +36,12 @@ class PermissionDeniedError(DomainError):
     status_code = 403
 
 
+class ConflictError(DomainError):
+    """The request conflicts with an earlier one (e.g. an Idempotency-Key reused with a different payload). HTTP 409."""
+
+    status_code = 409
+
+
 class RateLimitedError(DomainError):
     status_code = 429
 

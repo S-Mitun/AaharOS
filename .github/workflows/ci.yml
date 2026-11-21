@@ -47,12 +47,33 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     needs: backend
+    # MP04: the replay posts the NIT movements through ledger.service, so the scoreboard needs a migrated database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aahar
+          POSTGRES_PASSWORD: change-me-demo
+          POSTGRES_DB: aaharos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aahar -d aaharos"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      AAHAR_MIGRATION_DATABASE_URL: postgresql+psycopg://aahar:change-me-demo@localhost:5432/aaharos
+      AAHAR_DATABASE_URL: postgresql+psycopg://aahar_app:change-me-demo@localhost:5432/aaharos
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -e "./backend[dev]"
+      - name: Migrations
+        working-directory: backend
+        run: alembic upgrade head
       - name: Scoreboard
         run: python benchmark/runner.py -q --summary "$GITHUB_STEP_SUMMARY"
 

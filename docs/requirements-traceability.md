@@ -9,7 +9,7 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 
 | Id | Requirement | Tier | Module | API | Screen | Tables | Test | MP |
 |---|---|---|---|---|---|---|---|---|
-| R2.1 | Every transaction entered once, at its source, flows into stock, production, costing, accounts | M | all (via ledger) | all posting routes | all | stock_journals, stock_lines | bench:a26, ledger:state-machine | 04–11 |
+| R2.1 | Every transaction entered once, at its source, flows into stock, production, costing, accounts | M | all (via ledger) | all posting routes | all | stock_journals, stock_lines | bench:a26, tests/db/test_ledger_state_machine.py | 04–11 |
 | R2.2 | Sales loop: order → verify → GST invoice → dispatch → FG down → receivables | M | sales, billing, dispatch, collections | /orders, /invoices, /dispatches, /payments | salesman app, order inbox | sales_orders, invoices, dispatches, payments | bench:a05, a08–a12 | 08–10 |
 | R2.3 | Production loop: purchase → issue per BOM → run → FG up → variance and cost | M | procurement, recipe, production, costing | /receipts, /runs | batch card | purchase_receipts, production_runs, variance_results | bench:a01–a04, a06, a07, a17 | 05–07 |
 | R2.4 | Both loops meet at FG stock and feed monthly reports | M | ledger, reports | /reports/* | reports | inventory_balances | bench:a05, a13, a23 | 09–12 |
@@ -55,22 +55,22 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 | R4.3.2 | Run records product, batch size/issues, expected output, actual output, wastage/scrap | M | production | POST /runs | batch card | production_runs, material_issues, run_pack_lines | bench:a04 | 06 |
 | R4.3.3 | Saving a run lowers raw stock and raises FG stock automatically | M | production, ledger | POST /runs/{id}/post | stock-impact preview | stock_journals | bench:a01–a04, production:atomic-rollback | 06 |
 | R4.3.4 | Planned vs actual consumption and yield; flag beyond tolerance (e.g. 3%) | M | production | GET /runs/{id}/variances | variance view | variance_results, settings | bench:a06, a07, a20 | 06 |
-| R4.3.5 | Units convert correctly: kg, g, L, pieces, packets, cartons | M | uom | — | — | uoms, uom_conversions | uom:round-trip-property | 04 |
+| R4.3.5 | Units convert correctly: kg, g, L, pieces, packets, cartons | M | uom | — | — | uoms, uom_conversions | uom/tests/test_domain.py (round-trip properties), tests/db/test_uom.py | 04 |
 
 ## Section 4.4: inventory
 
 | Id | Requirement | Tier | Module | API | Screen | Tables | Test | MP |
 |---|---|---|---|---|---|---|---|---|
-| R4.4.1 | Separate balances: raw, packaging, WIP (optional), FG by product and pack size | M | ledger | GET /stock | stock summary | locations, inventory_balances | ledger:projection==rebuild | 04 |
-| R4.4.2 | Opening + receipts − issues/sales ± adjustments = closing, per item | M | ledger | GET /stock/summary | stock summary | stock_lines | ledger:state-machine, bench:a26 | 04, 11 |
-| R4.4.3 | Stock ledger: every movement with its source document | M | ledger, reports | GET /stock/ledger | stock ledger | stock_journals(source_type, source_id) | ledger:source-required | 04 |
+| R4.4.1 | Separate balances: raw, packaging, WIP (optional), FG by product and pack size | M | ledger | GET /api/stock/balances | stock summary | locations, inventory_balances | tests/db/test_ledger_service.py::test_stock_api_balances_and_ledger, ::test_projection_diff_catches_a_tampered_balance | 04 |
+| R4.4.2 | Opening + receipts − issues/sales ± adjustments = closing, per item | M | ledger | GET /api/stock/ledger (opening + running balance) | stock summary | stock_lines | tests/db/test_ledger_state_machine.py, bench:a01–a03, a15, a26 | 04, 11 |
+| R4.4.3 | Stock ledger: every movement with its source document | M | ledger, reports | GET /api/stock/ledger | stock ledger | stock_journals(source_type, source_id) | ledger/tests/test_domain.py::test_wrong_source_document_is_refused, tests/db/test_ledger_service.py::test_stock_api_balances_and_ledger | 04 |
 | R4.4.4 | Batch numbers and expiry dates | X | ledger, traceability | GET /lots | trace this packet | lots | bench:a21, traceability:trace | 06, 13 |
 
 ## Section 4.5: costing
 
 | Id | Requirement | Tier | Module | API | Screen | Tables | Test | MP |
 |---|---|---|---|---|---|---|---|---|
-| R4.5.1 | Material + packaging cost per run from purchase rates; pick and justify method | M | valuation, costing | GET /runs/{id}/cost | Explain this number | item_cost_state, valuation_layers | bench:a16, a17, a18 (WAC, FIFO/LAST sensitivity) | 05, 07 |
+| R4.5.1 | Material + packaging cost per run from purchase rates; pick and justify method | M | valuation, costing | GET /api/stock/valuation (MP05), GET /runs/{id}/cost (MP07) | Explain this number | inventory_balances (WAC pool, ADR-0012), stock_lines (FIFO / LAST replay) | bench:a16, a17, a18 (WAC, FIFO/LAST sensitivity) | 05, 07 |
 | R4.5.2 | Labour, power, gas, overheads per run or month, allocated by a stated rule | S | costing | POST /runs/{id}/costs | run costs | run_costs | bench:a17, costing:overhead-allocation | 07 |
 | R4.5.3 | Approximate cost per packet per product and margin vs selling price | S | costing | GET /products/{id}/margin | where profit leaks | standard_cost_cards | bench:a18, a19 | 07 |
 
@@ -128,9 +128,9 @@ Test ids: `bench:aNN` = assertion NN in `benchmark/test_benchmark.py`; `<module>
 | Id | Requirement | Tier | How | Test | MP |
 |---|---|---|---|---|---|
 | R7.1 | Stack choice justified in 2–3 sentences | M | README, ADR-0001 | review | 18 |
-| R7.2 | Real database; balances derived from a ledger, never overwritten | M | Postgres, inventory_balances projection, zero-sum trigger | ledger:projection==rebuild, db:unbalanced-journal-rejected | 02, 04 |
+| R7.2 | Real database; balances derived from a ledger, never overwritten | M | Postgres, inventory_balances projection, zero-sum trigger | tests/db/test_ledger_service.py::test_projection_diff_catches_a_tampered_balance, db:unbalanced-journal-rejected | 02, 04 |
 | R7.3 | No float money; decimal or integer paise | M | `Decimal`/`NUMERIC`, `core.money` rejects float | test_core:float-rejected, grep gate | 00+ |
-| R7.4 | Every stock movement links to its source | M | stock_journals(source_type, source_id) NOT NULL | ledger:source-required | 02, 04 |
+| R7.4 | Every stock movement links to its source | M | stock_journals(source_type, source_id) NOT NULL | ledger/tests/test_domain.py::test_wrong_source_document_is_refused | 02, 04 |
 | R7.5 | Edits to invoices and runs logged with user and time; posted invoices cancelled by credit note | M | audit hash chain, immutability trigger, credit notes | `tests/db/test_audit.py` (tamper detected), billing:credit-note | 03, 10 |
 | R7.6 | Seed script for section 5 data | M | `make seed-benchmark` | bench:* | 05 |
 | R7.7 | Hosted demo link or single run command | M | `make up`; hosted demo in MP17 | fresh-clone drill | 17 |

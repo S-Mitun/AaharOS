@@ -10,6 +10,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 from sqlalchemy import Select, func, insert, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -451,3 +452,66 @@ def deactivate_member(session: Session, principal: Principal, user_id: uuid.UUID
         after={"role": membership.role_code, "active": False},
     )
     session.commit()
+
+
+SCRATCH_ORG_KINDS = ("BENCHMARK", "SIM")
+
+
+def create_scratch_tenant(session: Session, *, kind: str, label: str, state_code: str = "33") -> uuid.UUID:
+    """A fresh BENCHMARK or SIM organization, scoped onto this session (ADR-0006: a new tenant per replay, no
+    deletes). LIVE organizations are seeded by the owner only; the database refuses them for the app role too."""
+    if kind not in SCRATCH_ORG_KINDS:
+        raise DomainError("not_a_scratch_tenant", f"only {' or '.join(SCRATCH_ORG_KINDS)} tenants are created here")
+    org_id = uuid.uuid4()
+    org_scope(session, org_id)
+    session.execute(
+        insert(Organization).values(
+            id=org_id,
+            code=f"{kind}-{label}-{org_id.hex[:8]}".upper(),
+            name=f"DEMO {kind.lower()} {label}",
+            kind=kind,
+            state_code=state_code,
+        )
+    )
+    audit.record(
+        session,
+        organization_id=org_id,
+        actor_id=None,
+        action="organization.create",
+        entity_type="organization",
+        entity_id=org_id,
+        after={"kind": kind, "label": label},
+    )
+    return org_id
+
+
+def assign_customer(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    salesman_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    route_order: int | None = None,
+) -> None:
+    """Give a salesman a customer (the MP03 row filter then shows it to them). Re-assigning is a no-op."""
+    session.execute(
+        pg_insert(SalesmanCustomerAssignment)
+        .values(
+            organization_id=organization_id,
+            user_id=salesman_id,
+            customer_id=customer_id,
+            route_order=route_order,
+            created_by=actor_id,
+        )
+        .on_conflict_do_nothing(index_elements=["organization_id", "user_id", "customer_id"])
+    )
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="salesman.assign",
+        entity_type="customer",
+        entity_id=customer_id,
+        after={"salesman_id": salesman_id, "route_order": route_order},
+    )

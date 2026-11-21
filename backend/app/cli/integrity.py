@@ -1,7 +1,9 @@
 """`make integrity`: run every built integrity check and exit 1 if any fails.
 
-Built now (MP03): the audit hash chain of every organization. The four conservation laws and the balance rebuild
-are added by MP04 and MP11 and are listed here as NOT BUILT, never as passing.
+Built: the audit hash chain of every organization (MP03); law 1 re-summed from every journal's lines and the
+balance projection rebuilt from `stock_lines` and diffed (MP04; diff only, never repair); every posted receipt's
+stock value equal to its lines (MP05). The other laws are added by
+MP11 and are listed here as NOT BUILT, never as passing.
 """
 
 import sys
@@ -12,10 +14,10 @@ from sqlalchemy.orm import Session
 from app import db_models as _db_models  # noqa: F401 - registers every table for the ORM
 from app.core.config import get_settings
 from app.modules.audit import service as audit
+from app.modules.ledger import service as ledger
+from app.modules.procurement import service as procurement
 
 NOT_BUILT = (
-    ("Law 1 quantity: every journal sums to zero per item", "MP04"),
-    ("Balance projection equals a rebuild from stock lines", "MP04"),
     ("Law 2 value: lot value = run cost", "MP11"),
     ("Law 3 mass balance per run", "MP11"),
     ("Law 4 tax: lines = GST summary = export", "MP11"),
@@ -35,6 +37,30 @@ def run(session: Session) -> tuple[bool, list[str]]:
             lines.append(f"FAIL  audit chain {org}: broken at seq {verdict.first_bad_seq} ({verdict.reason})")
     if not orgs:
         lines.append("PASS  audit chain: no audit rows yet")
+
+    imbalances = ledger.journal_imbalances(session)
+    ok = ok and not imbalances
+    if imbalances:
+        lines.append(f"FAIL  law 1/2 journals balance: {len(imbalances)} unbalanced (journal, item) or journal sums")
+        lines.extend(f"        {row}" for row in imbalances[:20])
+    else:
+        lines.append("PASS  law 1 quantity: every journal sums to zero per item (and to zero in value)")
+
+    diff = ledger.projection_diff(session)
+    ok = ok and not diff
+    if diff:
+        lines.append(f"FAIL  balance rebuild: {len(diff)} positions differ from inventory_balances (not repaired)")
+        lines.extend(f"        {row}" for row in diff[:20])
+    else:
+        lines.append("PASS  balance rebuild: inventory_balances equals a rebuild from stock_lines")
+
+    receipts = procurement.receipt_value_mismatches(session)
+    ok = ok and not receipts
+    if receipts:
+        lines.append(f"FAIL  receipt value: {len(receipts)} receipts whose journal value differs from their lines")
+        lines.extend(f"        {row}" for row in receipts[:20])
+    else:
+        lines.append("PASS  receipt value: every posted receipt's stock value = the sum of its accepted lines")
     lines.extend(f"----  {name}: not built yet ({mp})" for name, mp in NOT_BUILT)
     return ok, lines
 

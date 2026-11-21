@@ -10,9 +10,17 @@ and what to do *next*. Every number on every screen can be traced to the stock m
 An order-to-audit system for a small South Indian snack factory, built for the NIT Tiruchirappalli
 Centre for Digital Infrastructure internship task. All data is fictional (**DEMO**).
 
-> **Status: MP03 (identity, RBAC, audit chain).** Benchmark scoreboard **0/26**: every assertion is defined and marked
-> "not built yet". The database schema and its guards (MP02), logins per role and the hash-chained audit (MP03), the
-> Start-here page and the guided tour work today. Business features arrive MP by MP (see `docs/PROGRESS.md`).
+> **Status: MP05 (valuation and purchase receipts).** Benchmark scoreboard **5/26** green: flour 120 kg, oil
+> 19.5 L, pouches 306, spice 3.8 kg / cartons 21, and flour WAC ₹43.125/kg after the purchase, replayed through the
+> real services. The rest are defined and marked "not built yet". Working today:
+> - the schema and its guards (MP02)
+> - logins per role and the hash-chained audit (MP03)
+> - the stock ledger and its read-only API (MP04)
+> - weighted-average valuation, purchase receipts and the purchase register (MP05)
+> - the DEMO factory's master data and opening stock (`make seed-demo`)
+> - the Start-here page and the guided tour
+>
+> Business features arrive MP by MP (see `docs/PROGRESS.md`).
 
 ## Try it
 
@@ -21,10 +29,11 @@ Needs Docker and `make` (Windows: `winget install ezwinports.make`).
 ```bash
 make up          # postgres (:5442) + api (:8180) + web (:5180)
 make migrate     # create the schema
-make seed-demo   # DEMO factory + one login per role (passwords from .env)
+make seed-demo   # DEMO factory, one login per role (passwords from .env), master data + opening stock
+make seed-benchmark  # a fresh BENCHMARK tenant with NIT section 5 master data and opening stock
 make benchmark   # 26-row scoreboard against benchmark/expected_results.yaml
 make test        # backend tests (unit + PostgreSQL)
-make integrity   # verify the audit hash chain (conservation laws arrive in MP04/MP11)
+make integrity   # audit hash chain, law 1 per journal, balances rebuilt from the ledger (laws 2-4 arrive in MP11)
 ```
 
 Then open http://localhost:5180. The **Start here** page explains the system and the **Guided tour** walks you

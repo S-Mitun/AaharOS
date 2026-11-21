@@ -24,22 +24,25 @@ def not_built(owner_mp: str) -> None:
 A = pytest.mark.assertion
 
 
+# Assertions 1-3 and 15 (MP04): closing stock after the NIT movements, replayed through the services
+# (app/modules/judge/replay.py). Valued since MP05; the run output (J3) is a stand-in until MP06.
+
+
 @A(1, "Flour closing", "MP04", "nit_expected.flour_closing_kg")
-@pending("MP04")
-def test_a01_flour_closing() -> None:
-    not_built("MP04")
+def test_a01_flour_closing(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    assert stock_replay.stock_units["flour"] == "kg"
+    assert stock_replay.closing_in("flour", "RAW_STORE") == oracle["nit_expected"]["flour_closing_kg"]
 
 
 @A(2, "Oil closing", "MP04", "nit_expected.oil_closing_L")
-@pending("MP04")
-def test_a02_oil_closing() -> None:
-    not_built("MP04")
+def test_a02_oil_closing(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    assert stock_replay.stock_units["cooking_oil"] == "L"
+    assert stock_replay.closing_in("cooking_oil", "RAW_STORE") == oracle["nit_expected"]["oil_closing_L"]
 
 
 @A(3, "Pouches closing", "MP04", "nit_expected.pouches_closing")
-@pending("MP04")
-def test_a03_pouches_closing() -> None:
-    not_built("MP04")
+def test_a03_pouches_closing(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    assert stock_replay.closing_in("pouch_200g", "PACK_STORE") == oracle["nit_expected"]["pouches_closing"]
 
 
 @A(4, "Finished goods after run", "MP06", "nit_expected.fg_after_run_packets")
@@ -125,19 +128,21 @@ def test_a14_distributor_b_igst() -> None:
 @A(
     15,
     "Spice closing / cartons closing",
-    "MP06",
+    "MP04",
     "aaharos_expected.spice_closing_kg",
     "aaharos_expected.cartons_closing",
 )
-@pending("MP06")
-def test_a15_spice_and_cartons_closing() -> None:
-    not_built("MP06")
+def test_a15_spice_and_cartons_closing(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    ext = oracle["aaharos_expected"]
+    assert stock_replay.closing_in("spice_mix", "RAW_STORE") == ext["spice_closing_kg"]
+    assert stock_replay.closing_in("carton_20", "PACK_STORE") == ext["cartons_closing"]
 
 
 @A(16, "Flour WAC after purchase", "MP05", "aaharos_expected.flour_wac_after_purchase")
-@pending("MP05")
-def test_a16_flour_wac() -> None:
-    not_built("MP05")
+def test_a16_flour_wac(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    wac = stock_replay.flour_wac_after_purchase  # an Explained value from valuation.wac, read from the ledger
+    assert (wac.unit, wac.method) == ("INR/kg", "WAC")
+    assert wac.value == oracle["aaharos_expected"]["flour_wac_after_purchase"]
 
 
 @A(

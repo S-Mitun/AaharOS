@@ -1,7 +1,11 @@
 """`make seed-demo`: the LIVE DEMO factory and one DEMO login per role (passwords from .env, never printed).
 
-Idempotent: re-running updates names, roles and passwords; it never deletes anything. Customers, items and the
-salesman-to-customer assignments come with the master-data seed (MP05).
+Idempotent: re-running updates names, roles and passwords; it never deletes anything.
+
+MP05 adds the DEMO master data on the first run only: the section 5 items, a DEMO supplier, Retailer A and
+Distributor B, salesman A -> Retailer A and salesman B -> Distributor B, and the valued opening stock. Users and the
+LIVE organization are written as the owner (the app role may not create LIVE tenants); the master data is written as
+`aahar_app`, scoped to the organization, because the owner bypasses row-level security and the services rely on it.
 """
 
 import os
@@ -13,9 +17,14 @@ from sqlalchemy.orm import Session
 
 from app import db_models as _db_models  # noqa: F401 - registers every table for the ORM
 from app.core.config import get_settings
-from app.core.db import org_scope
+from app.core.db import get_engine, org_scope
+from app.core.errors import NotFoundError
+from app.core.oracle import load_oracle
 from app.modules.audit import service as audit
+from app.modules.catalog import service as catalog
+from app.modules.identity import service as identity
 from app.modules.identity.domain import hash_password
+from app.modules.judge.replay import post_section5_opening, setup_section5
 
 ORG_CODE = "DEMO-FACTORY"
 ORG_NAME = "AaharOS Demo Snacks (DEMO)"
@@ -73,15 +82,57 @@ def seed(session: Session) -> list[tuple[str, str]]:
     return seeded
 
 
+# salesman email -> customer code (MP03 row filter: each salesman sees only these)
+ASSIGNMENTS = (("salesman.a@aaharos-demo.invalid", "RET-A"), ("salesman.b@aaharos-demo.invalid", "DIST-B"))
+
+
+def seed_master_data(app_session: Session, org_id: uuid.UUID, user_ids: dict[str, uuid.UUID]) -> bool:
+    """First run only: section 5 master data, assignments and opening stock. Returns False if already there."""
+    org_scope(app_session, org_id)
+    try:
+        catalog.id_by_code(app_session, "flour")
+        return False
+    except NotFoundError:
+        pass
+    oracle = load_oracle(get_settings().oracle_path)
+    s5 = setup_section5(app_session, oracle, org_id)
+    for n, (email, customer) in enumerate(ASSIGNMENTS, start=1):
+        identity.assign_customer(
+            app_session,
+            organization_id=org_id,
+            actor_id=None,
+            salesman_id=user_ids[email],
+            customer_id=s5.customer_ids[customer],
+            route_order=n,
+        )
+    post_section5_opening(app_session, oracle, s5)
+    return True
+
+
 def main() -> int:
     engine = create_engine(get_settings().migration_database_url)
     with Session(engine) as session:
         seeded = seed(session)
         session.commit()
+        org_id = session.execute(text("SELECT id FROM organizations WHERE code = :c"), {"c": ORG_CODE}).scalar_one()
+        user_ids = dict(
+            session.execute(
+                text("SELECT email, id FROM users WHERE email = ANY(:e)"), {"e": [e for e, _ in ASSIGNMENTS]}
+            )
+            .tuples()
+            .all()
+        )
     engine.dispose()
+    with Session(get_engine(), expire_on_commit=False) as app_session:
+        added = seed_master_data(app_session, org_id, user_ids)
+        app_session.commit()
     print(f"DEMO organization {ORG_CODE}: {len(seeded)} logins (passwords from .env, DEMO_PASSWORD_<ROLE>)")
     for email, role in seeded:
         print(f"  {role:<11} {email}")
+    if added:
+        print("  master data: 6 items, 1 supplier, 2 customers (assigned to salesman A / B), opening stock posted")
+    else:
+        print("  master data already present: left unchanged")
     return 0
 
 

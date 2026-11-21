@@ -158,10 +158,12 @@ CUSTOMER ₹4,556.86, WIP 0, and B-001 = ₹5,855.00.
 
 ## 4. Value rules
 
-1. **Raw and packaging items** are valued from a weighted-average pool per item (`item_cost_state`: pooled qty and
-   pooled value over the stores). Receipt: add qty and value. Issue: value = round_half_up(qty / pool_qty × pool_value)
-   to paise; when the pool empties, the last issue takes exactly the remaining value. No per-gram unit cost is ever
-   rounded and multiplied back, so the pool cannot drift. (ADR-0004)
+1. **Raw and packaging items** are valued from a weighted-average pool per item: the item's (qty, value) in
+   `inventory_balances` at RAW_STORE and PACK_STORE, read from the ledger projection (ADR-0012, decision D1; the
+   unused `item_cost_state` table is dropped later). Receipt: add qty and value. Issue: value = round_half_up(qty /
+   pool_qty × pool_value) to paise; when the pool empties, the last issue takes exactly the remaining value. No per-gram
+   unit cost is ever rounded and multiplied back, so the pool cannot drift. FIFO and last price are replayed from the
+   ledger history for the sensitivity panel and never post (ADR-0004, ADR-0012 D2).
 2. **Finished goods** are valued per lot at actual cost: the lot holds (qty, value); a dispatch takes
    round(qty / lot_qty × lot_value); the last unit out takes the rest. (ADR-0005)
 3. **Conversion costs** (labour, gas/power, other direct run costs) enter a lot through `CONVERSION_COST`, at

@@ -1,6 +1,8 @@
 # ADR-0004: Weighted-average cost in the books; FIFO and last price as sensitivity
 
-- Status: Accepted (MP01, approved 2026-11-21)
+- Status: Accepted (MP01, approved 2026-11-21). Amended by [ADR-0012](0012-valuation-from-the-ledger.md): the pool
+  is read from `inventory_balances` and FIFO / last price are replayed from the ledger history; neither
+  `item_cost_state` nor `valuation_layers` is written.
 
 ## Context
 The brief says: pick a method (last price, weighted average or FIFO) and justify it. Money must not drift.

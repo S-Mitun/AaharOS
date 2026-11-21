@@ -353,3 +353,37 @@ def login_client(api_app: Any, email: str, password: str = STAFF_PASSWORD) -> An
 @pytest.fixture(scope="module")
 def staff(owner_engine: Engine) -> Staff:
     return make_staff(owner_engine, "STAFF")
+
+
+# ---------- MP04: sessions as the API uses them, and an order line to reserve against ----------
+
+
+def scoped_session(app_engine: Engine, t: Tenant) -> Any:
+    """An ORM session as `aahar_app`, bound to the tenant (RLS) exactly as the identity dependency binds it."""
+    from sqlalchemy.orm import Session
+
+    from app.core.db import org_scope
+
+    session = Session(app_engine, expire_on_commit=False)
+    org_scope(session, t.org)
+    return session
+
+
+def make_order_line(owner: Engine, t: Tenant, item: str = "murukku_200g", qty: int = 150) -> uuid.UUID:
+    """A SUBMITTED DEMO order with one line, created as the owner (order taking itself arrives in MP08)."""
+    with owner.begin() as c:
+        order = c.execute(
+            text(
+                "INSERT INTO sales_orders (organization_id, order_no, order_date, customer_id)"
+                " VALUES (:o, :n, '2026-11-21', :c) RETURNING id"
+            ),
+            {"o": t.org, "n": f"SO-{uuid.uuid4().hex[:8]}", "c": t.customer},
+        ).scalar_one()
+        line: uuid.UUID = c.execute(
+            text(
+                "INSERT INTO order_lines (organization_id, order_id, line_no, item_id, qty_requested, price_captured)"
+                " VALUES (:o, :ord, 1, :i, :q, 50.00) RETURNING id"
+            ),
+            {"o": t.org, "ord": order, "i": t.items[item], "q": qty},
+        ).scalar_one()
+    return line

@@ -23,7 +23,7 @@ This page is the readable copy of what the code enforces. The source of truth is
 |---|---|:-:|:-:|:-:|:-:|:-:|
 | *customer.read* | See customers (salesman: assigned ones only) | ✓ | ✓ | | ✓ | ✓ |
 | *order.read* | See orders (salesman: own only) | ✓ | ✓ | | ✓ | ✓ |
-| *stock.read* | See stock and movements ("available today" hint) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| *stock.read* | See stock and movements ("available today" hint; a salesman gets quantities only, no rupee values) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | *report.read* | Reports, Explain this number | | ✓ | ✓ | ✓ | ✓ |
 | *audit.read* | Audit log and chain verification | | | | ✓ | ✓ |
 | order.create | Take a sales order | ✓ | | | | ✓ |

@@ -12,7 +12,10 @@ from app.core.errors import install_error_handlers
 from app.modules.audit.api import router as audit_router
 from app.modules.identity.api import auth_router, identity_router
 from app.modules.judge.api import router as guide_router
+from app.modules.ledger.api import router as stock_router
+from app.modules.procurement.api import router as purchases_router
 from app.modules.sales.api import router as sales_router
+from app.modules.valuation.api import router as valuation_router
 
 
 def create_app() -> FastAPI:
@@ -38,6 +41,9 @@ def create_app() -> FastAPI:
     app.include_router(identity_router)
     app.include_router(sales_router)
     app.include_router(audit_router)
+    app.include_router(stock_router)
+    app.include_router(valuation_router)
+    app.include_router(purchases_router)
     return app
 
 
