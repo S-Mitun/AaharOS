@@ -18,8 +18,8 @@ from app.modules.collections.api import router as collections_router
 from app.modules.costing.api import router as costing_router
 from app.modules.dispatch.api import router as dispatch_router
 from app.modules.identity.api import auth_router, identity_router
+from app.modules.judge.api import judge_router, signup_router
 from app.modules.judge.api import router as guide_router
-from app.modules.judge.api import signup_router
 from app.modules.ledger.api import router as stock_router
 from app.modules.planning.api import router as planning_router
 from app.modules.procurement.api import router as purchases_router
@@ -73,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(transport_router)
     app.include_router(public_trace_router)
     app.include_router(signup_router)
+    app.include_router(judge_router)
     if settings.web_dist is not None:
         mount_web(app, settings.web_dist)
     return app

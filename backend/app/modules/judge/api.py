@@ -14,10 +14,24 @@ from app.core.config import get_settings
 from app.core.db import get_session
 from app.core.errors import NotFoundError
 from app.core.oracle import load_oracle, to_jsonable
-from app.modules.judge import signup
+from app.modules.identity.service import Principal, require
+from app.modules.judge import judge_mode, signup
 
 router = APIRouter(prefix="/api/guide", tags=["guide"])
 signup_router = APIRouter(prefix="/api", tags=["signup"])
+judge_router = APIRouter(prefix="/api/judge", tags=["judge"])
+
+
+@judge_router.post("/run", status_code=status.HTTP_202_ACCEPTED)
+def judge_run(_principal: Annotated[Principal, Depends(require("benchmark.run"))]) -> dict[str, Any]:
+    """Judge Mode: replay NIT's nine steps on a fresh BENCHMARK factory; the scoreboard refreshes when it ends."""
+    return judge_mode.start()
+
+
+@judge_router.get("/status")
+def judge_status() -> dict[str, Any]:
+    """Public: whether a replay is running (the scoreboard itself is /api/guide/scoreboard)."""
+    return judge_mode.status()
 
 
 @router.get("/expected")

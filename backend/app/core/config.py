@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     web_dist: Path | None = None
     # Deployment: visitors may create their own sandbox factory (POST /api/signup).
     signups_open: bool = True
+    # MP15: Judge Mode may replay the benchmark from the web (POST /api/judge/run, benchmark.run).
+    judge_mode: bool = True
 
 
 DEMO_AUTH_SECRET = Settings.model_fields["auth_secret"].default

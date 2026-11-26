@@ -94,12 +94,17 @@ describe("the shell", () => {
     expect(screen.getByRole("button", { name: /Menu/ })).toBeInTheDocument();
   });
 
-  it("shows an honest Coming page for a screen not built yet, with no numbers", async () => {
+  it("has no screen left as a Coming page (MP15 built the last ones)", () => {
+    expect(Object.entries(SCREENS).filter(([, s]) => !s.built)).toEqual([]);
+  });
+
+  it("shows Judge Mode to a visitor without a login", async () => {
     serveSignedOut();
     renderAt("/judge");
-    expect(await screen.findByRole("heading", { name: /Judge Mode/ })).toBeInTheDocument();
-    expect(screen.getByText(/Coming in MP15/)).toBeInTheDocument();
-    expect(document.querySelector("main")?.textContent).not.toMatch(/₹\s?\d/); // no amounts (the icon is a glyph)
+    expect(await screen.findByRole("heading", { name: "Judge Mode" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Sign in as the DEMO Factory admin/ }),
+    ).toBeInTheDocument();
   });
 
   it("asks a visitor to sign in on a screen that needs data", async () => {

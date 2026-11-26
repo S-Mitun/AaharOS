@@ -179,13 +179,11 @@ export function HomePage() {
             <h3>Run the NIT benchmark</h3>
             <p>
               One button replays NIT&apos;s nine steps on a separate demo copy and fills a
-              scoreboard. Each row links to the record that proves it.
+              scoreboard of 26 checks. Each row links to the tour step that shows it.
             </p>
-            <p className="muted small">
-              The button arrives with Judge Mode (MP15). Today, run <code>make benchmark</code> in a
-              terminal.
-            </p>
-            <StatusChip tone="todo">Coming in MP15</StatusChip>
+            <Link to="/judge" className="btn">
+              Open Judge Mode
+            </Link>
           </article>
           <article className="way way-main">
             <span className="way-time">{STEPS.length} short steps · about 8 minutes</span>

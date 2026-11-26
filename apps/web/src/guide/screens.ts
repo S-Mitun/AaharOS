@@ -236,7 +236,7 @@ export const SCREENS: Record<string, Screen> = {
     label: "Judge Mode",
     route: "/judge",
     mp: "MP15",
-    built: false,
+    built: true,
     group: "Judge",
     icon: "⚖",
     description:
