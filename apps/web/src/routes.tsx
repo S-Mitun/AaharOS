@@ -15,6 +15,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { BriefPage } from "./owner/BriefPage";
 import { PlannerPage } from "./owner/PlannerPage";
 import { SignInPage } from "./pages/SignInPage";
+import { FoodSafetyPage } from "./trace/FoodSafetyPage";
 import { TracePage } from "./trace/TracePage";
 import { MyOrdersPage } from "./sales/MyOrdersPage";
 import { OrderDetailPage } from "./sales/OrderDetailPage";
@@ -64,6 +65,11 @@ const BUILT: Record<string, ReactNode> = {
   trace: (
     <Gate permission="report.read" what="trace and recall">
       <TracePage />
+    </Gate>
+  ),
+  foodSafety: (
+    <Gate permission="report.read" what="the oil and fill-weight records">
+      <FoodSafetyPage />
     </Gate>
   ),
 };

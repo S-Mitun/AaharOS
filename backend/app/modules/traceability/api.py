@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.modules.identity.service import Principal, require
-from app.modules.traceability import service
+from app.modules.traceability import food_safety, service
 
 router = APIRouter(prefix="/api/trace", tags=["traceability"])
 DbSession = Annotated[Session, Depends(get_session)]
@@ -36,3 +36,18 @@ def recall(
 ) -> dict[str, Any]:
     """The recall simulator: nothing is stored and nothing is sent."""
     return service.recall(session, lot_id, reason)
+
+
+Days = Annotated[int, Query(ge=1, le=366)]
+
+
+@router.get("/oil")
+def oil_log(_principal: Reader, session: DbSession, days: Days = 30) -> dict[str, Any]:
+    """Oil used per day against the RUCO record-keeping threshold, and TPC against the discard limit."""
+    return food_safety.oil_log(session, days)
+
+
+@router.get("/fill-weights")
+def fill_weights(_principal: Reader, session: DbSession, days: Days = 30) -> dict[str, Any]:
+    """Giveaway and short fills per batch, from the samples recorded at completion."""
+    return food_safety.fill_weights(session, days)

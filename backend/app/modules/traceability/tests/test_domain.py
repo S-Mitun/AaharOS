@@ -4,6 +4,7 @@ import random
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -156,3 +157,61 @@ def test_the_notice_is_marked_as_a_demo_and_names_every_customer() -> None:
 def test_a_notice_with_no_dispatches_says_so() -> None:
     text = domain.draft_notice(NoticeFacts("DEMO", None, "batch lot X", [], [], "DEMO"))
     assert "no packets of these lots have been dispatched" in text and "FSSAI licence: not set" in text
+
+
+# ---------- T6: oil and fill weights ----------
+
+
+def test_daily_oil_above_the_threshold_needs_records() -> None:
+    uses = [domain.OilUse("r1", "B-001", D(30000), D(5000)), domain.OilUse("r2", "B-002", D(20000), D(0))]
+    day = domain.oil_day(date(2026, 11, 21), uses, D(50))
+    assert day.litres.value == D(55) and day.above_threshold is True
+    assert [i.label for i in day.litres.inputs] == ["B-001 fresh oil", "B-001 top-ups", "B-002 fresh oil"]
+    exactly = domain.oil_day(date(2026, 11, 21), [domain.OilUse("r1", "B-001", D(50000), D(0))], D(50))
+    assert exactly.above_threshold is False  # "above", not "at"
+
+
+def test_tpc_above_the_limit_means_discard() -> None:
+    assert domain.tpc_discard(D("25.1"), D(25)) and not domain.tpc_discard(D(25), D(25))
+    assert not domain.tpc_discard(None, D(25))  # not measured is not a flag
+
+
+def test_fill_check_giveaway_and_short_fills() -> None:
+    c = domain.fill_check(
+        run_id="r1",
+        run_no="B-001",
+        declared_g=D(200),
+        nets=[D(204), D(206), D(190)],
+        good_units=100,
+        ingredient_value=D("3430.00"),
+        expected_bulk_g=D(40000),
+        tolerance_g=D(9),
+    )
+    assert c.mean_net.value == D("200") and c.over_per_packet.value == D(0)
+    assert c.giveaway.value == D("0.00") and c.short == (D(190),) and c.short_limit_g == D(191)
+    over = domain.fill_check(
+        run_id="r1",
+        run_no="B-001",
+        declared_g=D(200),
+        nets=[D(205)],
+        good_units=188,
+        ingredient_value=D("3435.00"),
+        expected_bulk_g=D(40000),
+        tolerance_g=None,
+    )
+    assert over.cost_per_kg.value == D("85.875") and over.giveaway.value == D("80.72")  # 5 x 188 / 1000 x 85.875
+    assert over.short == () and over.short_limit_g is None  # no tolerance configured for this size
+
+
+def test_fill_check_needs_samples() -> None:
+    with pytest.raises(ValueError):
+        domain.fill_check(
+            run_id="r",
+            run_no="B",
+            declared_g=D(200),
+            nets=[],
+            good_units=1,
+            ingredient_value=D(1),
+            expected_bulk_g=D(1),
+            tolerance_g=None,
+        )

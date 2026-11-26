@@ -123,3 +123,50 @@ export interface Recall {
 }
 
 export const isSupplier = (b: Trace["backward"]): b is SupplierBackward => "receipts" in b;
+
+export interface OilLog {
+  date_from: string;
+  date_to: string;
+  threshold_l_per_day: string;
+  tpc_limit_pct: string;
+  records_required: boolean;
+  days: {
+    date: string;
+    litres: Explained;
+    above_threshold: boolean;
+    sessions: {
+      run_id: string;
+      run_no: string;
+      fresh_l: string;
+      topup_l: string;
+      discard_l: string;
+      tpc_pct: string | null;
+      discard_oil: boolean;
+    }[];
+  }[];
+  note: string;
+}
+
+export interface FillWeights {
+  date_from: string;
+  date_to: string;
+  tolerances: { declared_g: string; tolerance_g: string }[];
+  runs: {
+    run_id: string;
+    run_no: string;
+    run_date: string;
+    pack_code: string;
+    declared_g: string;
+    good_units: string;
+    samples: string[];
+    mean_net: Explained;
+    over_per_packet: Explained;
+    cost_per_kg: Explained;
+    giveaway: Explained;
+    tolerance_g: string | null;
+    short_limit_g: string | null;
+    short_samples: string[];
+    short_fill_alert: boolean;
+  }[];
+  note: string;
+}

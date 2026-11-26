@@ -19,6 +19,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app import db_models as _db_models  # noqa: F401 - registers every table for the ORM
+from app.cli import demo_history
 from app.core import effective_settings
 from app.core.config import get_settings
 from app.core.db import get_engine, org_scope
@@ -40,6 +41,7 @@ from app.modules.judge.replay import (
     post_section5_opening,
     setup_section5,
     setup_section5_bom,
+    setup_section5_food_safety,
     setup_section5_planning,
     setup_section5_price_list,
     setup_section5_tax,
@@ -197,6 +199,7 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
                 app_session, organization_id=org_id, actor_id=None, key=key, value=margin, effective_from=SETTINGS_FROM
             )
             added.append(f"DEMO {key}")
+    added += [f"DEMO {key}" for key in setup_section5_food_safety(app_session, org_id)]  # MP13 (T6)
     if not planning.item_params(app_session):  # MP12: DEMO reorder level, safety stock, minimum order, lead time
         setup_section5_planning(app_session, org_id, ids)
         added.append("DEMO item planning settings")
@@ -218,7 +221,7 @@ def main() -> int:
         org_id = session.execute(text("SELECT id FROM organizations WHERE code = :c"), {"c": ORG_CODE}).scalar_one()
         user_ids = dict(
             session.execute(
-                text("SELECT email, id FROM users WHERE email = ANY(:e)"), {"e": [e for e, _ in ASSIGNMENTS]}
+                text("SELECT email, id FROM users WHERE email = ANY(:e)"), {"e": [e for e, *_ in DEMO_USERS]}
             )
             .tuples()
             .all()
@@ -226,7 +229,10 @@ def main() -> int:
     engine.dispose()
     with Session(get_engine(), expire_on_commit=False) as app_session:
         added = seed_master_data(app_session, org_id, user_ids)
-        topped_up = [] if added else top_up_master_data(app_session, org_id)
+        topped_up = top_up_master_data(app_session, org_id)  # also right after a first run: later MPs' settings
+        app_session.commit()
+        cast = {role: user_ids[email] for role, email in demo_history.USER_EMAILS.items()}
+        history = demo_history.seed_history(app_session, org_id, cast)  # MP13 (T7), once
         app_session.commit()
     print(f"DEMO organization {ORG_CODE}: {len(seeded)} logins (passwords from .env, DEMO_PASSWORD_<ROLE>)")
     for email, role in seeded:
@@ -238,6 +244,10 @@ def main() -> int:
         print("  master data topped up: " + "; ".join(topped_up))
     else:
         print("  master data already present: left unchanged")
+    if history:
+        print("  DEMO history (MP13): " + "; ".join(history))
+    else:
+        print("  DEMO history already present: left unchanged")
     return 0
 
 

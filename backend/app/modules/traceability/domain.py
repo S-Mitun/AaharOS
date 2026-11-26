@@ -11,9 +11,11 @@ never misses one, whatever order the floor actually used the sacks in.
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.core.explained import Explained, ExplainedInput, SourceRef
+from app.core.money import round_money
+from app.modules.uom.domain import normalise
 
 
 @dataclass(frozen=True)
@@ -163,3 +165,123 @@ def draft_notice(f: NoticeFacts) -> str:
         )
     lines += ["", f"Still in the factory store (held, not to be dispatched): {f.on_hand} packets", "", DEMO_BANNER]
     return "\n".join(lines)
+
+
+# ---------- T6: oil (RUCO) and fill weights, from what batch completion recorded ----------
+
+ML_PER_L = Decimal(1000)
+G_PER_KG = Decimal(1000)
+
+
+@dataclass(frozen=True)
+class OilUse:
+    run_id: str
+    run_no: str
+    fresh_ml: Decimal
+    topup_ml: Decimal
+
+
+@dataclass(frozen=True)
+class OilDay:
+    day: date
+    litres: Explained
+    above_threshold: bool
+
+
+def oil_day(day: date, uses: Sequence[OilUse], threshold_l: Decimal) -> OilDay:
+    """Fresh oil plus top-ups on one day, in litres, against the record-keeping threshold (RUCO: above it, daily
+    records are required)."""
+    inputs: list[ExplainedInput] = []
+    for u in uses:
+        src = SourceRef("production_run", u.run_id)
+        inputs.append(ExplainedInput(f"{u.run_no} fresh oil", u.fresh_ml / ML_PER_L, "L", src))
+        if u.topup_ml:
+            inputs.append(ExplainedInput(f"{u.run_no} top-ups", u.topup_ml / ML_PER_L, "L", src))
+    litres = sum((i.value for i in inputs), Decimal(0))
+    return OilDay(
+        day,
+        Explained(
+            normalise(litres),
+            "L",
+            "sum of fresh oil and top-ups recorded at batch completion that day",
+            tuple(inputs),
+            method=f"daily records required above {threshold_l} L/day (DEMO setting)",
+        ),
+        litres > threshold_l,
+    )
+
+
+def tpc_discard(tpc_pct: Decimal | None, limit_pct: Decimal) -> bool:
+    """Total polar compounds above the limit: the oil must be discarded."""
+    return tpc_pct is not None and tpc_pct > limit_pct
+
+
+@dataclass(frozen=True)
+class FillCheck:
+    mean_net: Explained
+    over_per_packet: Explained
+    cost_per_kg: Explained
+    giveaway: Explained
+    short_limit_g: Decimal | None  # a packet below this is short (declared - tolerance)
+    short: tuple[Decimal, ...]
+
+
+def fill_check(
+    *,
+    run_id: str,
+    run_no: str,
+    declared_g: Decimal,
+    nets: Sequence[Decimal],
+    good_units: int,
+    ingredient_value: Decimal,
+    expected_bulk_g: Decimal,
+    tolerance_g: Decimal | None,
+) -> FillCheck:
+    """Giveaway and short fills from the sampled net weights. Giveaway rupees = grams over the declared net per
+    packet x good packets x the batch's ingredient cost per gram (ingredients issued / the recipe's bulk)."""
+    if not nets:
+        raise ValueError("fill_check needs at least one sample")
+    src = SourceRef("production_run", run_id)
+    mean = (sum(nets, Decimal(0)) / len(nets)).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+    mean_x = Explained(
+        normalise(mean),
+        "g",
+        "mean of the sampled net weights",
+        tuple(ExplainedInput(f"sample {n}", w, "g", src) for n, w in enumerate(nets, start=1)),
+    )
+    over = mean - declared_g
+    over_x = Explained(
+        normalise(over),
+        "g",
+        "mean sampled net - declared net (negative is under-filled)",
+        (
+            ExplainedInput("mean sampled net", normalise(mean), "g", src),
+            ExplainedInput("declared net", declared_g, "g", src),
+        ),
+    )
+    per_kg = (ingredient_value / expected_bulk_g * G_PER_KG).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+    cost_x = Explained(
+        normalise(per_kg),
+        "INR/kg",
+        "ingredients issued to the batch / the recipe's bulk yield",
+        (
+            ExplainedInput("ingredients issued", ingredient_value, "INR", src),
+            ExplainedInput("recipe bulk yield", expected_bulk_g / G_PER_KG, "kg", src),
+        ),
+    )
+    extra_g = max(over, Decimal(0)) * good_units
+    rupees = round_money(extra_g / G_PER_KG * per_kg)
+    give_x = Explained(
+        rupees,
+        "INR",
+        "max(grams over per packet, 0) x good packets x ingredient cost per kg / 1000",
+        (
+            ExplainedInput("grams over per packet", normalise(max(over, Decimal(0))), "g", src),
+            ExplainedInput("good packets", Decimal(good_units), "packets", src),
+            ExplainedInput("ingredient cost", normalise(per_kg), "INR/kg", src),
+        ),
+        method="estimate from samples",
+    )
+    limit = None if tolerance_g is None else declared_g - tolerance_g
+    short = () if limit is None else tuple(w for w in nets if w < limit)
+    return FillCheck(mean_x, over_x, cost_x, give_x, limit, short)

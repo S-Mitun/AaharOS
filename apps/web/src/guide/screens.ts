@@ -173,6 +173,18 @@ export const SCREENS: Record<string, Screen> = {
       "Where a batch came from and where every packet went; simulate a recall (DEMO, nothing sent).",
     permission: "report.read",
   },
+  foodSafety: {
+    name: "Production → Oil and fill weights",
+    label: "Oil and fill weights",
+    route: "/production/food-safety",
+    mp: "MP13",
+    built: true,
+    group: "Production",
+    icon: "◍",
+    description:
+      "Frying oil per day against the RUCO threshold, TPC, and fill-weight giveaway and short fills.",
+    permission: "report.read",
+  },
   profitLeaks: {
     name: "Where profit leaks",
     label: "Where profit leaks",

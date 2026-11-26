@@ -1527,3 +1527,93 @@ def trace_runs(session: Session, run_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID
             ),
         }
     return out
+
+
+# ---------- food-safety records as batch completion wrote them (MP13, T6) ----------
+
+
+@dataclass(frozen=True)
+class OilRecord:
+    run_id: uuid.UUID
+    run_no: str
+    run_date: date
+    fresh_ml: Decimal
+    topup_ml: Decimal
+    discard_ml: Decimal
+    tpc_pct: Decimal | None
+
+
+def oil_records(session: Session, date_from: date, date_to: date) -> list[OilRecord]:
+    """Every oil session recorded at completion, for runs dated in the range, oldest first."""
+    rows = session.execute(
+        select(
+            ProductionRun.id,
+            ProductionRun.run_no,
+            ProductionRun.run_date,
+            OilSession.fresh_ml,
+            OilSession.topup_ml,
+            OilSession.discard_ml,
+            OilSession.tpc_pct,
+        )
+        .join(OilSession, OilSession.run_id == ProductionRun.id)
+        .where(ProductionRun.run_date >= date_from, ProductionRun.run_date <= date_to)
+        .order_by(ProductionRun.run_date, ProductionRun.run_no, OilSession.created_at)
+    ).all()
+    return [OilRecord(*r) for r in rows]
+
+
+@dataclass(frozen=True)
+class FillRecord:
+    run_id: uuid.UUID
+    run_no: str
+    run_date: date
+    pack_code: str
+    declared_net_g: Decimal
+    good_units: int
+    sample_nets: tuple[Decimal, ...]
+    ingredient_value: Decimal  # rupees of recipe materials issued (net of returns)
+    expected_bulk_g: Decimal  # the frozen recipe's bulk yield x batch multiplier
+
+
+def fill_records(session: Session, date_from: date, date_to: date) -> list[FillRecord]:
+    """Completed single-pack-line runs dated in the range that have fill-weight samples, oldest first."""
+    runs = list(
+        session.execute(
+            select(ProductionRun)
+            .where(
+                ProductionRun.status == "COMPLETED",
+                ProductionRun.run_date >= date_from,
+                ProductionRun.run_date <= date_to,
+            )
+            .order_by(ProductionRun.run_date, ProductionRun.run_no)
+        ).scalars()
+    )
+    out = []
+    for run in runs:
+        nets = tuple(
+            session.execute(
+                select(FillWeightSample.net_g)
+                .where(FillWeightSample.run_id == run.id)
+                .order_by(FillWeightSample.sampled_at, FillWeightSample.id)
+            ).scalars()
+        )
+        lines = _pack_lines(session, run.id)
+        if not nets or len(lines) != 1 or run.recipe_snapshot is None:
+            continue
+        pack = (run.pack_snapshot or {}).get("versions", {})[str(lines[0].pack_spec_version_id)]
+        out.append(
+            FillRecord(
+                run_id=run.id,
+                run_no=run.run_no,
+                run_date=run.run_date,
+                pack_code=pack["code"],
+                declared_net_g=Decimal(pack["net_g"]),
+                good_units=lines[0].good_units or 0,
+                sample_nets=nets,
+                ingredient_value=sum((v for _, v in net_issued(session, run.id).values()), Decimal(0)),
+                expected_bulk_g=domain.expected_bulk(
+                    Decimal(run.recipe_snapshot["bulk_yield_g"]), run.batch_multiplier
+                ),
+            )
+        )
+    return out

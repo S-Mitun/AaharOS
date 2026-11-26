@@ -327,6 +327,39 @@ def setup_section5_planning(
             )
 
 
+# MP13 (T6): DEMO food-safety settings. The 50 L/day RUCO record-keeping threshold and the 25% TPC limit are the
+# FSSAI figures as commonly cited; the short-fill tolerances follow the Legal Metrology table's shape. All DEMO:
+# verify before real use.
+DEMO_FOOD_SAFETY: Final[dict[str, Any]] = {
+    "fssai.ruco_threshold_l_per_day": "50",
+    "fssai.tpc_limit_pct": "25",
+    "legal_metrology.short_fill_tolerance_g": {
+        "200": "9",
+        "500": "15",
+        "note": "DEMO: verify with a Legal Metrology officer",
+    },
+}
+
+
+def setup_section5_food_safety(
+    session: Session, organization_id: uuid.UUID, actor_id: uuid.UUID | None = None
+) -> list[str]:
+    """The DEMO oil and fill-weight settings, each only where none is in force yet. Returns the keys added."""
+    added = []
+    for key, value in DEMO_FOOD_SAFETY.items():
+        if effective_settings.value_on(session, key, SETTINGS_FROM) is None:
+            tax.put_setting(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                key=key,
+                value=value,
+                effective_from=SETTINGS_FROM,
+            )
+            added.append(key)
+    return added
+
+
 def _cartons_per_batch(bom: dict[str, Any]) -> Decimal:
     """Cartons per batch from the BOM (assumption A5: a carton is a packaging item and a packing unit)."""
     return Decimal(next(ln["qty"] for ln in bom["lines"] if ln["item"] == CARTON))
