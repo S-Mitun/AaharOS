@@ -43,6 +43,13 @@ jobs:
       - name: Migrations apply, and models match them
         run: alembic upgrade head && alembic check
       - run: pytest
+      - name: Analytics (MP16, synthetic data, never the ledger)
+        working-directory: .
+        env:
+          PYTHONPATH: .
+        run: |
+          ruff check --config backend/pyproject.toml analytics
+          pytest -q -p no:cacheprovider analytics/tests
 
   benchmark:
     runs-on: ubuntu-latest

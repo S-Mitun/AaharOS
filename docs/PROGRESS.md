@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP15 done (branch feat/mp13-traceability) / MP16 next. Deploy only after MP16-MP19 (the user)
+## Status: MP16 done (branch feat/mp13-traceability) / MP17 next. Deploy only after MP17-MP19 (the user)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,20 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP16 (factory simulator, pipeline, analytics with planted-truth evaluation)
+- `analytics/` (numpy only; reads records, never writes the books): seeded 24-month simulator with every planted truth
+  and fault (`make sim` -> `analytics/data/generated`, `analytics/DATASHEET.md`); pipeline (contract, de-duplicate by
+  idempotency key, unit slips, chronology, row counts per stage); festival-aware demand vs seasonal-naive and 4-week
+  average; EWMA per operator; supplier-lot bootstrap CI; late-payment logistic regression vs "pays like last time";
+  `make ml-eval` prints and writes [analytics/REPORT.md](../analytics/REPORT.md); model cards
+  [analytics/models/CARDS.md](../analytics/models/CARDS.md); 5 tests, run in CI.
+- **Recovered (synthetic):** Deepavali x3.18 (planted 3.2), Pongal x1.89 (1.8), Onam x2.65 (2.5); S-05 -5.0% (CI -5.2%
+  to -4.9%); O-3 oil +3.9% (4%), EWMA signal on O-3's 2nd run, 0.20 false alarms per 50 runs; R-7 60.0 days; 500 g
+  cannibalisation -15.1% (-15%); duplicates and unit slips 100% caught. Demand WAPE 24.3% vs seasonal-naive 57.1%
+  (ships). Payment Brier 0.002 vs 0.004 (ships; optimistic, R-7 is separable in synthetic data).
+- **Not built (cut line):** LightGBM quantiles, pandera, mandi prices, a UI for these figures, the planner reading
+  the forecast.
 
 ## Done in MP15 (production screens, Judge Mode, Tamil / English, accessibility)
 - **Decisions P1-P5: [ADR-0022](adr/0022-production-screens-judge-mode-i18n-a11y.md).**

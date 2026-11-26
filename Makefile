@@ -67,8 +67,11 @@ e2e:
 integrity:
 	$(BACKEND) python -m app.cli.integrity
 
+ANALYTICS = docker compose run --rm -e PYTHONPATH=/workspace -w /workspace backend
+
 sim:
-	@echo not built yet - MP16: factory simulator && exit 1
+	$(ANALYTICS) python -m analytics.simulator.cli
 
 ml-eval:
-	@echo not built yet - MP16: backtests and planted-truth report && exit 1
+	$(ANALYTICS) python -m analytics.eval.run
+	$(ANALYTICS) pytest -q -p no:cacheprovider analytics/tests

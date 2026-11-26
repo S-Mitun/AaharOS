@@ -47,6 +47,7 @@ services:
     volumes:
       - ./backend:/workspace/backend
       - ./benchmark:/workspace/benchmark
+      - ./analytics:/workspace/analytics
     depends_on:
       db:
         condition: service_healthy
