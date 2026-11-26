@@ -443,3 +443,42 @@ def dispatches_for(session: Session, invoice_id: uuid.UUID) -> list[dict[str, An
             .order_by(Dispatch.dispatch_date, Dispatch.dispatch_no)
         ).scalars()
     ]
+
+
+@dataclass(frozen=True)
+class LotDispatch:
+    """One dispatch line of a lot, with its invoice and customer (MP13, T1 forward)."""
+
+    dispatch_id: uuid.UUID
+    dispatch_no: str
+    dispatch_date: date
+    invoice_id: uuid.UUID
+    invoice_no: str
+    customer_id: uuid.UUID
+    customer_code: str
+    customer_name: str
+    lot_id: uuid.UUID
+    qty: int
+
+
+def lot_dispatches(session: Session, lot_ids: list[uuid.UUID]) -> list[LotDispatch]:
+    """Every dispatch line of these lots, oldest first (row-level security keeps it to the caller's org)."""
+    if not lot_ids:
+        return []
+    rows = session.execute(
+        text(
+            """
+            SELECT d.id, d.dispatch_no, d.dispatch_date, i.id, i.invoice_no, c.id, c.code, c.name, dl.lot_id,
+                   sum(dl.qty)::int
+              FROM dispatch_lines dl
+              JOIN dispatches d ON d.id = dl.dispatch_id
+              JOIN invoices i ON i.id = d.invoice_id
+              JOIN customers c ON c.id = i.customer_id
+             WHERE dl.lot_id = ANY(:lots)
+             GROUP BY d.id, d.dispatch_no, d.dispatch_date, i.id, i.invoice_no, c.id, c.code, c.name, dl.lot_id
+             ORDER BY d.dispatch_date, d.dispatch_no, c.code
+            """
+        ),
+        {"lots": list(lot_ids)},
+    ).all()
+    return [LotDispatch(*r) for r in rows]

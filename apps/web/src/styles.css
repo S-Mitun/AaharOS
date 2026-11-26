@@ -1007,3 +1007,71 @@ main {
   background: var(--surface-2);
   border-radius: var(--radius);
 }
+
+/* Production → Trace and recall (MP13) */
+.trace-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 1rem;
+  margin: 1rem 0;
+}
+
+.trace-search label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+  flex: 1 1 260px;
+}
+
+.trace-search input {
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.lot-pick {
+  text-align: left;
+  width: 100%;
+}
+
+.lot-pick.is-current {
+  border-color: var(--accent, var(--border));
+  background: var(--surface-2);
+}
+
+.demo-banner {
+  padding: 0.6rem 1rem;
+  border: 2px dashed var(--warn, var(--bad));
+  border-radius: var(--radius);
+  font-weight: 700;
+}
+
+.notice {
+  white-space: pre-wrap;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+
+@media print {
+  body.print-notice * {
+    visibility: hidden;
+  }
+
+  body.print-notice .notice,
+  body.print-notice .notice * {
+    visibility: visible;
+  }
+
+  body.print-notice .notice {
+    position: absolute;
+    inset: 0 auto auto 0;
+    border: none;
+  }
+}

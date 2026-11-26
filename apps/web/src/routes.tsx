@@ -15,6 +15,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { BriefPage } from "./owner/BriefPage";
 import { PlannerPage } from "./owner/PlannerPage";
 import { SignInPage } from "./pages/SignInPage";
+import { TracePage } from "./trace/TracePage";
 import { MyOrdersPage } from "./sales/MyOrdersPage";
 import { OrderDetailPage } from "./sales/OrderDetailPage";
 import { OrderPage } from "./sales/OrderPage";
@@ -58,6 +59,11 @@ const BUILT: Record<string, ReactNode> = {
   planner: (
     <Gate permission="report.read" what="the batch planner">
       <PlannerPage />
+    </Gate>
+  ),
+  trace: (
+    <Gate permission="report.read" what="trace and recall">
+      <TracePage />
     </Gate>
   ),
 };

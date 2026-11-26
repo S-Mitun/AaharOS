@@ -421,3 +421,50 @@ def receipt_value_mismatches(session: Session) -> list[dict[str, str]]:
         {"organization_id": str(o), "receipt_no": n, "lines_value": str(lv), "journal_value": str(jv)}
         for o, n, lv, jv in rows
     ]
+
+
+@dataclass(frozen=True)
+class ReceivedLot:
+    """One receipt line of one item, as traceability reads it (MP13, T2). `lot_no` is None when none was recorded."""
+
+    receipt_id: uuid.UUID
+    receipt_no: str
+    status: str
+    received_on: date
+    journal_id: uuid.UUID | None
+    supplier_code: str
+    supplier_name: str
+    item_id: uuid.UUID
+    lot_no: str | None
+    accepted_base: Decimal
+    rejected_base: Decimal
+
+
+def received_lots(
+    session: Session, *, item_id: uuid.UUID | None = None, journal_ids: Sequence[uuid.UUID] | None = None
+) -> list[ReceivedLot]:
+    """Receipt lines of posted or reversed receipts, by item or by the receipt journals that posted them."""
+    query = (
+        select(
+            PurchaseReceipt.id,
+            PurchaseReceipt.receipt_no,
+            PurchaseReceipt.status,
+            PurchaseReceipt.received_on,
+            PurchaseReceipt.journal_id,
+            Supplier.code,
+            Supplier.name,
+            PurchaseReceiptLine.item_id,
+            PurchaseReceiptLine.lot_no,
+            PurchaseReceiptLine.accepted_base,
+            PurchaseReceiptLine.rejected_base,
+        )
+        .join(PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptLine.receipt_id)
+        .join(Supplier, Supplier.id == PurchaseReceipt.supplier_id)
+        .where(PurchaseReceipt.status != "DRAFT")
+        .order_by(PurchaseReceipt.received_on, PurchaseReceipt.receipt_no, PurchaseReceiptLine.line_no)
+    )
+    if item_id is not None:
+        query = query.where(PurchaseReceiptLine.item_id == item_id)
+    if journal_ids is not None:
+        query = query.where(PurchaseReceipt.journal_id.in_(list(journal_ids)))
+    return [ReceivedLot(*row) for row in session.execute(query).all()]

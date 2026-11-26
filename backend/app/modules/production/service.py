@@ -33,6 +33,7 @@ from app.core.explained import SourceRef
 from app.core.pg_errors import domain_error_from_db
 from app.modules.audit import service as audit
 from app.modules.catalog import service as catalog
+from app.modules.identity import service as identity
 from app.modules.ledger import service as ledger
 from app.modules.ledger.domain import LineSpec
 from app.modules.production import domain
@@ -1440,3 +1441,89 @@ def next_batch_for(session: Session, fg_item_id: uuid.UUID) -> dict[str, Any] | 
         "status": status,
         "planned_packets": str(int(planned)),
     }
+
+
+# ---------- traceability read models (MP13, T1 / T2) ----------
+
+
+@dataclass(frozen=True)
+class IssueRef:
+    issue_id: uuid.UUID
+    issue_no: str
+    run_id: uuid.UUID
+    direction: str
+    posting_date: date
+    journal_id: uuid.UUID
+
+
+def issue_refs(session: Session, issue_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, IssueRef]:
+    """Material issue (or return) id -> its number, run, direction, date and journal."""
+    if not issue_ids:
+        return {}
+    rows = session.execute(
+        select(
+            MaterialIssue.id,
+            MaterialIssue.issue_no,
+            MaterialIssue.run_id,
+            MaterialIssue.direction,
+            MaterialIssue.posting_date,
+            MaterialIssue.journal_id,
+        ).where(MaterialIssue.id.in_(set(issue_ids)))
+    ).all()
+    return {r[0]: IssueRef(*r) for r in rows}
+
+
+def trace_runs(session: Session, run_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, dict[str, Any]]:
+    """What traceability shows of a batch: number, dates, frozen recipe and pack versions, operator and the lots it
+    made (good packets per lot). Read from posted rows only."""
+    if not run_ids:
+        return {}
+    runs = list(session.execute(select(ProductionRun).where(ProductionRun.id.in_(set(run_ids)))).scalars())
+    lines = list(session.execute(select(RunPackLine).where(RunPackLine.run_id.in_(set(run_ids)))).scalars())
+    issues = list(session.execute(select(MaterialIssue).where(MaterialIssue.run_id.in_(set(run_ids)))).scalars())
+    names = identity.display_names(session, {r.operator_id for r in runs if r.operator_id is not None})
+    lot_nos = _lot_nos(session, [pl.lot_id for pl in lines if pl.lot_id is not None])
+    out: dict[uuid.UUID, dict[str, Any]] = {}
+    for r in runs:
+        versions = (r.pack_snapshot or {}).get("versions", {})
+        out[r.id] = {
+            "run_id": str(r.id),
+            "run_no": r.run_no,
+            "status": r.status,
+            "run_date": r.run_date.isoformat(),
+            "completed_at": None if r.completed_at is None else r.completed_at.isoformat(),
+            "recipe": None
+            if r.recipe_snapshot is None
+            else {
+                "code": r.recipe_snapshot["code"],
+                "version": r.recipe_snapshot["version"],
+                "version_id": r.recipe_snapshot["version_id"],
+            },
+            "packs": sorted(
+                (
+                    {"code": v["code"], "version": v["version"], "version_id": v["version_id"]}
+                    for v in versions.values()
+                ),
+                key=lambda p: (p["code"], p["version"]),
+            ),
+            "operator": None if r.operator_id is None else names.get(r.operator_id),
+            # the journals that took this batch's materials out of the stores: its issues and returns, its completion
+            "material_journal_ids": sorted(
+                [str(i.journal_id) for i in issues if i.run_id == r.id]
+                + [str(j) for j in [ledger.journal_for(session, "RUN_COMPLETION", "production_run", r.id)] if j]
+            ),
+            "lots": sorted(
+                (
+                    {
+                        "lot_id": str(pl.lot_id),
+                        "lot_no": lot_nos[pl.lot_id],
+                        "pack_code": versions.get(str(pl.pack_spec_version_id), {}).get("code"),
+                        "good_units": pl.good_units,
+                    }
+                    for pl in lines
+                    if pl.run_id == r.id and pl.lot_id is not None
+                ),
+                key=lambda x: str(x["lot_no"]),
+            ),
+        }
+    return out

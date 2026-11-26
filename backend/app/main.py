@@ -24,6 +24,7 @@ from app.modules.recipe.api import router as recipes_router
 from app.modules.reports.api import router as reports_router
 from app.modules.sales.api import router as sales_router
 from app.modules.tax.api import router as tax_router
+from app.modules.traceability.api import router as trace_router
 from app.modules.valuation.api import router as valuation_router
 
 
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(tax_router)
     app.include_router(reports_router)
     app.include_router(planning_router)
+    app.include_router(trace_router)
     return app
 
 

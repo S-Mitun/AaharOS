@@ -161,6 +161,18 @@ export const SCREENS: Record<string, Screen> = {
       "How many batches the stock allows, what to make next and what to buy. Creates drafts only.",
     permission: "report.read",
   },
+  trace: {
+    name: "Production → Trace and recall",
+    label: "Trace and recall",
+    route: "/production/trace",
+    mp: "MP13",
+    built: true,
+    group: "Production",
+    icon: "⇄",
+    description:
+      "Where a batch came from and where every packet went; simulate a recall (DEMO, nothing sent).",
+    permission: "report.read",
+  },
   profitLeaks: {
     name: "Where profit leaks",
     label: "Where profit leaks",

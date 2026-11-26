@@ -18,7 +18,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -129,6 +129,95 @@ def lot_no(session: Session, lot_id: uuid.UUID) -> str:
     if found is None:
         raise NotFoundError("lot_not_found", "unknown lot", {"lot_id": str(lot_id)})
     return found
+
+
+@dataclass(frozen=True)
+class LotInfo:
+    id: uuid.UUID
+    item_id: uuid.UUID
+    lot_no: str
+    mfg_date: date | None
+    best_before: date | None
+    source_type: str
+    source_id: uuid.UUID | None
+
+
+def lot_info(session: Session, lot_id: uuid.UUID) -> LotInfo:
+    """MP13: one lot as recorded (FG lots from runs or opening stock, supplier lots from receipts)."""
+    row = session.execute(
+        select(Lot.id, Lot.item_id, Lot.lot_no, Lot.mfg_date, Lot.best_before, Lot.source_type, Lot.source_id).where(
+            Lot.id == lot_id
+        )
+    ).one_or_none()
+    if row is None:
+        raise NotFoundError("lot_not_found", "unknown lot", {"lot_id": str(lot_id)})
+    return LotInfo(*row)
+
+
+def lots_where(
+    session: Session,
+    *,
+    text_like: str | None = None,
+    source_id: uuid.UUID | None = None,
+    item_id: uuid.UUID | None = None,
+    lot_nos: Sequence[str] | None = None,
+    limit: int = 200,
+) -> list[LotInfo]:
+    """MP13: lots by lot-number fragment (case-insensitive), by the document that made them, or by item and number."""
+    q = select(Lot.id, Lot.item_id, Lot.lot_no, Lot.mfg_date, Lot.best_before, Lot.source_type, Lot.source_id)
+    if text_like:
+        escaped = text_like.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        q = q.where(Lot.lot_no.ilike(f"%{escaped}%", escape="\\"))
+    if source_id is not None:
+        q = q.where(Lot.source_id == source_id)
+    if item_id is not None:
+        q = q.where(Lot.item_id == item_id)
+    if lot_nos is not None:
+        q = q.where(Lot.lot_no.in_(list(lot_nos)))
+    rows = session.execute(q.order_by(Lot.created_at.desc(), Lot.lot_no).limit(limit)).all()
+    return [LotInfo(*r) for r in rows]
+
+
+@dataclass(frozen=True)
+class StoreMovement:
+    """One journal's net change to one item at one store, in the order the database recorded it (MP13)."""
+
+    journal_id: uuid.UUID
+    kind: str
+    source_type: str
+    source_id: uuid.UUID
+    posting_date: date
+    posted_at: datetime
+    reverses_journal_id: uuid.UUID | None
+    qty_base: Decimal
+
+
+def store_timeline(session: Session, item_id: uuid.UUID, location_code: str) -> list[StoreMovement]:
+    """Every journal that moved one item in or out of one store, by `posted_at` (clock time of posting, the order the
+    balance trigger applied them), zero net changes dropped. MP13 (T2) reads it to bound which supplier lots an issue
+    may contain."""
+    loc = _location(session, location_code)
+    rows = session.execute(
+        select(
+            StockJournal.id,
+            StockJournal.kind,
+            StockJournal.source_type,
+            StockJournal.source_id,
+            StockJournal.posting_date,
+            StockJournal.posted_at,
+            StockJournal.reverses_journal_id,
+            func.sum(StockLine.qty_base),
+        )
+        .join(StockLine, StockLine.journal_id == StockJournal.id)
+        .where(StockLine.item_id == item_id, StockLine.location_id == loc.id)
+        .group_by(StockJournal.id)
+        .order_by(StockJournal.posted_at, StockJournal.id)
+    ).all()
+    return [
+        StoreMovement(jid, kind, stype, sid, on, at, rev, Decimal(qty))
+        for jid, kind, stype, sid, on, at, rev, qty in rows
+        if qty != 0
+    ]
 
 
 # ---------- posting ----------
