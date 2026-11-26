@@ -29,6 +29,7 @@ from tests.db.conftest import Staff, login_client
 # where a visitor creates their own sandbox factory (rate-limited per IP); and whether a Judge Mode replay is running.
 OPEN_ROUTES = PUBLIC_ROUTES | {
     ("GET", "/health"),
+    ("GET", "/ready"),
     ("GET", "/api/guide/expected"),
     ("GET", "/api/guide/scoreboard"),
     ("GET", "/api/public/passport/{token}"),

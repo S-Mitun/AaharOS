@@ -6,7 +6,7 @@ BACKEND = docker compose run --rm backend
 FRONTEND = docker compose run --rm --no-deps frontend
 
 .PHONY: help up down logs build test lint typecheck benchmark web-test web-lint web-build \
-        migrate seed-demo seed-benchmark e2e integrity sim ml-eval
+        migrate seed-demo seed-benchmark e2e integrity sim ml-eval backup restore-check
 
 help:
 	@echo up down logs build test lint typecheck benchmark web-test web-lint web-build
@@ -75,3 +75,10 @@ sim:
 ml-eval:
 	$(ANALYTICS) python -m analytics.eval.run
 	$(ANALYTICS) pytest -q -p no:cacheprovider analytics/tests
+
+# MP17: a pg_dump of the database into backups/, and one that is restored into a scratch database and compared
+backup:
+	sh scripts/backup.sh
+
+restore-check:
+	sh scripts/backup.sh --verify

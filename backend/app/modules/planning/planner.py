@@ -92,10 +92,10 @@ def plan(
     result = Plan(status="NOTHING_TO_PLAN")
     if options and capacity > 0:
         model = cp_model.CpModel()
-        b = {p.code: model.NewIntVar(0, capacity, f"b_{p.code}") for p in options}
-        model.Add(sum(b.values()) <= capacity)
+        b = {p.code: model.new_int_var(0, capacity, f"b_{p.code}") for p in options}
+        model.add(sum(b.values()) <= capacity)
         for m in {m for p in options for m in p.needs}:
-            model.Add(
+            model.add(
                 sum(_scaled(p.needs[m]) * b[p.code] for p in options if m in p.needs)
                 <= max(0, _scaled(available.get(m, Decimal(0))))
             )
@@ -104,22 +104,22 @@ def plan(
             makes = [p for p in options if p.fg_item == item]
             if not makes:
                 continue
-            met[item] = model.NewIntVar(0, d.shortfall, f"met_{item}")
-            model.Add(met[item] <= sum(p.good_per_batch * b[p.code] for p in makes))
+            met[item] = model.new_int_var(0, d.shortfall, f"met_{item}")
+            model.add(met[item] <= sum(p.good_per_batch * b[p.code] for p in makes))
         weight = len(options) * capacity + 1  # one paisa of value beats any number of batches saved
-        model.Maximize(
+        model.maximize(
             sum(int(round_money(short_of[i].value_per_packet) * 100) * weight * v for i, v in met.items())
             - sum(b.values())
         )
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = TIME_LIMIT_S
         solver.parameters.num_workers = 1  # deterministic
-        status = solver.StatusName(solver.Solve(model))
+        status = solver.status_name(solver.solve(model))
         if status not in ("OPTIMAL", "FEASIBLE"):
             raise PlanningError("no_plan", "the planner found no feasible plan")
         result.status = status
-        result.batches = {code: int(solver.Value(v)) for code, v in b.items()}
-        result.met = {item: int(solver.Value(v)) for item, v in met.items()}
+        result.batches = {code: int(solver.value(v)) for code, v in b.items()}
+        result.met = {item: int(solver.value(v)) for item, v in met.items()}
         result.value_met = round_money(
             sum((short_of[i].value_per_packet * n for i, n in result.met.items()), Decimal(0))
         )

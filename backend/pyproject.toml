@@ -17,10 +17,10 @@ dependencies = [
     "psycopg[binary]==3.2.3",
     "pyyaml==6.0.2",
     "argon2-cffi==23.1.0",
-    "PyJWT==2.10.1",
+    "PyJWT==2.15.1",  # MP17: security advisories fixed in 2.12-2.15
     "segno==1.6.1",
     "openpyxl==3.1.5",  # MP11: XLSX report downloads (pure Python)
-    "ortools==9.11.4210",  # MP12: the batch planner (CP-SAT)  # MP10: the DEMO UPI QR on invoices (pure Python, no system libraries)
+    "ortools==9.15.6755",  # MP12: the batch planner (CP-SAT); MP17: 9.15 brings protobuf 6.33 (advisories)
 ]
 
 [project.optional-dependencies]

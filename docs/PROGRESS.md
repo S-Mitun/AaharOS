@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP16 done (branch feat/mp13-traceability) / MP17 next. Deploy only after MP17-MP19 (the user)
+## Status: MP17 done (branch feat/mp13-traceability) / MP18 next. Deploy only after MP18-MP19 (the user)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,15 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP17 (hardening, reliability, performance)
+- Security headers, a CSP for the web app, a same-origin check on every write (403 `cross_site_request`),
+  `GET /ready`, one JSON log line per request (`app/core/hardening.py`); `make backup` / `make restore-check`
+  (restored and compared: identical); dependency audit with PyJWT 2.15.1, OR-Tools 9.15 (protobuf 6.33, the planner
+  moved to the snake_case API) and React Router 6.30.6; Starlette 0.41 and two moderate React Router advisories
+  accepted with reasons; secret scan of the history clean; p95 at DEMO scale under 30 ms except the brief (292 ms) and
+  cost-to-serve (82 ms). Details: [security.md](security.md#hardening-mp17).
+- **Checks:** backend **964 passed**, ruff / mypy clean; web 93 passed, build clean; benchmark 26/26.
 
 ## Done in MP16 (factory simulator, pipeline, analytics with planted-truth evaluation)
 - `analytics/` (numpy only; reads records, never writes the books): seeded 24-month simulator with every planted truth

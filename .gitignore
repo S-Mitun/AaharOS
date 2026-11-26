@@ -35,3 +35,6 @@ exports/
 .idea/
 .DS_Store
 Thumbs.db
+
+# MP17 database backups
+backups/

@@ -161,6 +161,33 @@ The salesman app keeps a small IndexedDB database, `aaharos-salesman`, so orders
   is accepted and flagged stale for the admin (MP09).
 - **The service worker caches the app shell only** (HTML, JS, CSS, the icon), never API responses.
 
+## Hardening (MP17)
+- **Headers** on every response (`app/core/hardening.py`): `X-Content-Type-Options: nosniff`, `X-Frame-Options:
+  DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, a restrictive `Permissions-Policy`, HSTS when cookies
+  are secure (HTTPS). The web app served by the API gets a Content Security Policy: scripts from this origin only (the
+  Vite build has no inline script), `frame-ancestors 'none'`.
+- **CSRF:** the session cookies are SameSite (access `lax`, refresh `strict`, both httpOnly). On top of that, a write
+  (POST / PUT / PATCH / DELETE) whose `Origin` is another site (or `null`) is refused with 403 `cross_site_request`.
+  Requests without an Origin (curl, the test client) carry no ambient browser credentials from another site.
+- **Rate limits:** failed logins per email and per IP (MP03, in the database); sign-up 5 per IP per hour and public
+  passports 30 per IP per minute (in-process, per server process).
+- **Readiness and logs:** `GET /health` (process up) and `GET /ready` (the database answers as the app role); one JSON
+  log line per request (method, path, status, ms, correlation id); never bodies or cookies.
+- **Backups:** `make backup` (pg_dump to the git-ignored `backups/`) and `make restore-check` (restores into a scratch
+  database and compares row counts of journals, lines, invoices, payments, audit rows, organizations; run on
+  2026-11-26: identical).
+- **Dependency audit (2026-11-26):** PyJWT 2.10.1 -> 2.15.1 and OR-Tools 9.11 -> 9.15 (protobuf 5.26 -> 6.33) upgraded,
+  React Router 6.28 -> 6.30.6 (two high advisories). **Accepted for now:** Starlette 0.41.3 (pinned by FastAPI 0.115):
+  FastAPI 0.165 / Starlette 1.x changes request handling and breaks the RBAC tests, so the upgrade is a separate
+  change; the app uses no multipart uploads, no sessions middleware and no StaticFiles. React Router's two remaining
+  moderate advisories need v7: one is server-side rendering (not used), the other a backslash redirect in
+  `<Link>` / `navigate` (our targets are internal paths). pip and pytest advisories are build and test tools only.
+- **Secret scan:** the git history has no `.env`, key or certificate file and no real secret; the only matches are
+  test constants labelled as such. Deployment secrets live in git-ignored files and the host's dashboard.
+- **Performance (DEMO scale, 20 calls each, p95):** inbox 18 ms, stock ledger 26 ms, sales register 29 ms, stock
+  summary 16 ms, GST summary 27 ms, freshness 17 ms, cost-to-serve 82 ms, Morning brief 292 ms (the CP-SAT planner).
+  Not measured on a 24-month SIM tenant: the simulator writes files, not the ledger (`backend/deploy/perf.py`).
+
 ## Known limits (tracked in PROGRESS.md)
 
 - **CSRF:** relies on SameSite cookies (Lax for access, Strict for refresh) plus CORS limited to the web origin.

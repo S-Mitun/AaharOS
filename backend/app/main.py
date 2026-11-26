@@ -1,17 +1,23 @@
 """FastAPI entry point. Each module's api.py router is included here as the module is built."""
 
+import logging
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app import (
     db_models as _db_models,  # noqa: F401 - registers every table, so ORM flushes can resolve cross-module FKs
 )
 from app.core.config import get_settings
 from app.core.context import CORRELATION_HEADER, CorrelationIdMiddleware
+from app.core.db import get_session
 from app.core.errors import NotFoundError, install_error_handlers
+from app.core.hardening import HardeningMiddleware
 from app.modules.audit.api import router as audit_router
 from app.modules.billing.api import router as billing_router
 from app.modules.collections.api import router as collections_router
@@ -36,7 +42,15 @@ from app.modules.valuation.api import router as valuation_router
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    if not logging.getLogger().handlers:  # MP17: JSON request lines (hardening) go to stdout
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
     app = FastAPI(title="AaharOS API", version="0.1.0", summary="Every gram traced. Every rupee explained.")
+    # MP17: innermost, so the correlation id is set when it logs
+    app.add_middleware(
+        HardeningMiddleware,
+        allowed_origins=[*settings.cors_origins, settings.public_base_url],
+        secure=settings.cookie_secure,
+    )
     app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -51,6 +65,12 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["ops"])
     def health() -> dict[str, str]:
         return {"status": "ok", "env": settings.env}
+
+    @app.get("/ready", tags=["ops"])
+    def ready(session: Annotated[Session, Depends(get_session)]) -> dict[str, str]:
+        """MP17: ready to serve: the database answers, as the app role, and the schema's reference data is there."""
+        units = session.execute(text("SELECT count(*) FROM uoms")).scalar_one()
+        return {"status": "ready" if units else "not_seeded", "units": str(units)}
 
     app.include_router(guide_router)
     app.include_router(auth_router)
