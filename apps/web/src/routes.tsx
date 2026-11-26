@@ -19,6 +19,9 @@ import { SignUpPage } from "./pages/SignUpPage";
 import { FoodSafetyPage } from "./trace/FoodSafetyPage";
 import { FreshnessPage } from "./trace/FreshnessPage";
 import { PassportPage, ReorderPage } from "./trace/PassportPage";
+import { BatchPage } from "./production/BatchPage";
+import { PurchasePage } from "./production/PurchasePage";
+import { RunCostsPage } from "./production/RunCostsPage";
 import { TracePage } from "./trace/TracePage";
 import { TripsPage } from "./transport/TripsPage";
 import { MyOrdersPage } from "./sales/MyOrdersPage";
@@ -69,6 +72,21 @@ const BUILT: Record<string, ReactNode> = {
   trace: (
     <Gate permission="report.read" what="trace and recall">
       <TracePage />
+    </Gate>
+  ),
+  purchases: (
+    <Gate permission="receipt.post" what="purchase receipts">
+      <PurchasePage />
+    </Gate>
+  ),
+  batch: (
+    <Gate permission="run.start" what="the batch card">
+      <BatchPage />
+    </Gate>
+  ),
+  batchCosts: (
+    <Gate permission="run.cost" what="run costs">
+      <RunCostsPage />
     </Gate>
   ),
   trips: (

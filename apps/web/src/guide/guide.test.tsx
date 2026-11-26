@@ -128,10 +128,12 @@ describe("guided tour and landing page", () => {
     ).toBeInTheDocument(); // every step was opened by walking it with Next
   });
 
-  it("shows unbuilt screens honestly instead of linking to them", async () => {
+  it("links each step to its built screen (MP15: purchases, batch card, run costs)", async () => {
     renderAt("/guide/purchase");
-    expect(await screen.findByText("Coming in MP05")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Take me there/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Take me there/ })).toHaveAttribute(
+      "href",
+      "/admin/purchases/new",
+    );
   });
 
   it("landing page shows NIT checks from the oracle and opens the Guide panel", async () => {
