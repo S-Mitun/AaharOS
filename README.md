@@ -86,10 +86,10 @@ both customers GST-registered): [docs/assumptions.md](docs/assumptions.md).
 | Stretch | Synthetic factory simulator and analytics vs baselines | built (MP16; synthetic only, no UI) |
 | Mock | E-way bill and IRP payloads, UPI QR on invoices | mock adapters, labelled DEMO; nothing is sent |
 
-## Tests (real results, 2026-11-26)
+## Tests (real results, 2026-11-27)
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + PostgreSQL | `make test` | 964 passed |
+| Backend unit + PostgreSQL | `make test` | 976 passed |
 | Web | `make web-test` | 93 passed |
 | Browser (Playwright: salesman, journey, production, axe accessibility) | `make e2e` | 11 passed |
 | Benchmark | `make benchmark` | 26/26, oracle 10/10 |

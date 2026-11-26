@@ -5,11 +5,11 @@ The table's EXCLUDE constraint keeps one value per key per day; `value_on` reads
 """
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import insert, or_, select
+from sqlalchemy import insert, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.errors import DomainError
@@ -54,6 +54,12 @@ def put(
         raise DomainError("not_decimal", "store numbers as decimal strings, never floats")
     if isinstance(value, Decimal):
         value = str(value)
+    # MP19: a new value supersedes the open-ended one before it (that one now ends the day before); history is kept.
+    session.execute(
+        update(Setting)
+        .where(Setting.key == key, Setting.effective_to.is_(None), Setting.effective_from < effective_from)
+        .values(effective_to=effective_from - timedelta(days=1))
+    )
     setting_id = uuid.uuid4()
     session.execute(
         insert(Setting).values(

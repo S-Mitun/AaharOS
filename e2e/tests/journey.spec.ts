@@ -6,17 +6,19 @@ import { expect, test } from "@playwright/test";
  * screens; "Restart tour" in the top bar starts again from step 1, any number of times.
  */
 test("a new visitor takes the tour, then works in their own factory", async ({ page }) => {
+  test.setTimeout(180_000); // twelve tour steps, a sign-up and five screens, while other specs run in parallel
   await page.goto("/sign-up");
   await expect(page.getByRole("heading", { name: "Take the guided tour first" })).toBeVisible();
   await page.getByRole("link", { name: /Start the guided tour/ }).click();
 
   await expect(page.getByText(/^Step 1 of \d+$/)).toBeVisible();
-  for (;;) {
-    const next = page.getByRole("button", { name: /^Next:/ });
-    if ((await next.count()) === 0) break;
-    await next.click();
+  const total = Number((await page.getByText(/^Step 1 of \d+$/).textContent())?.split(" of ")[1]);
+  for (let step = 2; step <= total; step++) {
+    // the keyboard path (focus + Enter), as a keyboard user walks the tour; the page re-lays out after each step
+    await page.getByRole("button", { name: /^Next:/ }).press("Enter");
+    await expect(page.getByText(`Step ${step} of ${total}`)).toBeVisible();
   }
-  await page.getByRole("button", { name: "Finish the tour" }).click();
+  await page.getByRole("button", { name: "Finish the tour" }).press("Enter");
   await expect(page.getByRole("heading", { name: "You have finished the guided tour" })).toBeVisible();
   await page.getByRole("link", { name: "Create your own factory" }).click();
 

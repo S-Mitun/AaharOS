@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP18 done (branch feat/mp13-traceability) / MP19 next, then deploy (the user)
+## Status: MP00-MP19 done; the whole project deployed from `main` (https://aaharos-demo.onrender.com)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,19 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP19 (red-team review, drills, judge readiness)
+- [judge-readiness.md](judge-readiness.md): fresh clone (builds in 95 s from committed files only), benchmark 26/26,
+  the hunts (one accepted UI preview, one justified float), 11 attack drills each mapped to a test that ran, the
+  live-change drills, defects by severity and the 12 hardest panel questions.
+- **Major defect found and fixed:** a setting or a GST rate could not be changed once set (a new effective-dated value
+  overlapped the open-ended one and was refused). Now a new value supersedes the old from its date
+  (`effective_settings.put`, `tax.create_rule`), and `PUT /api/settings/{key}` (`settings.manage`, a whitelist of
+  numeric settings) / `GET /api/settings/{key}` exist. `tests/db/test_live_changes.py`: tolerance 2%, GST 12% and a
+  customer's own price from tomorrow; B-001 keeps its frozen 3%, invoice A its 5% and Rs 7,875.00, the books stay whole.
+- **Checks:** backend **976 passed** (full 500-example state machine), ruff / mypy / import-linter clean; web **93**;
+  Playwright **11/11** (the journey walks the tour with the keyboard: the page re-lays out after each step);
+  analytics 5; benchmark **26/26**; `make integrity` OK; the clone builds from committed files.
 
 ## Done in MP18 (README, design note, demo script, impact)
 - [README](../README.md) rewritten: positioning, the tour-first flow, 4-command local run, logins per role, the
@@ -937,12 +950,9 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-1. **The hosted demo is live: https://aaharos-demo.onrender.com** (deployed by the user from the blueprint on
-   2026-11-26, commit 93661ec). Checked live: home and guided tour without a login, the scoreboard 26/26, a one-tap DEMO
-   Owner login landing on the Morning brief, and every MP13 / MP14 API answering in 0.1-1.2 s. Every push to `main`
-   redeploys it.
-2. MP16 (simulator, analytics), MP17 (hardening), MP18 (README, design note), MP19 (red-team), then deploy the
-   whole project (the user: Vercel or another host; one address for the tour and own accounts).
+The project is complete (MP00-MP19) and deployed from `main` to https://aaharos-demo.onrender.com (Render + Supabase,
+[deploy.md](deploy.md)). Next, only if the user asks: sales returns into stock, a fluent Tamil review, the FastAPI /
+Starlette upgrade, a real pilot with baselines for the impact metrics.
 
 Working notes that still hold:
 - One frontend and one backend in Docker (compose services `frontend` and `backend`): http://localhost:5180 and

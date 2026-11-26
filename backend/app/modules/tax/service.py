@@ -5,11 +5,11 @@ file. Functions run in the caller's transaction and never commit."""
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Final
 
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
@@ -48,6 +48,13 @@ def create_rule(
     rule_id = uuid.uuid4()
     try:
         with session.begin_nested():
+            # MP19: a new rate supersedes the open-ended rule before it (which now ends the day before); invoices
+            # already posted keep the rate on their tax lines.
+            session.execute(
+                update(TaxRule)
+                .where(TaxRule.hsn == hsn, TaxRule.effective_to.is_(None), TaxRule.effective_from < effective_from)
+                .values(effective_to=effective_from - timedelta(days=1))
+            )
             session.execute(
                 insert(TaxRule).values(
                     id=rule_id,

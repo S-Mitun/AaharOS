@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy.orm import Session
 
+from app.core import effective_settings
 from app.core.db import get_session
+from app.core.errors import NotFoundError
 from app.modules.identity.service import Principal, require
 from app.modules.tax import service
 
@@ -60,3 +62,72 @@ def add_rule(
     )
     session.commit()
     return {"rules": _rules(session)}
+
+
+# MP19 (live changes): the decimal settings a manager may change from the API, each effective-dated. A new value
+# supersedes the open-ended one before it; batches already started keep the value frozen in their snapshot.
+CHANGEABLE_SETTINGS = frozenset(
+    {
+        "variance_tolerance_pct",
+        "freshness.alert_days",
+        "fssai.ruco_threshold_l_per_day",
+        "fssai.tpc_limit_pct",
+        "planning.attribution_days",
+        "planning.batches_per_day",
+        "gst.b2cl_threshold",
+        "eway.threshold_interstate",
+        "eway.threshold_intrastate",
+        "bank.stock_margin_pct",
+        "bank.debtors_margin_pct",
+        "transport.road_factor",
+        "transport.fuel_inr_per_l",
+        "transport.co2_kg_per_km",
+        "transport.credit_cost_pct_pa",
+        "transport.backhaul_detour_km",
+    }
+)
+
+
+class SettingBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: Annotated[str, StringConstraints(pattern=r"^\d{1,12}(\.\d{1,6})?$")]
+    effective_from: date
+
+
+def _known(key: str) -> None:
+    if key not in CHANGEABLE_SETTINGS:
+        raise NotFoundError("setting_not_changeable", f"{key} is not a setting that can be changed here")
+
+
+@router.get("/settings/{key}")
+def read_setting(
+    key: str,
+    _principal: Annotated[Principal, Depends(require("report.read"))],
+    session: DbSession,
+    on: date | None = None,
+) -> dict[str, Any]:
+    _known(key)
+    day = on or date.today()
+    value = effective_settings.value_on(session, key, day)
+    return {"key": key, "on": day.isoformat(), "value": value}
+
+
+@router.put("/settings/{key}")
+def change_setting(
+    key: str,
+    body: SettingBody,
+    principal: Annotated[Principal, Depends(require("settings.manage"))],
+    session: DbSession,
+) -> dict[str, Any]:
+    _known(key)
+    service.put_setting(
+        session,
+        organization_id=principal.organization_id,
+        actor_id=principal.user_id,
+        key=key,
+        value=Decimal(body.value),
+        effective_from=body.effective_from,
+    )
+    session.commit()
+    return {"key": key, "value": body.value, "effective_from": body.effective_from.isoformat()}

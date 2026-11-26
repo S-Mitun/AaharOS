@@ -40,7 +40,7 @@ services:
       DEMO_PASSWORD_PRODUCTION: ${DEMO_PASSWORD_PRODUCTION:-change-me-demo}
       DEMO_PASSWORD_AUDITOR: ${DEMO_PASSWORD_AUDITOR:-change-me-demo}
       DEMO_PASSWORD_OWNER: ${DEMO_PASSWORD_OWNER:-change-me-demo}
-      AAHAR_CORS_ORIGINS: '["http://localhost:5180"]'
+      AAHAR_CORS_ORIGINS: '["http://localhost:5180", "http://frontend:5180"]'  # the second: Playwright inside Docker
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "${API_PORT:-8180}:8000"
