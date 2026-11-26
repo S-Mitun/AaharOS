@@ -27,7 +27,7 @@ Centre for Digital Infrastructure internship task. All data is fictional (**DEMO
 Needs Docker and `make` (Windows: `winget install ezwinports.make`).
 
 ```bash
-make up          # postgres (:5442) + api (:8180) + web (:5180)
+make up          # postgres (:5442) + backend (:8180) + frontend (:5180)
 make migrate     # create the schema
 make seed-demo   # DEMO factory, one login per role (passwords from .env), master data + opening stock
 make seed-benchmark  # a fresh BENCHMARK tenant with NIT section 5 master data and opening stock
@@ -37,7 +37,7 @@ make integrity   # audit hash chain, law 1 per journal, balances rebuilt from th
 make e2e         # Playwright (official image, ~2 GB once) on a fresh scratch tenant: online, offline, duplicate, repeat-order time, stale price
 ```
 
-Then open http://localhost:5180 (the only frontend; the API is http://localhost:8180, Swagger at `/docs`). The
+Then open http://localhost:5180 (the frontend; the backend API is http://localhost:8180, Swagger at `/docs`). The
 **Start here** page explains the system and the **Guided tour** walks you through NIT's nine benchmark steps: who does
 each step, where to click, what to type, and the number you should see. A **Guide** button on every page brings you
 back to the right step. The sidebar lists every screen by role; a screen not built yet says which stage builds it.

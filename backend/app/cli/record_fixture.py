@@ -1,6 +1,6 @@
 """Record the web app's test fixture: the JSON the API returns for run B-001 after a fresh benchmark replay.
 
-`docker compose run --rm api python -m app.cli.record_fixture > apps/web/src/test-fixtures/b001.json`
+`docker compose run --rm backend python -m app.cli.record_fixture > apps/web/src/test-fixtures/b001.json`
 The replay creates a new BENCHMARK tenant (ADR-0006); every number is fictional DEMO data from the oracle's inputs.
 """
 

@@ -44,7 +44,9 @@ Rule: `domain.py` holds pure functions (variance, tax, valuation, unit conversio
 Modules talk through `service.py` interfaces, never by importing another module's models directly.
 
 ## Commands (keep this section accurate; update it when commands change)
-- `make up`: start the stack with docker compose
+- `make up`: start the stack with docker compose: `frontend` (Vite, http://localhost:5180), `backend` (FastAPI,
+  http://localhost:8180, `/docs`), `db` (PostgreSQL, :5442). One-off commands: `docker compose run --rm -T backend <cmd>`,
+  `docker compose run --rm -T --no-deps frontend npm run <cmd>`
 - `make migrate`: apply Alembic migrations
 - `make seed-demo`: the LIVE DEMO organization, one login per role (passwords from .env), master data + opening stock (first run)
 - `make seed-benchmark`: a fresh BENCHMARK tenant with Section 5 master data and opening stock (older tenants kept, ADR-0006)

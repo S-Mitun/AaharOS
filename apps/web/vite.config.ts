@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-// In Docker the API is reachable as http://api:8000; on the host it is published on localhost:8180.
+// In Docker the backend is reachable as http://backend:8000; on the host it is published on localhost:8180.
 // Ports 5180/8180 avoid clashes with the other local projects (Nexora uses 5173/8000).
 const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:8180";
 

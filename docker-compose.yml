@@ -20,7 +20,7 @@ services:
       timeout: 3s
       retries: 20
 
-  api:
+  backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -51,11 +51,11 @@ services:
       db:
         condition: service_healthy
 
-  web:
+  frontend:
     build:
       context: apps/web
     environment:
-      API_PROXY_TARGET: http://api:8000
+      API_PROXY_TARGET: http://backend:8000
       # file events do not cross a Windows bind mount: poll so edits reload the page
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"
@@ -67,7 +67,7 @@ services:
       - web_node_modules:/workspace/apps/web/node_modules
       - ./benchmark:/workspace/benchmark:ro
     depends_on:
-      - api
+      - backend
 
   # MP08 (G8): Playwright from the official image, against the dev stack (`make e2e`). Not started by `make up`.
   e2e:
@@ -75,16 +75,16 @@ services:
     profiles: ["e2e"]
     working_dir: /workspace/e2e
     environment:
-      BASE_URL: http://web:5180
+      BASE_URL: http://frontend:5180
       CI: "1"
     command: ["sh", "-c", "npm ci --no-audit --no-fund && npx playwright test"]
     volumes:
       - ./e2e:/workspace/e2e
       - e2e_node_modules:/workspace/e2e/node_modules
     depends_on:
-      - web
+      - frontend
 
 volumes:
   pgdata:
-  web_node_modules:
+  web_node_modules:  # the frontend's node_modules (name kept so the volume is reused)
   e2e_node_modules:

@@ -2,8 +2,8 @@
 # Windows: install make once with `winget install ezwinports.make`.
 # Targets that are not built yet print the MP that builds them and exit 1, so nothing pretends to work.
 
-API = docker compose run --rm api
-WEB = docker compose run --rm --no-deps web
+BACKEND = docker compose run --rm backend
+FRONTEND = docker compose run --rm --no-deps frontend
 
 .PHONY: help up down logs build test lint typecheck benchmark web-test web-lint web-build \
         migrate seed-demo seed-benchmark e2e integrity sim ml-eval
@@ -13,7 +13,7 @@ help:
 	@echo migrate seed-demo seed-benchmark e2e integrity sim ml-eval
 
 up:
-	docker compose up -d --build
+	docker compose up -d --build --remove-orphans
 
 down:
 	docker compose down
@@ -25,47 +25,47 @@ build:
 	docker compose build
 
 test:
-	$(API) pytest
+	$(BACKEND) pytest
 
 lint:
-	$(API) ruff check . /workspace/benchmark
-	$(API) ruff format --check . /workspace/benchmark
-	$(API) lint-imports
-	$(WEB) npm run lint
+	$(BACKEND) ruff check . /workspace/benchmark
+	$(BACKEND) ruff format --check . /workspace/benchmark
+	$(BACKEND) lint-imports
+	$(FRONTEND) npm run lint
 
 typecheck:
-	$(API) mypy
-	$(WEB) npm run typecheck
+	$(BACKEND) mypy
+	$(FRONTEND) npm run typecheck
 
 benchmark:
-	$(API) python /workspace/benchmark/runner.py
+	$(BACKEND) python /workspace/benchmark/runner.py
 
 web-test:
-	$(WEB) npm run test
+	$(FRONTEND) npm run test
 
 web-lint:
-	$(WEB) npm run lint
+	$(FRONTEND) npm run lint
 
 web-build:
-	$(WEB) npm run build
+	$(FRONTEND) npm run build
 
 migrate:
-	$(API) alembic upgrade head
+	$(BACKEND) alembic upgrade head
 
 seed-demo:
-	$(API) python -m app.cli.seed_demo
+	$(BACKEND) python -m app.cli.seed_demo
 
 seed-benchmark:
-	$(API) python -m app.cli.seed_benchmark
+	$(BACKEND) python -m app.cli.seed_benchmark
 
 # MP08 (G8): a fresh SIM scratch tenant with its own DEMO logins, then the Playwright container against the dev stack
 # (`make up` first). The tenant file holds a random per-run password and is git-ignored.
 e2e:
-	docker compose run --rm -T api python -m app.cli.seed_e2e > e2e/.tenant.json
+	docker compose run --rm -T backend python -m app.cli.seed_e2e > e2e/.tenant.json
 	docker compose --profile e2e run --rm e2e
 
 integrity:
-	$(API) python -m app.cli.integrity
+	$(BACKEND) python -m app.cli.integrity
 
 sim:
 	@echo not built yet - MP16: factory simulator && exit 1

@@ -651,7 +651,8 @@ Three defects found and fixed, each with a test:
   - D4: supplier lots are recorded, not stocked
   - receipts value accepted qty × rate; freight is excluded; decimals arrive as strings
 - Commits use the GitHub no-reply email (repo-local git config) because the account blocks pushes exposing a private email.
-- Host ports: web **5180**, API **8180**, Postgres **5442** (Vite `strictPort`). Other local projects use
+- Host ports: frontend **5180**, backend **8180**, Postgres **5442** (Vite `strictPort`). Compose services `frontend`,
+  `backend`, `db` (renamed from `web` / `api` on 2026-11-26). Other local projects use
   AgriVision 4280-81, 5000, 5280-81, 6379, 8080, 8100-01 and Nexora 5173, 8000. Container-internal ports are unchanged.
 
 ## 7-day schedule (deadline set by the user on 2026-11-21: everything incl. a hosted demo within 7 days)
@@ -752,8 +753,9 @@ module at a time (the user's standing request since MP11).
 
 Before starting:
 - Branch `feat/mp12-planning` from `feat/mp11-reports`.
-- One frontend and one backend in Docker: web http://localhost:5180, API http://localhost:8180 (`/docs`). After a
-  dependency change rebuild the API image (`docker compose build api && docker compose up -d api`).
+- One frontend and one backend in Docker (compose services `frontend` and `backend`, renamed from `web` / `api` on
+  2026-11-26): http://localhost:5180 and http://localhost:8180 (`/docs`). After a dependency change rebuild the backend
+  image (`docker compose build backend && docker compose up -d backend`).
 - Everything runs in Docker; never two pytest runs at once; host Python is cp1252 / CRLF; long heredocs break the Bash
   tool, so write scripts with the editor tools.
 - MP12 inherits: `production.next_batch_for` (the MP09 planner stub the batch planner replaces), stock balances and
