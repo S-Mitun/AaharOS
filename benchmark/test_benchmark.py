@@ -306,7 +306,8 @@ def test_a25_eway_bill(stock_replay: Any, oracle: dict[str, Any]) -> None:
     expected = oracle["aaharos_expected"]["distributor_B_options"]["full_120"]
     assert full["eway_required"] is expected["eway_bill_required"]
     assert Decimal(full["total"]) == expected["total"]
-    assert full["eway_reason"].startswith("Not needed: a delivery to another state")  # the reason is shown, not just a flag
+    # the reason is shown, not just a flag
+    assert full["eway_reason"].startswith("Not needed: a delivery to another state")
 
 
 @A(26, "Integrity: 4 conservation laws, balance rebuild, audit chain", "MP11")
