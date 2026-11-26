@@ -39,3 +39,6 @@ def test_the_web_app_gets_a_content_security_policy(tmp_path: Path) -> None:
     r = TestClient(app).get("/guide")
     assert "script-src 'self'" in r.headers["content-security-policy"]
     assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
+    # index.html loads Inter and Noto Sans Tamil from Google Fonts: the policy must allow exactly those two hosts
+    assert "https://fonts.googleapis.com" in r.headers["content-security-policy"]
+    assert "https://fonts.gstatic.com" in r.headers["content-security-policy"]
