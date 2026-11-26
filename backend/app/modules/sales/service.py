@@ -1622,3 +1622,36 @@ def get_order_any(session: Session, order_id: uuid.UUID) -> dict[str, Any]:
     if order is None:
         raise NotFoundError("order_not_found", "unknown order")
     return _order_view(session, order)
+
+
+# ---------- order rhythm for the freshness radar (MP13, T5) ----------
+
+
+@dataclass(frozen=True)
+class OrderPoint:
+    customer_id: uuid.UUID
+    item_id: uuid.UUID
+    order_id: uuid.UUID
+    order_no: str
+    order_date: date
+    packets: int  # what the customer asked for
+    price: Decimal  # the final price, else the captured one
+
+
+def order_points(session: Session, since: date) -> list[OrderPoint]:
+    """Every order line since a date, rejected and cancelled orders left out, oldest first."""
+    rows = session.execute(
+        select(
+            SalesOrder.customer_id,
+            OrderLine.item_id,
+            SalesOrder.id,
+            SalesOrder.order_no,
+            SalesOrder.order_date,
+            OrderLine.qty_requested,
+            func.coalesce(OrderLine.price_final, OrderLine.price_captured),
+        )
+        .join(OrderLine, OrderLine.order_id == SalesOrder.id)
+        .where(SalesOrder.order_date >= since, SalesOrder.status.not_in(("REJECTED", "CANCELLED")))
+        .order_by(SalesOrder.order_date, SalesOrder.order_no)
+    ).all()
+    return [OrderPoint(c, i, o, n, d, int(q), Decimal(p)) for c, i, o, n, d, q, p in rows]

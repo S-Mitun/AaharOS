@@ -21,6 +21,7 @@ from app.modules.planning import domain
 from app.modules.planning import service as planning
 from app.modules.production import service as production
 from app.modules.sales import service as sales
+from app.modules.traceability import freshness
 
 LEAK_DAYS: Final = 30  # batches this recent feed "where profit leaks"
 MSME_DAYS: Final = 45  # MSMED Act: a buyer pays an MSME supplier within 45 days
@@ -179,6 +180,29 @@ def morning_brief(session: Session, on: date | None = None) -> dict[str, Any]:
                     "unpaid balance past the due date",
                     (ExplainedInput("overdue", v, "INR", SourceRef("customer", top["customer_id"])),),
                     "Receivables",
+                ),
+            )
+        )
+    fresh = freshness.top_alert(session, today)  # MP13 (T5): packets near best-before on a retailer's shelf
+    if fresh is not None:
+        v = Decimal(fresh["value_at_risk"]["value"])
+        days = int(fresh["days_to_best_before"])
+        when = "today" if days == 0 else ("already" if days < 0 else _plural(days, "in {n} day", "in {n} days"))
+        candidates.append(
+            domain.Action(
+                "visit",
+                f"Visit {fresh['customer_name']}: up to {fresh['high']['value']} packets expire {when}",
+                v,
+                "/sales/freshness",
+                Explained(
+                    value=v,
+                    unit="INR",
+                    formula=fresh["value_at_risk"]["formula"],
+                    inputs=tuple(
+                        ExplainedInput(i["label"], Decimal(i["value"]), i["unit"])
+                        for i in fresh["value_at_risk"]["inputs"]
+                    ),
+                    method="Freshness radar",
                 ),
             )
         )

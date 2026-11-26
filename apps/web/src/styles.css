@@ -1118,3 +1118,13 @@ main {
   width: 160px;
   height: 160px;
 }
+
+/* Salesman → Freshness (MP13) */
+.fresh-chip {
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.fresh-list .customer-card {
+  align-items: flex-start;
+}

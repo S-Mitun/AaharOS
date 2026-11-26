@@ -132,7 +132,7 @@ def shortage_attribution(shortage: int, losses: Sequence[YieldLoss], source: Sou
 class Action:
     """One of "Today's 3 actions" on the Morning Brief: what to do, the rupees at stake and where to do it."""
 
-    kind: str  # decide, make, buy, collect, leak
+    kind: str  # decide, make, buy, collect, visit, leak
     title: str
     impact: Decimal  # rupees
     link: str
@@ -149,6 +149,6 @@ class Action:
 
 def rank_actions(candidates: Sequence[Action], limit: int = 3) -> list[Action]:
     """The largest rupee impact first; ties in a fixed order so the brief never reshuffles itself. Nothing at zero."""
-    order = {"decide": 0, "make": 1, "buy": 2, "collect": 3, "leak": 4}
+    order = {"decide": 0, "make": 1, "buy": 2, "collect": 3, "visit": 4, "leak": 5}
     kept = [a for a in candidates if a.impact > 0]
     return sorted(kept, key=lambda a: (-a.impact, order.get(a.kind, 9), a.title))[:limit]

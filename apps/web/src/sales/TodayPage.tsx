@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { StatusChip } from "../components/StatusChip";
+import { apiGet } from "../lib/api";
+import { expiresIn, type Freshness, type FreshnessRow } from "../trace/traceTypes";
 import { loadCustomers, type Loaded } from "./api";
 import { useOutbox } from "./outboxContext";
 import type { Customer } from "./types";
@@ -20,6 +23,22 @@ export function TodayPage({ picking = false }: { picking?: boolean }) {
         () =>
           live && setError("Could not load your customers, and none are saved on this phone yet."),
       );
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // MP13 (T5): the freshness chip. Online only; offline or without the setting the list simply has no chips.
+  const [fresh, setFresh] = useState<Record<string, FreshnessRow>>({});
+  useEffect(() => {
+    let live = true;
+    apiGet<Freshness>("/api/trace/freshness")
+      .then((f) => {
+        const first: Record<string, FreshnessRow> = {};
+        for (const r of f.rows) if (r.flagged && !first[r.customer_id]) first[r.customer_id] = r;
+        if (live) setFresh(first);
+      })
+      .catch(() => undefined);
     return () => {
       live = false;
     };
@@ -65,6 +84,13 @@ export function TodayPage({ picking = false }: { picking?: boolean }) {
               <span className="muted small">
                 {c.kind === "DISTRIBUTOR" ? "Distributor" : "Retailer"} · state {c.state_code}
               </span>
+              {fresh[c.id] && (
+                <Link to="/sales/freshness" className="fresh-chip">
+                  <StatusChip tone="warn">
+                    {`up to ${fresh[c.id]!.high.value} packets ${expiresIn(fresh[c.id]!.days_to_best_before)}`}
+                  </StatusChip>
+                </Link>
+              )}
             </div>
             <div className="customer-actions">
               <Link className="btn btn-primary" to={`/sales/order/${c.id}`}>

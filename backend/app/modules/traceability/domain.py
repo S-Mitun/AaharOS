@@ -11,7 +11,8 @@ never misses one, whatever order the floor actually used the sacks in.
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
+from itertools import pairwise
 
 from app.core.explained import Explained, ExplainedInput, SourceRef
 from app.core.money import round_money
@@ -285,3 +286,153 @@ def fill_check(
     limit = None if tolerance_g is None else declared_g - tolerance_g
     short = () if limit is None else tuple(w for w in nets if w < limit)
     return FillCheck(mean_x, over_x, cost_x, give_x, limit, short)
+
+
+# ---------- T5: the freshness radar ----------
+
+RATE_PLACES = Decimal("0.000001")
+
+
+@dataclass(frozen=True)
+class OrderDay:
+    on: date
+    packets: int
+
+
+@dataclass(frozen=True)
+class Rates:
+    """Packets a day the customer sells, read from their order rhythm."""
+
+    central: Decimal  # packets ordered before the latest order / days from the first to the latest order
+    slow: Decimal  # mean order / the longest gap between orders
+    fast: Decimal  # mean order / the shortest gap
+    orders: int
+    span_days: int
+
+
+def selling_rates(orders: Sequence[OrderDay]) -> Rates | None:
+    """None with fewer than two order days: not enough history to say how fast the shelf empties."""
+    by_day: dict[date, int] = {}
+    for o in orders:
+        by_day[o.on] = by_day.get(o.on, 0) + o.packets
+    days = sorted(by_day)
+    if len(days) < 2:
+        return None
+    before_latest = Decimal(sum(by_day[d] for d in days[:-1]))
+    span = (days[-1] - days[0]).days
+    gaps = [(b - a).days for a, b in pairwise(days)]
+    mean = before_latest / (len(days) - 1)
+    return Rates(
+        central=(before_latest / span).quantize(RATE_PLACES, rounding=ROUND_HALF_UP),
+        slow=(mean / max(gaps)).quantize(RATE_PLACES, rounding=ROUND_HALF_UP),
+        fast=(mean / min(gaps)).quantize(RATE_PLACES, rounding=ROUND_HALF_UP),
+        orders=len(days),
+        span_days=span,
+    )
+
+
+@dataclass(frozen=True)
+class LotDelivery:
+    lot_id: str
+    lot_no: str
+    best_before: date | None
+    delivered_on: date
+    packets: int
+    dispatch_id: str
+    dispatch_no: str
+
+
+def on_shelf(deliveries: Sequence[LotDelivery], rate: Decimal | None, today: date) -> dict[str, Decimal]:
+    """Packets of each lot estimated still on the shelf: everything delivered minus what the rate sold since the
+    first delivery, the oldest best-before sold first (no date first: opening stock). With no rate, everything."""
+    per_lot: dict[str, tuple[date | None, int]] = {}
+    for d in deliveries:
+        bb, n = per_lot.get(d.lot_id, (d.best_before, 0))
+        per_lot[d.lot_id] = (bb, n + d.packets)
+    if rate is None or not deliveries:
+        return {lot: Decimal(n) for lot, (_, n) in per_lot.items()}
+    first = min(d.delivered_on for d in deliveries)
+    total = Decimal(sum(n for _, n in per_lot.values()))
+    sold = min(total, rate * (today - first).days)
+    out: dict[str, Decimal] = {}
+    for lot, (_bb, n) in sorted(per_lot.items(), key=lambda kv: (kv[1][0] is not None, kv[1][0] or date.min, kv[0])):
+        taken = min(Decimal(n), sold)
+        sold -= taken
+        out[lot] = Decimal(n) - taken
+    return out
+
+
+@dataclass(frozen=True)
+class ShelfEstimate:
+    lot_id: str
+    lot_no: str
+    best_before: date | None
+    days_to_best_before: int | None
+    delivered: Explained
+    low: int
+    central: int | None
+    high: Explained
+    flagged: bool
+
+
+def shelf_estimates(
+    deliveries: Sequence[LotDelivery],
+    orders: Sequence[OrderDay],
+    today: date,
+    alert_days: int,
+) -> tuple[Rates | None, list[ShelfEstimate]]:
+    """Per lot of one customer and one item: the low, central and high packets still on the shelf, flagged when
+    the best-before is within `alert_days` and the high estimate is above zero."""
+    rates = selling_rates(orders)
+    high = on_shelf(deliveries, None if rates is None else rates.slow, today)
+    low = on_shelf(deliveries, None if rates is None else rates.fast, today) if rates else {k: Decimal(0) for k in high}
+    central = on_shelf(deliveries, rates.central, today) if rates else None
+    first = min((d.delivered_on for d in deliveries), default=today)
+    out = []
+    for lot_id in high:
+        mine = [d for d in deliveries if d.lot_id == lot_id]
+        bb = mine[0].best_before
+        days = None if bb is None else (bb - today).days
+        hi = int(high[lot_id].to_integral_value(rounding=ROUND_CEILING))
+        delivered = Explained(
+            Decimal(sum(d.packets for d in mine)),
+            "packets",
+            "sum of this lot's packets on the customer's dispatches",
+            tuple(
+                ExplainedInput(
+                    f"{d.dispatch_no} ({d.delivered_on.isoformat()})",
+                    Decimal(d.packets),
+                    "packets",
+                    SourceRef("dispatch", d.dispatch_id),
+                )
+                for d in mine
+            ),
+        )
+        inputs = [
+            ExplainedInput("delivered in the window, all lots", Decimal(sum(d.packets for d in deliveries)), "packets")
+        ]
+        if rates is None:
+            formula = "not enough history (fewer than two orders): the whole delivery may still be on the shelf"
+        else:
+            formula = (
+                "delivered - packets sold at the slowest order rhythm since the first delivery, oldest best-before"
+                " sold first, rounded up"
+            )
+            inputs += [
+                ExplainedInput("slowest selling rate", rates.slow, "packets/day"),
+                ExplainedInput("days since the first delivery", Decimal((today - first).days), "days"),
+            ]
+        out.append(
+            ShelfEstimate(
+                lot_id=lot_id,
+                lot_no=mine[0].lot_no,
+                best_before=bb,
+                days_to_best_before=days,
+                delivered=delivered,
+                low=int(low[lot_id].to_integral_value(rounding=ROUND_FLOOR)),
+                central=None if central is None else int(central[lot_id].to_integral_value(rounding=ROUND_HALF_UP)),
+                high=Explained(Decimal(hi), "packets", formula, tuple(inputs), method="estimate from order rhythm"),
+                flagged=days is not None and days <= alert_days and hi > 0,
+            )
+        )
+    return rates, out

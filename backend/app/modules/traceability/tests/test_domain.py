@@ -215,3 +215,53 @@ def test_fill_check_needs_samples() -> None:
             expected_bulk_g=D(1),
             tolerance_g=None,
         )
+
+
+# ---------- T5: the freshness radar ----------
+
+
+def od(day: int, n: int) -> domain.OrderDay:
+    return domain.OrderDay(date(2026, 11, day), n)
+
+
+def ld(lot: str, bb: date | None, day: int, n: int) -> domain.LotDelivery:
+    return domain.LotDelivery(lot, lot, bb, date(2026, 11, day), n, f"d-{lot}-{day}", f"DSP-{day}")
+
+
+def test_selling_rates_from_the_order_rhythm() -> None:
+    assert domain.selling_rates([od(1, 30)]) is None  # one order: not enough history
+    assert domain.selling_rates([od(1, 30), od(1, 10)]) is None  # one order day
+    r = domain.selling_rates([od(1, 30), od(2, 30), od(5, 30)])
+    assert r is not None and (r.central, r.slow, r.fast) == (D(15), D(10), D(30))  # 60 / 4 days; 30 / 3; 30 / 1
+    assert (r.orders, r.span_days) == (3, 4)
+
+
+def test_the_oldest_best_before_is_counted_as_sold_first() -> None:
+    sent = [ld("NEW", date(2027, 3, 1), 3, 50), ld("OLD", date(2027, 1, 1), 1, 50), ld("OPEN", None, 1, 10)]
+    left = domain.on_shelf(sent, D(10), date(2026, 11, 7))  # 6 days x 10 = 60 sold: OPEN 10, then OLD 50
+    assert left == {"OPEN": D(0), "OLD": D(0), "NEW": D(50)}
+    assert domain.on_shelf(sent, None, date(2026, 11, 7)) == {"OPEN": D(10), "OLD": D(50), "NEW": D(50)}
+    assert sum(domain.on_shelf(sent, D(100), date(2026, 11, 30)).values()) == 0  # never below zero
+
+
+def test_a_lot_near_best_before_is_flagged_only_if_it_may_be_on_the_shelf() -> None:
+    bb = date(2026, 11, 20)
+    rates, est = domain.shelf_estimates([ld("B-1", bb, 1, 80)], [od(1, 80)], date(2026, 11, 10), 15)
+    assert rates is None and est[0].flagged and est[0].high.value == D(80) and est[0].low == 0
+    assert est[0].central is None and "not enough history" in est[0].high.formula
+    assert est[0].days_to_best_before == 10
+    sold = domain.shelf_estimates([ld("B-1", bb, 1, 40)], [od(1, 40), od(3, 40), od(5, 40)], date(2026, 11, 10), 15)[1][
+        0
+    ]
+    assert sold.high.value == D(0) and not sold.flagged  # 20 a day at the slowest: sold out long before
+    far = domain.shelf_estimates([ld("B-1", date(2027, 2, 1), 1, 80)], [od(1, 80)], date(2026, 11, 10), 15)[1][0]
+    assert far.high.value == D(80) and not far.flagged  # on the shelf, but nowhere near its best-before
+    ranged = domain.shelf_estimates(
+        [ld("B-1", bb, 1, 30), ld("B-2", bb, 2, 30), ld("B-3", bb, 5, 30)],
+        [od(1, 30), od(2, 30), od(5, 30)],
+        date(2026, 11, 7),
+        15,
+    )[1]
+    total = {e.lot_no: (e.low, e.central, int(e.high.value)) for e in ranged}
+    assert sum(h for _, _, h in total.values()) == 30 and sum(c or 0 for _, c, _ in total.values()) == 0
+    assert all(lo <= (c or 0) <= h for lo, c, h in total.values())

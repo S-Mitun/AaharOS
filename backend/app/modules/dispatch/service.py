@@ -482,3 +482,43 @@ def lot_dispatches(session: Session, lot_ids: list[uuid.UUID]) -> list[LotDispat
         {"lots": list(lot_ids)},
     ).all()
     return [LotDispatch(*r) for r in rows]
+
+
+@dataclass(frozen=True)
+class Delivery:
+    """Packets of one lot sent to one customer on one dispatch (MP13, T5: the freshness radar)."""
+
+    customer_id: uuid.UUID
+    customer_code: str
+    customer_name: str
+    item_id: uuid.UUID
+    lot_id: uuid.UUID
+    lot_no: str
+    best_before: date | None
+    dispatch_id: uuid.UUID
+    dispatch_no: str
+    dispatch_date: date
+    qty: int
+
+
+def deliveries_since(session: Session, since: date) -> list[Delivery]:
+    """Every dispatch line since a date, with the customer and the lot's best-before, oldest first."""
+    rows = session.execute(
+        text(
+            """
+            SELECT c.id, c.code, c.name, dl.item_id, l.id, l.lot_no, l.best_before, d.id, d.dispatch_no,
+                   d.dispatch_date, sum(dl.qty)::int
+              FROM dispatch_lines dl
+              JOIN dispatches d ON d.id = dl.dispatch_id
+              JOIN invoices i ON i.id = d.invoice_id
+              JOIN customers c ON c.id = i.customer_id
+              JOIN lots l ON l.id = dl.lot_id
+             WHERE d.dispatch_date >= :since
+             GROUP BY c.id, c.code, c.name, dl.item_id, l.id, l.lot_no, l.best_before, d.id, d.dispatch_no,
+                      d.dispatch_date
+             ORDER BY d.dispatch_date, d.dispatch_no, l.lot_no
+            """
+        ),
+        {"since": since},
+    ).all()
+    return [Delivery(*r) for r in rows]

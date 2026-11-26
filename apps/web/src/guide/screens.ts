@@ -70,6 +70,18 @@ export const SCREENS: Record<string, Screen> = {
     description: "Packets and order value per customer, last 30 days (ordered, not invoiced).",
     permission: "order.read",
   },
+  salesFreshness: {
+    name: "Salesman app → Freshness",
+    label: "Freshness",
+    route: "/sales/freshness",
+    mp: "MP13",
+    built: true,
+    group: "Salesman",
+    icon: "⌛",
+    description:
+      "Packets that may still be on each customer's shelf, flagged before their best-before (an estimate).",
+    permission: "customer.read",
+  },
   orderInbox: {
     name: "Admin → Order inbox",
     label: "Order inbox",

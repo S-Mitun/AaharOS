@@ -53,6 +53,9 @@ export function SalesTabs() {
         <NavLink to="/sales/summary">
           <span aria-hidden="true">Σ</span> Summary
         </NavLink>
+        <NavLink to="/sales/freshness">
+          <span aria-hidden="true">⌛</span> Freshness
+        </NavLink>
       </nav>
     </>
   );

@@ -270,6 +270,7 @@ export const STEPS: GuideStep[] = [
       "Sign in as Owner: you land on the Morning brief. Five cards: today's orders, available vs pending, where profit leaks, material runway, money to collect.",
       "Above them, Today's 3 actions, biggest rupee impact first. Tap ⓘ on any amount to see how it is worked out, or Open to go and do it.",
       "Production → Batch planner: how many batches each material allows (the ones that run out first are marked), what to make next and what to buy. “Create draft batch” and “Create draft purchase order” make drafts only; nothing is posted.",
+      "Production → Trace and recall: pick a batch or a supplier lot to see where it came from and every customer it reached, simulate a recall (DEMO, nothing sent) and print its passport QR. Oil and fill weights shows the frying-oil log and the giveaway. When packets near their best-before may still be on a shelf, the brief adds “Visit …” (Salesman → Freshness).",
     ],
     expect: [
       {
@@ -281,6 +282,7 @@ export const STEPS: GuideStep[] = [
         key: "aaharos_expected.material_runway_after_run.pouch_200g",
       },
       { label: "Approving a plan", text: "creates a draft, never a posting" },
+      { label: "A recall simulation", text: "lists customers and invoices, sends nothing" },
     ],
     why: "One screen tells the owner what matters today and why, with every number traceable.",
     assertions: [23, 24],

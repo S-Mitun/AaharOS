@@ -11,7 +11,7 @@ from app.core.errors import NotFoundError
 from app.modules.identity import service as identity
 from app.modules.identity.service import Principal, require
 from app.modules.sales import service as sales
-from app.modules.traceability import food_safety, passport, service
+from app.modules.traceability import food_safety, freshness, passport, service
 
 router = APIRouter(prefix="/api/trace", tags=["traceability"])
 public_router = APIRouter(prefix="/api/public", tags=["public"])
@@ -55,6 +55,15 @@ def oil_log(_principal: Reader, session: DbSession, days: Days = 30) -> dict[str
 def fill_weights(_principal: Reader, session: DbSession, days: Days = 30) -> dict[str, Any]:
     """Giveaway and short fills per batch, from the samples recorded at completion."""
     return food_safety.fill_weights(session, days)
+
+
+@router.get("/freshness")
+def freshness_radar(
+    principal: Annotated[Principal, Depends(require("customer.read"))], session: DbSession
+) -> dict[str, Any]:
+    """The shelf freshness radar. A salesman sees only the customers assigned to them."""
+    mine = set(identity.route_order(session, principal.user_id)) if principal.sees_only_own_rows else None
+    return freshness.radar(session, mine)
 
 
 @router.get("/passport/{lot_id}")

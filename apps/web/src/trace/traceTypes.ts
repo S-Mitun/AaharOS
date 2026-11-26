@@ -177,3 +177,40 @@ export interface PassportLabelData {
   url: string;
   qr_svg: string;
 }
+
+export interface FreshnessRow {
+  customer_id: string;
+  customer_code: string;
+  customer_name: string;
+  item_code: string;
+  item_name: string;
+  lot_id: string;
+  lot_no: string;
+  best_before: string | null;
+  days_to_best_before: number | null;
+  delivered: Explained;
+  low: string;
+  central: string | null;
+  high: Explained;
+  enough_history: boolean;
+  rates: { orders: number; span_days: number; central: string; slow: string; fast: string } | null;
+  flagged: boolean;
+  value_at_risk: Explained | null;
+}
+
+export interface Freshness {
+  as_of: string;
+  alert_days: string;
+  window_days: number;
+  flagged: number;
+  rows: FreshnessRow[];
+  note: string;
+}
+
+/** "expire in 8 days", "expire today", "are past their best-before". */
+export function expiresIn(days: number | null): string {
+  if (days === null) return "have no best-before date";
+  if (days < 0) return "are past their best-before";
+  if (days === 0) return "expire today";
+  return `expire in ${days} ${days === 1 ? "day" : "days"}`;
+}

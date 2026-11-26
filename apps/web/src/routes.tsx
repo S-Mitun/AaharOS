@@ -16,6 +16,7 @@ import { BriefPage } from "./owner/BriefPage";
 import { PlannerPage } from "./owner/PlannerPage";
 import { SignInPage } from "./pages/SignInPage";
 import { FoodSafetyPage } from "./trace/FoodSafetyPage";
+import { FreshnessPage } from "./trace/FreshnessPage";
 import { PassportPage, ReorderPage } from "./trace/PassportPage";
 import { TracePage } from "./trace/TracePage";
 import { MyOrdersPage } from "./sales/MyOrdersPage";
@@ -75,7 +76,13 @@ const BUILT: Record<string, ReactNode> = {
   ),
 };
 
-const SALES_ROUTES = new Set(["salesToday", "salesOrder", "salesOrders", "salesSummary"]);
+const SALES_ROUTES = new Set([
+  "salesToday",
+  "salesOrder",
+  "salesOrders",
+  "salesSummary",
+  "salesFreshness",
+]);
 
 function screenRoutes(): RouteObject[] {
   return Object.entries(SCREENS)
@@ -124,6 +131,7 @@ export const appRoutes: RouteObject[] = [
           { path: "orders/:orderId", element: <OrderDetailPage /> },
           { path: "summary", element: <SummaryPage /> },
           { path: "reorder/:token", element: <ReorderPage /> },
+          { path: "freshness", element: <FreshnessPage /> },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

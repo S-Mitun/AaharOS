@@ -333,6 +333,7 @@ def setup_section5_planning(
 DEMO_FOOD_SAFETY: Final[dict[str, Any]] = {
     "fssai.ruco_threshold_l_per_day": "50",
     "fssai.tpc_limit_pct": "25",
+    "freshness.alert_days": "15",  # MP13 (T5): flag a lot that may be on a shelf this close to its best-before
     "legal_metrology.short_fill_tolerance_g": {
         "200": "9",
         "500": "15",
