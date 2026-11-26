@@ -107,7 +107,7 @@ def gst_summary(session: Session, month: date | None = None, _unused: date | Non
     ):
         out.append(_row(table, label, str(len({r["doc_no"] for r in part})), heads(part)))
     for (code, rate), acc in sorted(g["hsn"].items()):
-        out.append(_row("12", f"HSN {code} at {rate}% (qty {acc['qty'].normalize()})", "", acc))
+        out.append(_row("12", f"HSN {code} at {rate}% ({acc['qty'].normalize():f} units)", "", acc))
     for d in g["docs"]:
         label = f"{d['nature']}: {d['from'] or '-'} to {d['to'] or '-'} ({d['cancelled']} cancelled)"
         out.append(_row("13", label, d["net_issued"], None))

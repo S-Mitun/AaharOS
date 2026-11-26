@@ -542,6 +542,7 @@ def test_refusals(factory: tuple[Session, Section5]) -> None:
     with pytest.raises(DomainError) as err:
         complete_200(s, s5, run, good=600)  # more pouches than the store holds
     assert err.value.code == "pool_short"
+    assert err.value.message.startswith("Not enough ") and "piece available" in err.value.message  # words, not 6 dp
     assert _completion_trace(s, run)["status"] == "IN_PROGRESS"
 
 

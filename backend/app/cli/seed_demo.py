@@ -14,6 +14,7 @@ import sys
 import uuid
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
@@ -48,9 +49,13 @@ from app.modules.judge.replay import (
     setup_section5_transport,
 )
 from app.modules.planning import service as planning
+from app.modules.procurement import service as procurement
+from app.modules.procurement.domain import ReceiptLineIn
 from app.modules.recipe import service as recipes
 from app.modules.sales import service as sales
 from app.modules.tax import service as tax
+from app.modules.uom.domain import from_base
+from app.modules.valuation import service as valuation
 
 ORG_CODE = "DEMO-FACTORY"
 ORG_NAME = "AaharOS Demo Snacks (DEMO)"
@@ -224,6 +229,46 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
     return added
 
 
+RESTOCK_ITEMS = ("flour", "cooking_oil", "spice_mix", "pouch_200g", "carton_20")
+
+
+def restock_demo(
+    app_session: Session, org_id: uuid.UUID, today: date, opening: dict[str, Any] | None = None
+) -> list[str]:
+    """The shared DEMO factory is used by every visitor, so its raw and packing stock runs down. At each start, any of
+    them below its opening level is bought back up to it with an ordinary purchase receipt from the DEMO supplier, at
+    the opening rate (a real GRN through procurement, never a balance edit). Returns what was bought."""
+    org_scope(app_session, org_id)
+    opening = opening or load_oracle(get_settings().oracle_path)["inputs"]["opening_stock"]
+    suppliers = procurement.list_suppliers(app_session)
+    if not suppliers:
+        return []
+    lines: list[ReceiptLineIn] = []
+    bought: list[str] = []
+    for code in RESTOCK_ITEMS:
+        item_id = catalog.id_by_code(app_session, code)
+        units = catalog.units_for(app_session, [item_id])[item_id]
+        unit = opening[code]["unit"]
+        have = from_base(valuation.pool(app_session, item_id).qty_base, unit, units)
+        short = Decimal(str(opening[code]["qty"])) - have
+        if short > 0:
+            lines.append(
+                ReceiptLineIn(item_id, short, unit, Decimal(str(opening[code]["rate"])), lot_no=f"RS-{today:%y%m%d}")
+            )
+            bought.append(f"{short.normalize():f} {unit} {code}")
+    if lines:
+        procurement.post_receipt(
+            app_session,
+            organization_id=org_id,
+            actor_id=None,
+            supplier_id=uuid.UUID(suppliers[0]["id"]),
+            supplier_invoice_ref=f"DEMO restock {today.isoformat()} #{uuid.uuid4().hex[:6]}",
+            received_on=today,
+            lines=lines,
+        )
+    return bought
+
+
 def main() -> int:
     engine = create_engine(get_settings().migration_database_url)
     with Session(engine) as session:
@@ -248,7 +293,11 @@ def main() -> int:
         transport_added = setup_section5_transport(app_session, org_id)  # MP14: settings, vehicles, locations
         trips = demo_history.seed_trips(app_session, org_id, cast)  # MP14: the history's trips, once
         app_session.commit()
+        restocked = restock_demo(app_session, org_id, date.today())
+        app_session.commit()
     print(f"DEMO organization {ORG_CODE}: {len(seeded)} logins (passwords from .env, DEMO_PASSWORD_<ROLE>)")
+    if restocked:
+        print("  DEMO restock receipt: " + ", ".join(restocked))
     for email, role in seeded:
         print(f"  {role:<11} {email}")
     if added:

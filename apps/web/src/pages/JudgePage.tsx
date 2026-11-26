@@ -73,7 +73,7 @@ export function JudgePage() {
       <h1>Judge Mode</h1>
       <p className="muted">
         NIT&apos;s nine steps are replayed through the real services on a fresh benchmark factory,
-        then all 26 figures are compared with the oracle (
+        then all 26 figures are compared with NIT's expected values (
         <code>benchmark/expected_results.yaml</code>). The DEMO factory and your own factory are
         never touched.
       </p>
@@ -106,7 +106,7 @@ export function JudgePage() {
               {`${board.green} of ${board.total} green`}
             </StatusChip>{" "}
             <span className="muted small">
-              oracle integrity {board.oracle_integrity?.passed} passed ·{" "}
+              expected-values file intact ({board.oracle_integrity?.passed} checks) ·{" "}
               {board.generated_at && new Date(board.generated_at).toLocaleString()}
             </span>
           </p>
@@ -136,7 +136,7 @@ export function JudgePage() {
               <tr>
                 <th className="num">#</th>
                 <th>Check</th>
-                <th>Expected (oracle)</th>
+                <th>Expected</th>
                 <th>Result</th>
                 <th>Where to see it</th>
               </tr>

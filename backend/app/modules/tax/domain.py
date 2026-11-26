@@ -245,10 +245,10 @@ class EwayVerdict:
 def eway_check(kind: str, consignment_value: Decimal, threshold: Decimal) -> EwayVerdict:
     """J7 (Rule 138, mock only): an e-way bill is required when the consignment value, tax included, is above the
     threshold in force for the movement (inter- or intra-state, both effective-dated settings)."""
-    where = "inter-state" if kind == "INTER" else "intra-state"
+    where = "to another state" if kind == "INTER" else "within the state"
     value = round_money(consignment_value)
     if value > threshold:
-        reason = f"Required: {where} consignment value {value} is above the {threshold} threshold (Rule 138)"
+        reason = f"Needed: a delivery {where} worth ₹{value:,.2f} is above the ₹{threshold:,.2f} limit (Rule 138)"
         return EwayVerdict(True, reason, value, threshold)
-    reason = f"Not required: {where} consignment value {value} is not above the {threshold} threshold (Rule 138)"
+    reason = f"Not needed: a delivery {where} worth ₹{value:,.2f} is not above the ₹{threshold:,.2f} limit (Rule 138)"
     return EwayVerdict(False, reason, value, threshold)

@@ -235,7 +235,7 @@ export function InvoicePage() {
                 ) : (
                   <StatusChip tone="ok">e-Way Bill not required</StatusChip>
                 )}{" "}
-                <span className="small">{preview.eway.reason} (MOCK check, nothing is sent)</span>
+                <span className="small">{preview.eway.reason} (DEMO check, nothing is filed)</span>
               </p>
               <div className="actions-row">
                 <button
@@ -272,7 +272,7 @@ export function InvoicePage() {
                 </strong>
                 <span className="small">
                   {d.lines.map((l) => `${l.qty} from ${l.lot_no}`).join(", ")} · e-Way Bill{" "}
-                  {d.eway.required ? "required" : "not required"} (mock)
+                  {d.eway.required ? "required" : "not required"} (DEMO, not filed)
                 </span>
               </li>
             ))}

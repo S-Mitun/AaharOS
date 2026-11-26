@@ -161,8 +161,8 @@ export function HomePage() {
         </div>
         {oracle.state === "error" && (
           <p className="alert" role="alert">
-            The expected values could not be loaded from the server. If you are running locally,
-            start the stack with <code>make up</code> and reload.
+            The expected values could not be loaded. The server may be waking up: reload in a
+            minute.
           </p>
         )}
       </section>

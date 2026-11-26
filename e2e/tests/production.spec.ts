@@ -46,7 +46,7 @@ test("purchase, batch card and run costs give Rs 31.14 a packet", async ({ page 
   await page.getByRole("button", { name: "Seal failure" }).click();
   await page.getByRole("button", { name: "Post batch" }).click();
   await expect(page.getByText(/posted: finished packets are in stock/)).toBeVisible();
-  await expect(page.getByText(/yield MURUKKU-200G -6.00%/)).toBeVisible();
+  await expect(page.getByText("Over the tolerance: cooking oil +5.00%, yield −6.00%, pouch 200g +3.19%", { exact: false })).toBeVisible();
 
   // step 8: labour and gas, then the cost per good packet
   await page.goto("/production/batch");

@@ -7,6 +7,7 @@ import { loadCustomers, type Loaded } from "./api";
 import { useOutbox } from "./outboxContext";
 import type { Customer } from "./types";
 import { OfflineCopy } from "./ui";
+import { stateName } from "../lib/states";
 
 /** Today: the assigned customers in route order, each with New order and Repeat last order (G7).
  * `/sales/order` without a customer shows the same list, asking who the order is for. */
@@ -82,7 +83,7 @@ export function TodayPage({ picking = false }: { picking?: boolean }) {
             <div className="customer-main">
               <strong>{c.name}</strong>
               <span className="muted small">
-                {c.kind === "DISTRIBUTOR" ? "Distributor" : "Retailer"} · state {c.state_code}
+                {c.kind === "DISTRIBUTOR" ? "Distributor" : "Retailer"} · {stateName(c.state_code)}
               </span>
               {fresh[c.id] && (
                 <Link to="/sales/freshness" className="fresh-chip">

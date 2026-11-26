@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, apiGet, apiPost } from "../lib/api";
 import { useSession } from "../lib/sessionContext";
+import { localDate } from "../lib/dates";
 
 interface SettingRow {
   key: string;
@@ -20,7 +21,7 @@ const DECIMAL = /^\d{1,12}(\.\d{1,6})?$/;
 const tomorrow = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return localDate(d);
 };
 
 /**

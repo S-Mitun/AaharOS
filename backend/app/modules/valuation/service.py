@@ -87,7 +87,25 @@ def issue_value(
         source = pool(session, item_id)
     else:
         source = Pool(*ledger.balance(session, item_id, from_location, lot_id))
-    return domain.proportional_value(source, qty_base)
+    try:
+        return domain.proportional_value(source, qty_base)
+    except ValuationError as exc:
+        if exc.code not in ("pool_short", "pool_empty"):
+            raise
+        raise _short(session, item_id, source.qty_base, qty_base, exc.code) from exc
+
+
+def _short(session: Session, item_id: uuid.UUID, have_base: Decimal, want_base: Decimal, code: str) -> ValuationError:
+    """The same refusal in the user's words: the item's name and its stock unit, e.g. 'only 3 carton 20 in stock'."""
+    units = catalog.units_for(session, [item_id])[item_id]
+    name = catalog.names_for(session, [item_id]).get(item_id, ("", "this item"))[1]
+    have = from_base(max(have_base, Decimal(0)), units.stock_uom, units).normalize()
+    want = from_base(want_base, units.stock_uom, units).normalize()
+    return ValuationError(
+        code,
+        f"Not enough {name} in stock: {have:f} {units.stock_uom} available, {want:f} {units.stock_uom} needed.",
+        {"available": str(have), "requested": str(want), "unit": units.stock_uom},
+    )
 
 
 def sensitivity(session: Session, item_id: uuid.UUID, qty_base: Decimal) -> dict[str, dict[str, Any]]:

@@ -78,4 +78,4 @@ def test_sign_up_takes_the_supabase_account(api_app: Any, supabase_mode: dict[st
     )
     assert made.status_code == 201 and made.json()["email"] == email
     me = c.post("/api/auth/exchange", json={"access_token": GOOD + "-new"}).json()
-    assert me["role"] == "OWNER" and me["organization"]["name"] == "DEMO Supa Snacks (DEMO sandbox)"
+    assert me["role"] == "OWNER" and me["organization"]["name"] == "DEMO Supa Snacks"

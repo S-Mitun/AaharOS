@@ -280,7 +280,16 @@ export function BatchPage() {
       } catch {
         /* nothing to clear */
       }
-      const flags = r.analysis.flags.length ? ` Flagged: ${r.analysis.flags.join("; ")}.` : "";
+      // "cooking_oil 5.00%" / "yield MURUKKU-200G -6.00%" in plain words: "cooking oil +5.00%", "yield −6.00%"
+      const plain = (f: string) =>
+        f
+          .replace(/^yield \S+/, "yield")
+          .replace(/ (\d[\d.]*%)$/, " +$1")
+          .replace(/ -(\d[\d.]*%)$/, " −$1")
+          .replace(/_/g, " ");
+      const flags = r.analysis.flags.length
+        ? ` Over the tolerance: ${r.analysis.flags.map(plain).join(", ")}.`
+        : "";
       return `Batch ${r.run_no} posted: finished packets are in stock.${flags}`;
     });
 

@@ -68,8 +68,8 @@ export function Num({
                   <span>{i.label}</span>
                   <strong className="num">{formatAmount(i.value, i.unit)}</strong>
                   {i.source && (
-                    <span className="muted small">
-                      {sourceLabel(i.source.type)} {i.source.id.slice(0, 8)}
+                    <span className="muted small" title={i.source.id}>
+                      from the {sourceLabel(i.source.type).toLowerCase()}
                     </span>
                   )}
                 </span>

@@ -32,7 +32,7 @@ def test_a_visitor_gets_their_own_factory_with_the_tour_data(api_app: Any) -> No
     login = client.post("/api/auth/login", json={"email": body["email"], "password": body["password"]})
     assert login.status_code == 200, login.text
     me = login.json()
-    assert me["role"] == "OWNER" and me["organization"]["name"] == "Lakshmi Snacks (DEMO sandbox)"
+    assert me["role"] == "OWNER" and me["organization"]["name"] == "Lakshmi Snacks (DEMO)"
     lots = client.get("/api/trace/lots", params={"q": "OPEN"}).json()["lots"]
     assert [lot["lot_no"] for lot in lots] == ["OPEN-LOT"]  # their own opening stock, as in NIT's Section 5
     assert client.get("/api/trace/oil").status_code == 200  # the DEMO settings came with it

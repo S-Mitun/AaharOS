@@ -48,6 +48,16 @@ Red items: none. Every row is green; later MPs must keep it that way.
   and outstanding notes reworded).
 - **README** rewritten for the hosted app (one address, how sign-in works, architecture); local commands moved to
   [development.md](development.md).
+- **Live judge walkthrough (2026-11-27)**: the 12 tour steps done in a newly created factory on the hosted app
+  reproduced NIT's figures (WAC ₹43.13/kg; 160 → 120 kg; 238 packets; flags +5% / −6% / +3.19%; ₹7,875.00; FEFO 50 +
+  100; 88 available / 32 short, IGST ₹300 / ₹220; ₹3,875.00 owed; ₹5,855.00 and ₹31.14; leak ₹431.20; runway 1;
+  Judge Mode 26/26). Fixes it led to: the shared DEMO factory is restocked to its opening raw and packing levels at
+  each start with an ordinary DEMO purchase receipt (`restock_demo`); a short-stock refusal names the item in its
+  unit; screen words instead of codes ("Murukku 200 g", "cooking oil", state names, no "mock"/"oracle"/localhost
+  text); report and settings dates use the local day (UTC was a day behind before 05:30 IST); GSTR-1 table 12
+  quantities no longer print as 1.5E+2; report headers show the factory name only; a sign-up factory name gets
+  "(DEMO)" only when it lacks it; the service worker loads pages network-first (a cached page had kept a stale CSP).
+  CI had failed on a web test whose mock answered every unknown URL with `{}`.
 
 ## Done in MP19 (red-team review, drills, judge readiness)
 - [judge-readiness.md](judge-readiness.md): fresh clone (builds in 95 s from committed files only), benchmark 26/26,

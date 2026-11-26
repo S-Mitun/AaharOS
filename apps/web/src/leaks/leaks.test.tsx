@@ -90,7 +90,7 @@ describe("Explain this number", () => {
     const pop = screen.getByRole("dialog", { name: "How Cost per good packet is worked out" });
     expect(within(pop).getByText("run cost / good units")).toBeInTheDocument();
     expect(within(pop).getByText("₹5,855.00")).toBeInTheDocument();
-    expect(within(pop).getAllByText(/Production run/).length).toBeGreaterThan(0);
+    expect(within(pop).getAllByText(/from the production run/).length).toBeGreaterThan(0);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(button).toHaveFocus();
@@ -109,7 +109,7 @@ describe("Where profit leaks", () => {
     const rows = within(screen.getByRole("list", { name: /Variance waterfall/ })).getAllByRole(
       "listitem",
     );
-    expect(rows[0]).toHaveTextContent("yield loss MURUKKU-200G");
+    expect(rows[0]).toHaveTextContent("yield loss Murukku 200 g");
     expect(rows[0]).toHaveTextContent("₹307.20");
     expect(rows.at(-1)).toHaveTextContent("−₹6.00");
     expect(rows.at(-1)).toHaveTextContent("▼ Saves");

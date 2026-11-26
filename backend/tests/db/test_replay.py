@@ -111,3 +111,20 @@ def test_seed_demo_master_data_is_added_once(owner_engine: Engine, app_engine: E
     assert stock[("flour", "RAW_STORE")] == ("100", "4200.00")
     assert stock[("murukku_200g", "FG_STORE")] == ("50", "1442.50")
     assert sorted(assigned) == sorted(users.values())
+    from datetime import date as _date
+
+    from app.cli.seed_demo import restock_demo
+    from app.modules.catalog import service as catalog
+    from app.modules.valuation import service as valuation
+
+    opening = load_oracle(BACKEND.parent / "benchmark" / "expected_results.yaml")["inputs"]["opening_stock"]
+    with Session(app_engine, expire_on_commit=False) as s:
+        assert restock_demo(s, org, _date(2026, 11, 27), opening) == []  # at the opening level: nothing to buy
+        higher = {**opening, "flour": {**opening["flour"], "qty": 110}}  # as if 10 kg had been used up
+        assert restock_demo(s, org, _date(2026, 11, 27), higher) == ["10 kg flour"]
+        s.commit()
+    with Session(app_engine, expire_on_commit=False) as s:
+        org_scope(s, org)
+        assert valuation.pool(s, catalog.id_by_code(s, "flour")).qty_base == 110000  # grams, via a real receipt
+        assert restock_demo(s, org, _date(2026, 11, 27), higher) == []
+        assert procurement.receipt_value_mismatches(s) == []

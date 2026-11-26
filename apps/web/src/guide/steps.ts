@@ -13,7 +13,8 @@ export const STEPS: GuideStep[] = [
     who: { role: "Visitor", login: "No login needed" },
     screen: "home",
     actions: [
-      "Open the running app: the hosted demo link, or run `make up` and open http://localhost:5180.",
+      "You are in the app already: everything below happens on this site.",
+      "The DEMO logins share one factory with every visitor, so its stock moves with their work. For NIT's exact numbers, finish the tour and create your own factory (it starts from NIT's opening stock), or run Judge Mode.",
       "Keep this tour open. The Guide button (bottom right) brings you back to the right step from any screen.",
       "Every step tells you who does it, where to go, what to type, and the number you should see.",
       "Tap the ⓘ next to any figure in the app to see its formula and the record it came from.",
@@ -121,7 +122,7 @@ export const STEPS: GuideStep[] = [
     who: { role: "Salesman", login: "Salesman A" },
     screen: "salesOrder",
     actions: [
-      "Sign in → tap “Salesman A” → type the DEMO password. You land on Today. (On a laptop, make the window narrow to see the phone layout.)",
+      "Sign in → tap “Salesman A” (the DEMO password fills in) → Sign in. You land on Today. (On a laptop, make the window narrow to see the phone layout.)",
       "Today → DEMO Retailer A → New order.",
       "Type {inputs.steps.4_order_A.qty} in the packets box (or tap “+1 carton” to add 20 at a time) → Save order.",
       "The order opens with its number and “Received by factory”. No network? It says “Saved on phone” and sends itself when the network is back: it never says “Received” before the factory confirms.",
@@ -141,7 +142,7 @@ export const STEPS: GuideStep[] = [
     who: { role: "Admin", login: "Factory admin" },
     screen: "orderInbox",
     actions: [
-      "Sign in → tap “Factory admin” → password. You land on the Order inbox.",
+      "Sign in → tap “Factory admin” → Sign in. You land on the Order inbox.",
       "Open DEMO Retailer A's order. “Available to promise” covers it (no shortage) → Approve all {inputs.steps.4_order_A.qty} packets. They are held for Retailer A at once.",
       "Invoices and dispatch → Ready to invoice → Retailer A → Create invoice. Tamil Nadu to Tamil Nadu, so CGST + SGST. Tap “Open printable invoice” to see the PDF.",
       "On the invoice: Preview the dispatch → it shows 50 packets from the opening lot and 100 from batch B-001 (oldest first) and that no e-Way Bill is needed → Record dispatch.",
@@ -294,7 +295,7 @@ export const STEPS: GuideStep[] = [
     who: { role: "Auditor", login: "Auditor (read-only)" },
     screen: "reports",
     actions: [
-      "Sign in → tap “Auditor” → password. Every screen is read-only for this role.",
+      "Sign in → tap “Auditor” → Sign in. Every screen is read-only for this role.",
       "Sidebar → Reports. Pick a report (sales register, purchase register, stock summary, production, receivables ageing, bank statement) and the dates → Show. Download it as CSV, Excel or Print / PDF.",
       "GST tab: this month's GSTR-1 tables and GSTR-3B 3.1, and the GSTR-1 file for your CA. Close month tab: the checklist and the four conservation laws. Evidence tab: the whole month in one ZIP.",
       "Tap Open on any row to see the document behind it.",
@@ -313,7 +314,7 @@ export const STEPS: GuideStep[] = [
     who: { role: "Visitor", login: "No login needed" },
     screen: "judge",
     actions: [
-      "Press Run NIT benchmark (Judge Mode), or run `make benchmark` in a terminal.",
+      "Press Run NIT benchmark in Judge Mode.",
       "It replays all nine steps on a separate demo copy and fills the scoreboard.",
       "Each row links to the record that proves it.",
     ],

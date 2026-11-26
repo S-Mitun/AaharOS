@@ -1,3 +1,4 @@
+import { plain } from "./plain";
 import type { Explained } from "./explained";
 
 /** GET /api/runs/{id}/costing (ADR-0014). Every number is an exact decimal string from the database. */
@@ -46,7 +47,8 @@ export interface Costing {
   note: string;
 }
 
-export const words = (code: string | null) => (code ?? "").replace(/_/g, " ");
+/** Screen words for a code or label: "cooking_oil" -> "cooking oil", "MURUKKU-200G" -> "Murukku 200 g". */
+export const words = (code: string | null) => plain(code);
 
 /** Possibilities to verify, worded as checks, never as causes (MASTER_PACK MP07). */
 export function checkFor(c: Component, runNo: string): string | null {

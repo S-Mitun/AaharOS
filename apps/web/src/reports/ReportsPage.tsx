@@ -4,6 +4,7 @@ import { StatusChip } from "../components/StatusChip";
 import { ApiError, apiGet, apiPost } from "../lib/api";
 import { useSession } from "../lib/sessionContext";
 import { ReportTable, type ReportData } from "./ReportTable";
+import { localDate } from "../lib/dates";
 
 interface Cockpit {
   organization: string;
@@ -29,7 +30,7 @@ const TABS = [
   { id: "evidence", label: "Evidence" },
 ] as const;
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDate();
 const monthStart = (d: string) => `${d.slice(0, 7)}-01`;
 
 /** Auditor → Reports (MP11): every report with downloads, the GST summary and export, the month-end close and the

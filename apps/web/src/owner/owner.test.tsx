@@ -198,7 +198,7 @@ describe("the owner's morning brief (MP12)", () => {
     const actions = [...document.querySelectorAll<HTMLElement>(".action-item")];
     expect(actions.map((a) => a.querySelector(".action-title")?.textContent)).toEqual([
       "Decide 1 waiting order",
-      "Start 1 batch of MURUKKU-200G today",
+      "Start 1 batch of Murukku 200 g today",
     ]);
     expect(
       within(actions[0]!).getByRole("button", { name: /Explain this number/ }),

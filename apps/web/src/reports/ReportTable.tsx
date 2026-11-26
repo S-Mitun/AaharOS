@@ -44,7 +44,7 @@ export function ReportTable({ report }: { report: ReportData }) {
   return (
     <div className="report">
       <p className="muted small">
-        {report.organization} · generated {report.generated_at}
+        {report.organization} · generated {new Date(report.generated_at).toLocaleString()}
         {Object.keys(report.filters).length > 0 &&
           ` · ${Object.entries(report.filters)
             .map(([k, v]) => `${k} ${v}`)

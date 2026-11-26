@@ -61,7 +61,10 @@ def scoreboard() -> dict[str, Any]:
     """The last `make benchmark` result, or available=false if it has never run."""
     path = get_settings().benchmark_results_path
     if not path.exists():
-        return {"available": False, "reason": "make benchmark has not been run on this server yet"}
+        return {
+            "available": False,
+            "reason": "the benchmark has not run on this server yet: it starts a minute after the server wakes",
+        }
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     return {"available": True, **data}
 

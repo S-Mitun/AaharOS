@@ -183,7 +183,7 @@ def test_fefo_dispatch_at_lot_value_consumes_the_reservation(
         ("B-TEST", "100", "2156.91"),
     ]
     assert preview["cost_of_goods"] == "3599.41" and preview["eway"]["required"] is False
-    assert preview["eway"]["reason"].startswith("Not required: intra-state")
+    assert preview["eway"]["reason"].startswith("Not needed: a delivery within the state")
     r = admin.post(f"/api/invoices/{inv['id']}/dispatch", json={}, headers={"Idempotency-Key": str(uuid.uuid4())})
     assert r.status_code == 201, r.text
     d = r.json()

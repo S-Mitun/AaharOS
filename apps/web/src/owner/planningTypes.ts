@@ -1,3 +1,4 @@
+import { plain } from "../lib/plain";
 import type { Explained } from "../lib/explained";
 
 /** GET /api/planning/* (MP12, ADR-0019). Every number is an exact decimal string from the server. */
@@ -123,4 +124,4 @@ export interface Attribution {
 }
 
 /** "murukku_200g" → "murukku 200g": item codes read as words on screen. */
-export const words = (code: string) => code.replace(/_/g, " ");
+export const words = (code: string) => plain(code);

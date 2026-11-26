@@ -39,7 +39,7 @@ def org_name(session: Session) -> str:
     if org is None:
         raise ReportError("no_organization", "reports need an organization")
     o = identity.organization(session, org)
-    return f"{o['name']} ({o['code']})"
+    return str(o["name"])
 
 
 def _range(date_from: date | None, date_to: date | None) -> tuple[date, date]:

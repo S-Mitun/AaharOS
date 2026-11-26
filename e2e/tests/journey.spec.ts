@@ -34,7 +34,7 @@ test("a new visitor takes the tour, then works in their own factory", async ({ p
     organization: { name: string };
   };
   expect(me.role).toBe("OWNER");
-  expect(me.organization.name).toBe("DEMO Journey Snacks (DEMO sandbox)");
+  expect(me.organization.name).toBe("DEMO Journey Snacks");
 
   for (const [path, heading] of [
     ["/production/trace", "Trace and recall"],

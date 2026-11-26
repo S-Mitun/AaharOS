@@ -7,6 +7,7 @@ import { ApiError, apiGet, apiPost } from "../lib/api";
 import { formatValue } from "../lib/format";
 import { ServerStatus } from "../sales/ui";
 import type { OrderCard } from "./types";
+import { stateName } from "../lib/states";
 
 /** One product: show its price in the label. Several: the table above lists each price (review fix, MP09). */
 function priceChoiceLabel(card: OrderCard, choice: "captured" | "current"): string {
@@ -106,8 +107,8 @@ export function OrderCardPage() {
         <strong className="order-no">{card.order_no}</strong> · from{" "}
         {card.salesman?.name ?? "the factory"} · saved on phone {when(card.captured_at)} · received{" "}
         {when(card.received_at)} ·{" "}
-        {card.customer.kind === "DISTRIBUTOR" ? "Distributor" : "Retailer"}, state{" "}
-        {card.customer.state_code}
+        {card.customer.kind === "DISTRIBUTOR" ? "Distributor" : "Retailer"},{" "}
+        {stateName(card.customer.state_code)}
       </p>
 
       {done && (
@@ -205,7 +206,7 @@ export function OrderCardPage() {
                     .join(" + ")}{" "}
                   = <strong>{formatValue(o.total ?? "", "INR")}</strong> ·{" "}
                   {o.eway_required ? "e-Way Bill required" : "no e-Way Bill needed"}
-                  <div className="muted small">{o.eway_reason} (mock check)</div>
+                  <div className="muted small">{o.eway_reason} (DEMO check, nothing is filed)</div>
                 </li>
               );
             })}

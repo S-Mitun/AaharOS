@@ -54,7 +54,9 @@ def sign_up(session: Session, *, factory_name: str, display_name: str, email: st
     name = factory_name.strip()
     if not name or not display_name.strip():
         raise DomainError("missing_name", "give your name and your factory's name")
-    org = identity.create_scratch_tenant(session, kind="SIM", label="OWN", name=f"{name} (DEMO sandbox)")
+    org = identity.create_scratch_tenant(
+        session, kind="SIM", label="OWN", name=name if "DEMO" in name.upper() else f"{name} (DEMO)"
+    )
     identity.create_first_owner(session, organization_id=org, email=email, display_name=display_name, password=password)
     oracle = load_oracle(get_settings().oracle_path)
     s5 = setup_section5(session, oracle, org)
