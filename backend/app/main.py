@@ -17,6 +17,7 @@ from app.modules.dispatch.api import router as dispatch_router
 from app.modules.identity.api import auth_router, identity_router
 from app.modules.judge.api import router as guide_router
 from app.modules.ledger.api import router as stock_router
+from app.modules.planning.api import router as planning_router
 from app.modules.procurement.api import router as purchases_router
 from app.modules.production.api import router as runs_router
 from app.modules.recipe.api import router as recipes_router
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(collections_router)
     app.include_router(tax_router)
     app.include_router(reports_router)
+    app.include_router(planning_router)
     return app
 
 

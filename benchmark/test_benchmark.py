@@ -273,15 +273,26 @@ def test_a22_value_conservation(stock_replay: Any, oracle: dict[str, Any]) -> No
     "MP12",
     "aaharos_expected.shortage_attribution_B.caused_by_this_runs_yield_loss",
 )
-@pending("MP12")
-def test_a23_shortage_attribution() -> None:
-    not_built("MP12")
+def test_a23_shortage_attribution(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    """MP12: of Distributor B's shortage, the part B-001's yield loss explains (expected 200 good, made 188)."""
+    expected = oracle["aaharos_expected"]["shortage_attribution_B"]
+    (line,) = stock_replay.b_attribution["lines"]
+    assert Decimal(line["shortage"]) == expected["shortage"]
+    assert Decimal(line["attributed_to_yield_loss"]["value"]) == expected["caused_by_this_runs_yield_loss"]
+    assert Decimal(line["would_have_been"]) == expected["shortage"] - expected["caused_by_this_runs_yield_loss"]
 
 
 @A(24, "Material runway", "MP12", "aaharos_expected.material_runway_after_run.max_full_batches")
-@pending("MP12")
-def test_a24_material_runway() -> None:
-    not_built("MP12")
+def test_a24_material_runway(stock_replay: Any, oracle: dict[str, Any]) -> None:
+    """MP12: batches each material allows after the run, the binding items and the full batches possible."""
+    expected = oracle["aaharos_expected"]["material_runway_after_run"]
+    pack = next(p for p in stock_replay.runway if p["pack_code"] == "MURUKKU-200G")
+    got = {m["item_code"]: Decimal(m["batches"]["value"]) for m in pack["materials"]}
+    for item in ("flour", "cooking_oil", "spice_mix", "pouch_200g", "carton_20"):
+        assert got[item] == expected[item], item
+    assert Decimal(pack["full_batches"]["value"]) == expected["max_full_batches"]
+    assert sorted(pack["binding"]) == ["pouch_200g"]  # the smallest runway; oil (1.95) also stops a second batch
+    assert all(got[i] < 2 for i in ("cooking_oil", "pouch_200g"))
 
 
 @A(

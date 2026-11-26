@@ -184,7 +184,11 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
             effective_from=SETTINGS_FROM,
         )
         added.append("GSTR-1 B2CL threshold")
-    for key, margin in (("bank.stock_margin_pct", Decimal("25")), ("bank.debtors_margin_pct", Decimal("40"))):
+    for key, margin in (
+        ("bank.stock_margin_pct", Decimal("25")),
+        ("bank.debtors_margin_pct", Decimal("40")),
+        ("planning.attribution_days", Decimal("30")),  # MP12
+    ):
         if effective_settings.value_on(app_session, key, date.today()) is None:
             tax.put_setting(
                 app_session, organization_id=org_id, actor_id=None, key=key, value=margin, effective_from=SETTINGS_FROM

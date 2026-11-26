@@ -39,6 +39,7 @@ from app.modules.costing.service import RunCosting
 from app.modules.dispatch import service as dispatch
 from app.modules.identity import service as identity
 from app.modules.ledger import service as ledger
+from app.modules.planning import service as planning
 from app.modules.procurement import service as procurement
 from app.modules.procurement.domain import ReceiptLineIn
 from app.modules.production import service as production
@@ -141,6 +142,8 @@ class StockReplay:
     statement_a: dict[str, Any] | None = None  # Retailer A's statement after the payment (row 12)
     b001_lot: dict[str, tuple[Decimal, Decimal]] = field(default_factory=dict)  # location -> (qty, value) (row 22)
     integrity: list[dict[str, Any]] = field(default_factory=list)  # MP11: the tenant's 8 integrity checks (row 26)
+    runway: list[dict[str, Any]] = field(default_factory=list)  # MP12: material runway per pack (row 24)
+    b_attribution: dict[str, Any] | None = None  # MP12: Distributor B's shortage attribution (row 23)
     closing: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, store) -> qty in stock unit
     closing_value: dict[tuple[str, str], Decimal] = field(default_factory=dict)  # (item, location) -> rupees
     run_id: uuid.UUID | None = None
@@ -281,6 +284,7 @@ def setup_section5_tax(
         "gst.b2cl_threshold": B2CL_THRESHOLD_DEMO,
         "bank.stock_margin_pct": Decimal("25"),  # MP11: DEMO drawing-power margins
         "bank.debtors_margin_pct": Decimal("40"),
+        "planning.attribution_days": Decimal("30"),  # MP12: yield losses this recent explain a shortage
     }
     for key, value in settings.items():
         tax.put_setting(
@@ -587,6 +591,8 @@ def replay_stock(session: Session, oracle: dict[str, Any]) -> StockReplay:
     replay.costing = costing.run_costing(session, run_id)
     replay.b_card = sales.inbox_card(session, replay.order_ids["6_order_B"])
     replay.integrity = close.integrity_checks(session, org)  # row 26 (MP11)
+    replay.runway = planning.runway(session)  # row 24 (MP12): after the run, before the next batch
+    replay.b_attribution = planning.shortage_attribution(session, replay.order_ids["6_order_B"], POSTING_DATE)  # 23
     replay.invoice_a = billing.invoice_view(session, invoice_a.invoice_id)
     replay.dispatch_a = dispatch.dispatch_view(session, dispatched.dispatch_id)
     replay.statement_a = collections.statement(session, s5.customer_ids["RET-A"], on=POSTING_DATE)
