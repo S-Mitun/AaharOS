@@ -1552,6 +1552,21 @@ def order_line_ids(session: Session, order_id: uuid.UUID) -> dict[uuid.UUID, uui
     return {ln.item_id: ln.id for ln in _lines(session, {order_id})}
 
 
+def day_orders(session: Session, on: date) -> dict[str, Any]:
+    """MP12 brief: orders dated today (count, value ex-tax) and every order still waiting for a decision."""
+    today = list(session.execute(select(SalesOrder.id).where(SalesOrder.order_date == on)).scalars())
+    waiting = list(session.execute(select(SalesOrder.id).where(SalesOrder.status == "SUBMITTED")).scalars())
+    lines = _lines(session, set(today) | set(waiting))
+
+    def value(ids: set[uuid.UUID]) -> Decimal:
+        return round_money(sum((ln.qty_requested * _price(ln) for ln in lines if ln.order_id in ids), Decimal(0)))
+
+    return {
+        "today": {"count": len(today), "value": str(value(set(today)))},
+        "to_decide": {"count": len(waiting), "value": str(value(set(waiting)))},
+    }
+
+
 def open_demand(session: Session) -> dict[uuid.UUID, tuple[int, Decimal]]:
     """MP12: packets still to be supplied per finished good, and their value ex-tax: orders not yet decided
     (requested) plus backorders of part-approved orders."""

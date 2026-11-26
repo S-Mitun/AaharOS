@@ -1,6 +1,7 @@
 """Planning against PostgreSQL (MP12, ADR-0019, module 2): the batch plan reads open demand, approving creates only
 DRAFT documents, who may do what, and draft lines are never edited or deleted."""
 
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -99,3 +100,18 @@ def test_draft_lines_are_never_edited_or_deleted(
     with pytest.raises(DBAPIError) as e, app_engine.begin() as c:
         c.execute(text("DELETE FROM draft_purchase_orders WHERE organization_id = :o"), {"o": factory.org})
     assert sqlstate(e.value) == "42501"  # the app role holds no DELETE on drafts
+
+
+def test_morning_brief(api_app: Any, factory: Factory, app_engine: Engine) -> None:  # noqa: F811
+    approved_order(app_engine, factory, factory.dist_b, 300)  # 62 backordered
+    owner = login_client(api_app, factory.emails["OWNER"])
+    brief = owner.get("/api/planning/brief").json()
+    assert set(brief["cards"]) == {"orders", "available_vs_pending", "leaks", "runway", "money"}  # five cards, no more
+    pending = {d["item_code"]: d for d in brief["cards"]["available_vs_pending"]["items"]}
+    assert pending["murukku_200g"]["shortfall"] == "62"
+    assert len(brief["actions"]) <= 3
+    impacts = [Decimal(a["impact"]["value"]) for a in brief["actions"]]
+    assert impacts == sorted(impacts, reverse=True) and all(v > 0 for v in impacts)
+    assert all(a["impact"]["unit"] == "INR" and a["link"].startswith("/") for a in brief["actions"])
+    salesman_free = login_client(api_app, factory.emails["AUDITOR"]).get("/api/planning/brief")
+    assert salesman_free.status_code == 200  # read-only: the auditor may look

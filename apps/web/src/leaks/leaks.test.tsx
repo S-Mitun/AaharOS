@@ -71,6 +71,9 @@ describe("exact decimals, no floats", () => {
     expect(formatAmount("31.143617", "INR/packet")).toBe("₹31.14 / packet");
     expect(formatAmount("-6.00", "INR")).toBe("−₹6.00");
     expect(formatAmount("10.5", "L")).toBe("10.5 L");
+    expect(formatAmount("1", "batches")).toBe("1 batch");
+    expect(formatAmount("1.53", "batches")).toBe("1.53 batches");
+    expect(formatAmount("12", "packets")).toBe("12 packets");
     expect(sharePercent("-6.00", "307.20")).toBe(1);
   });
 });

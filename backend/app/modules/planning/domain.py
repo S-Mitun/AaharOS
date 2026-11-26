@@ -10,7 +10,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal
-from typing import Final
+from typing import Any, Final
 
 from app.core.errors import DomainError
 from app.core.explained import Explained, ExplainedInput, SourceRef
@@ -126,3 +126,29 @@ def shortage_attribution(shortage: int, losses: Sequence[YieldLoss], source: Sou
         ),
         method="Shortage attribution",
     )
+
+
+@dataclass(frozen=True)
+class Action:
+    """One of "Today's 3 actions" on the Morning Brief: what to do, the rupees at stake and where to do it."""
+
+    kind: str  # decide, make, buy, collect, leak
+    title: str
+    impact: Decimal  # rupees
+    link: str
+    explained: Explained
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "title": self.title,
+            "impact": self.explained.to_json(),
+            "link": self.link,
+        }
+
+
+def rank_actions(candidates: Sequence[Action], limit: int = 3) -> list[Action]:
+    """The largest rupee impact first; ties in a fixed order so the brief never reshuffles itself. Nothing at zero."""
+    order = {"decide": 0, "make": 1, "buy": 2, "collect": 3, "leak": 4}
+    kept = [a for a in candidates if a.impact > 0]
+    return sorted(kept, key=lambda a: (-a.impact, order.get(a.kind, 9), a.title))[:limit]

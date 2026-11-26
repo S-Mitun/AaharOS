@@ -4,7 +4,16 @@ from decimal import Decimal
 
 import pytest
 
-from app.modules.planning.domain import MaterialNeed, PlanningError, YieldLoss, runway, shortage_attribution
+from app.core.explained import Explained
+from app.modules.planning.domain import (
+    Action,
+    MaterialNeed,
+    PlanningError,
+    YieldLoss,
+    rank_actions,
+    runway,
+    shortage_attribution,
+)
 
 D = Decimal
 
@@ -51,3 +60,21 @@ def test_attribution_never_exceeds_the_shortage_and_ignores_good_surprises() -> 
     assert shortage_attribution(5, [YieldLoss("B-001", D(200), 150)]).value == 5
     assert shortage_attribution(32, [YieldLoss("B-002", D(200), 205)]).value == 0
     assert shortage_attribution(0, [YieldLoss("B-001", D(200), 188)]).value == 0
+
+
+def _action(kind: str, rupees: str) -> Action:
+    return Action(kind, kind, D(rupees), "/", Explained(D(rupees), "INR", "test"))
+
+
+def test_actions_rank_by_rupees_keep_three_and_drop_zero() -> None:
+    ranked = rank_actions(
+        [
+            _action("leak", "120.00"),
+            _action("collect", "3875.00"),
+            _action("make", "5000.00"),
+            _action("buy", "0.00"),
+            _action("decide", "3875.00"),
+        ]
+    )
+    assert [a.kind for a in ranked] == ["make", "decide", "collect"]  # a tie goes to the fixed order
+    assert rank_actions([_action("buy", "0")]) == []

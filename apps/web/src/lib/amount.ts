@@ -10,5 +10,14 @@ export function formatAmount(value: string, unit: string): string {
   if (unit.startsWith("INR/")) return `${formatValue(shown, "INR")} / ${unit.slice(4)}`;
   if (unit === "%") return formatValue(shown, "%");
   if (!unit) return formatValue(shown);
-  return `${formatValue(shown)} ${unit}`;
+  const one = SINGULAR[unit];
+  return `${formatValue(shown)} ${one && /^1(\.0*)?$/.test(shown) ? one : unit}`;
 }
+
+/** Count units that read in the singular for exactly one ("1 batch", not "1 batches"). */
+const SINGULAR: Record<string, string> = {
+  batches: "batch",
+  packets: "packet",
+  orders: "order",
+  pieces: "piece",
+};

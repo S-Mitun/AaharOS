@@ -12,6 +12,8 @@ import { HomePage } from "./pages/HomePage";
 import { ReportsPage } from "./reports/ReportsPage";
 import { LeaksIndexPage, LeaksPage } from "./pages/LeaksPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { BriefPage } from "./owner/BriefPage";
+import { PlannerPage } from "./owner/PlannerPage";
 import { SignInPage } from "./pages/SignInPage";
 import { MyOrdersPage } from "./sales/MyOrdersPage";
 import { OrderDetailPage } from "./sales/OrderDetailPage";
@@ -46,6 +48,16 @@ const BUILT: Record<string, ReactNode> = {
   collections: (
     <Gate permission="payment.post" what="collections">
       <CollectionsPage />
+    </Gate>
+  ),
+  morningBrief: (
+    <Gate permission="report.read" what="the morning brief">
+      <BriefPage />
+    </Gate>
+  ),
+  planner: (
+    <Gate permission="report.read" what="the batch planner">
+      <PlannerPage />
     </Gate>
   ),
 };

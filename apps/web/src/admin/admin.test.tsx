@@ -116,6 +116,20 @@ function serve(card: OrderCard = B_CARD) {
           ],
         });
       if (url === "/api/inbox/o-b") return json(card);
+      if (url === "/api/planning/shortage/o-b")
+        return json({
+          order_id: "o-b",
+          order_no: "SO/26-27/000002",
+          lines: [
+            {
+              item_id: "i-mur",
+              item_name: "DEMO murukku 200g",
+              shortage: 32,
+              attributed_to_yield_loss: ex("12", "min(shortage, expected - good)"),
+              would_have_been: 20,
+            },
+          ],
+        });
       if (init?.method === "POST") {
         posts.push({ url, body: JSON.parse(String(init.body ?? "{}")) });
         return json({
@@ -167,6 +181,9 @@ describe("the order inbox (MP09)", () => {
     expect(posts[0]).toEqual({ url: "/api/orders/o-b/approve", body: { partial: true } });
     expect(await screen.findByText(/approved 88 packets, 32 backordered/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Fill the backorder/ })).toBeInTheDocument();
+    // MP12, row 23: 12 of the 32 short packets come from the batch's lost packets
+    expect(await screen.findByText(/Why short\?/)).toBeInTheDocument();
+    expect(screen.getByText(/the shortage would have been 20/)).toBeInTheDocument();
   });
 
   it("asks which price applies when the price list changed while the phone was offline", async () => {

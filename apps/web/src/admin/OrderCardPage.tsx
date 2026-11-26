@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import type { Attribution } from "../owner/planningTypes";
 import { Num } from "../components/Num";
 import { StatusChip } from "../components/StatusChip";
 import { ApiError, apiGet, apiPost } from "../lib/api";
@@ -337,6 +338,7 @@ export function OrderCardPage() {
           <p>
             {card.card_lines.reduce((n, l) => n + Number(l.backordered), 0)} packets are still owed.
           </p>
+          <ShortageWhy orderId={orderId} />
           <button
             type="button"
             className="btn btn-primary"
@@ -379,5 +381,37 @@ export function OrderCardPage() {
         ))}
       </ol>
     </section>
+  );
+}
+
+/** MP12 (row 23): how much of the shortage recent batches' yield losses explain. Shown only when they explain some. */
+function ShortageWhy({ orderId }: { orderId: string }) {
+  const [why, setWhy] = useState<Attribution | null>(null);
+  useEffect(() => {
+    let live = true;
+    apiGet<Attribution>(`/api/planning/shortage/${encodeURIComponent(orderId)}`)
+      .then((a) => live && setWhy(a))
+      .catch(() => undefined); // an explanation, not a decision: the card works without it
+    return () => {
+      live = false;
+    };
+  }, [orderId]);
+  const lines = (why?.lines ?? []).filter((l) => l.attributed_to_yield_loss.value !== "0");
+  if (lines.length === 0) return null;
+  return (
+    <div className="why-short">
+      {lines.map((l) => (
+        <p key={l.item_id}>
+          <strong>Why short?</strong>{" "}
+          <Num
+            value={l.attributed_to_yield_loss}
+            label={`packets of ${l.item_name} lost to yield`}
+          />{" "}
+          of the {l.shortage} short packets of {l.item_name} are explained by recent batches making
+          fewer good packets than expected. At the expected yield the shortage would have been{" "}
+          {l.would_have_been}.
+        </p>
+      ))}
+    </div>
   );
 }

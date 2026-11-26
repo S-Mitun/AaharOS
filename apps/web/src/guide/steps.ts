@@ -180,7 +180,7 @@ export const STEPS: GuideStep[] = [
       "Sign in as Salesman B: Today → DEMO Distributor B (Karnataka) → New order → {inputs.steps.6_order_B.qty} packets → Save order. The stock hint already warns it is short.",
       "As Factory admin: Order inbox → tap “Short” → DEMO Distributor B. The card shows available to promise and the shortage (tap ⓘ to see on hand − reserved).",
       "Three options, in plain words: “Send 88 now, backorder 32”, “Wait for the next batch”, or “Reject”. Approving all 120 is refused: stock can never go below zero.",
-      "For NIT, leave it undecided (or try an option): it is not invoiced.",
+      "For NIT, leave it undecided (or try an option): it is not invoiced. If you choose “Send now, backorder the rest”, the card adds a “Why short?” line: {aaharos_expected.shortage_attribution_B.caused_by_this_runs_yield_loss} of the short packets come from the batch's lost packets.",
     ],
     expect: [
       { label: "Requested", key: "nit_expected.distributor_B.requested", unit: "packets" },
@@ -260,6 +260,30 @@ export const STEPS: GuideStep[] = [
     ],
     why: "We divide by good packets, not the expected count, because only good packets can be sold.",
     assertions: [17, 18, 19],
+  },
+  {
+    id: "owner-brief",
+    title: "The owner's morning: what to do first",
+    who: { role: "Owner", login: "Owner" },
+    screen: "morningBrief",
+    actions: [
+      "Sign in as Owner: you land on the Morning brief. Five cards: today's orders, available vs pending, where profit leaks, material runway, money to collect.",
+      "Above them, Today's 3 actions, biggest rupee impact first. Tap ⓘ on any amount to see how it is worked out, or Open to go and do it.",
+      "Production → Batch planner: how many batches each material allows (the ones that run out first are marked), what to make next and what to buy. “Create draft batch” and “Create draft purchase order” make drafts only; nothing is posted.",
+    ],
+    expect: [
+      {
+        label: "Full batches the stock allows after the run",
+        key: "aaharos_expected.material_runway_after_run.max_full_batches",
+      },
+      {
+        label: "Runs out first",
+        key: "aaharos_expected.material_runway_after_run.pouch_200g",
+      },
+      { label: "Approving a plan", text: "creates a draft, never a posting" },
+    ],
+    why: "One screen tells the owner what matters today and why, with every number traceable.",
+    assertions: [23, 24],
   },
   {
     id: "reports",

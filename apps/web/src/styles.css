@@ -930,3 +930,80 @@ main {
     grid-column: 1 / -1;
   }
 }
+
+/* Owner → Morning brief and Production → Batch planner (MP12) */
+.brief-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.9rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.brief-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.brief-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.brief-card p {
+  margin: 0;
+}
+
+.brief-card > a:last-child {
+  margin-top: auto;
+  font-weight: 600;
+}
+
+.brief-card .big {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.actions-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.4rem;
+}
+
+.action-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.action-title {
+  flex: 1 1 240px;
+  font-weight: 600;
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.row-binding td {
+  background: var(--bad-soft);
+}
+
+.why-short {
+  margin: 0.5rem 0 1rem;
+  padding: 0.7rem 1rem;
+  border-left: 4px solid var(--warn, var(--bad));
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}

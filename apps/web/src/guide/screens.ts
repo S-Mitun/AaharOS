@@ -138,6 +138,29 @@ export const SCREENS: Record<string, Screen> = {
     description: "Add labour and gas to a finished batch. (API built; screen next.)",
     permission: "run.cost",
   },
+  morningBrief: {
+    name: "Owner → Morning brief",
+    label: "Morning brief",
+    route: "/owner",
+    mp: "MP12",
+    built: true,
+    group: "Owner",
+    icon: "☼",
+    description: "Five cards and today’s three actions, biggest rupee impact first.",
+    permission: "report.read",
+  },
+  planner: {
+    name: "Production → Batch planner",
+    label: "Batch planner",
+    route: "/production/planner",
+    mp: "MP12",
+    built: true,
+    group: "Production",
+    icon: "▦",
+    description:
+      "How many batches the stock allows, what to make next and what to buy. Creates drafts only.",
+    permission: "report.read",
+  },
   profitLeaks: {
     name: "Where profit leaks",
     label: "Where profit leaks",
@@ -193,5 +216,7 @@ export const ROLE_GROUP: Record<string, Group> = {
 export function homeFor(role: string): string {
   if (role === "SALESMAN") return SCREENS.salesToday!.route;
   if (role === "ADMIN") return SCREENS.orderInbox!.route;
+  if (role === "OWNER") return SCREENS.morningBrief!.route;
+  if (role === "PRODUCTION") return SCREENS.planner!.route;
   return SCREENS.profitLeaks!.route;
 }

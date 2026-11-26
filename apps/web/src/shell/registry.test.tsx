@@ -72,7 +72,9 @@ describe("one registry for the sidebar, the routes and the tour (G9)", () => {
 
   it("lands a salesman on Today and other roles on today's pages (G7)", () => {
     expect(homeFor("SALESMAN")).toBe("/sales");
-    expect(homeFor("OWNER")).toBe("/leaks");
+    expect(homeFor("OWNER")).toBe("/owner");
+    expect(homeFor("PRODUCTION")).toBe("/production/planner");
+    expect(homeFor("AUDITOR")).toBe("/leaks");
   });
 });
 

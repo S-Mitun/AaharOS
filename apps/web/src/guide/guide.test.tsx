@@ -31,8 +31,8 @@ const payload = {
 };
 
 describe("guide content is bound to the oracle", () => {
-  it("has the intro, NIT's nine steps in order, and a finish card", () => {
-    expect(STEPS).toHaveLength(11);
+  it("has the intro, NIT's nine steps in order, the owner's brief and a finish card", () => {
+    expect(STEPS).toHaveLength(12);
     expect(STEPS.filter((s) => s.nitStep).map((s) => s.nitStep)).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8, 9,
     ]);
@@ -112,15 +112,15 @@ describe("guided tour and landing page", () => {
   it("walks all 11 steps with Next, showing oracle values", async () => {
     const user = userEvent.setup();
     renderAt("/guide");
-    expect(screen.getByText("Step 1 of 11")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 12")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Next: Buy flour/ }));
-    expect(screen.getByText("Step 2 of 11")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 12")).toBeInTheDocument();
     expect(await screen.findByText("₹43.125 / kg")).toBeInTheDocument();
 
-    for (let i = 3; i <= 11; i++) {
+    for (let i = 3; i <= 12; i++) {
       await user.click(screen.getByRole("button", { name: /^Next:/ }));
-      expect(screen.getByText(`Step ${i} of 11`)).toBeInTheDocument();
+      expect(screen.getByText(`Step ${i} of 12`)).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Finish/ })).toBeInTheDocument();
   });
@@ -142,8 +142,8 @@ describe("guided tour and landing page", () => {
 
     await user.click(screen.getByRole("button", { name: /Guide/ }));
     const panel = screen.getByRole("dialog", { name: "Testing guide" });
-    expect(within(panel).getByText("Step 1 of 11")).toBeInTheDocument();
+    expect(within(panel).getByText("Step 1 of 12")).toBeInTheDocument();
     await user.click(within(panel).getByRole("button", { name: /Next/ }));
-    expect(within(panel).getByText("Step 2 of 11")).toBeInTheDocument();
+    expect(within(panel).getByText("Step 2 of 12")).toBeInTheDocument();
   });
 });

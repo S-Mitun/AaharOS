@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.modules.identity.service import Principal, require
-from app.modules.planning import service
+from app.modules.planning import brief, service
 
 router = APIRouter(prefix="/api/planning", tags=["planning"])
 DbSession = Annotated[Session, Depends(get_session)]
@@ -157,3 +157,9 @@ def put_item_settings(
     )
     session.commit()
     return {"item_id": str(item_id), "saved": True}
+
+
+@router.get("/brief")
+def morning_brief(_principal: Reader, session: DbSession) -> dict[str, Any]:
+    """The Owner Morning Brief: five cards and today's three actions, ranked by rupees."""
+    return brief.morning_brief(session)
