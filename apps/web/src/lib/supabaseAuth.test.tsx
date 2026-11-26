@@ -36,7 +36,7 @@ function serveSupabaseMode() {
       if (url === "/api/auth/me")
         return signedIn ? json(OWNER) : json({ error: { code: "not_authenticated" } }, 401);
       if (url === "/api/auth/refresh") return json({ error: { code: "no" } }, 401);
-      return json({}, 200);
+      return json({ error: { code: "not_found", message: "no" } }, 404);
     }),
   );
   return calls;

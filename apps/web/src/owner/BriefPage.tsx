@@ -14,7 +14,7 @@ export function BriefPage() {
 
   useEffect(() => {
     apiGet<Brief>("/api/planning/brief")
-      .then(setBrief)
+      .then((b) => (b?.cards ? setBrief(b) : setError("Could not load the morning brief.")))
       .catch((e) =>
         setError(e instanceof ApiError ? e.message : "Could not load the morning brief."),
       );
@@ -53,8 +53,8 @@ export function BriefPage() {
         <ol className="actions-list">
           {brief.actions.map((a) => (
             <li key={a.kind} className="action-item">
-              <span className="action-title">{a.title}</span>
-              <Num value={a.impact} label={a.title} />
+              <span className="action-title">{words(a.title)}</span>
+              <Num value={a.impact} label={words(a.title)} />
               <Link className="btn btn-primary" to={a.link}>
                 Open
               </Link>
@@ -100,9 +100,9 @@ export function BriefPage() {
               {leaks.top.map((l) => (
                 <li key={`${l.run_id}-${l.label}`}>
                   <Link to={l.link}>
-                    {l.label} · {l.run_no}
+                    {words(l.label)} · {l.run_no}
                   </Link>{" "}
-                  <Num value={l.value} label={`${l.label} on ${l.run_no}`} />
+                  <Num value={l.value} label={`${words(l.label)} on ${l.run_no}`} />
                 </li>
               ))}
             </ol>
@@ -115,9 +115,9 @@ export function BriefPage() {
           <ul className="plain-list">
             {runway.packs.map((p) => (
               <li key={p.pack_code}>
-                <strong>{p.pack_code}</strong>:{" "}
-                <Num value={p.full_batches} label={`full batches of ${p.pack_code}`} /> in full from
-                stock; runs out first: {p.binding.map(words).join(", ")}
+                <strong>{words(p.pack_code)}</strong>:{" "}
+                <Num value={p.full_batches} label={`full batches of ${words(p.pack_code)}`} /> in
+                full from stock; runs out first: {p.binding.map(words).join(", ")}
               </li>
             ))}
           </ul>
