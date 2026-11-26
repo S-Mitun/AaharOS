@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP14 done; hosted demo live at https://aaharos-demo.onrender.com / MP15 next (the user decides)
+## Status: MP14 done, regression review done; MP15 next. Deploy only after MP15-MP19 (the user)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,25 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Regression review and the tour-first flow (2026-11-26, at the user's request, before MP15)
+- **The guided tour comes first:** sign-up and signing in with a non-DEMO email stay closed until the tour is
+  finished on this device (every step opened, then "Finish the tour"); the finish panel offers an own account
+  (create a factory / sign in) or a restart; **Restart tour** sits in the top bar on every page, any number of times.
+  The DEMO logins stay open because the tour uses them. One address, one frontend, one backend for both.
+- **Full-stack pipeline test** `tests/db/test_full_pipeline.py`: a sandbox made by sign-up runs NIT's Section 5 day
+  through the HTTP API only (receipt with a supplier lot and an idempotent retry, batch, order, approval, invoice,
+  FEFO dispatch, payment, Distributor B refused with 32 short, run costs, FINAL) and gets the oracle's figures (FG 238
+  then 88, invoice Rs 7,875.00, Rs 3,875.00 owed, run cost Rs 5,855.00, Rs 31.14 a packet), then trace, recall, oil,
+  fill weights, trip plan / create / complete, cost-to-serve, reports, the brief, the planner, freshness, and every
+  integrity check of the tenant.
+- **Browser journey** `e2e/tests/journey.spec.ts`: a new visitor is sent to the tour, walks all steps, is offered
+  an own account, signs up, opens trace, oil and fill weights, trips, freshness and reports with no error, restarts the
+  tour from the top bar.
+- **Deploying waits for the whole project** (the user): work stays on `feat/mp13-traceability`; `main` (which Render
+  deploys) is not moved until MP15-MP19 are done.
+- **Checks:** backend **954 passed** (full 500-example state machine), ruff / mypy clean; web **88 passed**;
+  Playwright **8/8**; benchmark **26/26**; `make integrity` OK.
 
 ## Done in MP14 and the deployment (2026-11-26, at the user's request: everything on main, MP14, hosted demo)
 - **Git:** MP04-MP13 fast-forwarded onto `main` and pushed to GitHub (no merge commits); the work continues on
