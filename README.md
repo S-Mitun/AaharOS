@@ -62,6 +62,12 @@ Excel or Print / PDF. **GST** has the month's GSTR-1 tables and GSTR-3B 3.1 and 
 never filed). **Close month** lists what is still open and runs the four conservation laws; closing locks the month
 against new postings. **Evidence** downloads the whole month in one ZIP.
 
+**Then start the owner's day:** Sign in as **Owner** → you land on the **Morning brief**: five cards (today's orders,
+available vs pending, where profit leaks, material runway, money to collect) and **Today's 3 actions**, biggest rupee
+impact first; tap ⓘ on any amount to see how it is worked out. **Production → Batch planner** shows how many batches
+each material allows (the ones that run out first are marked), what to make next and what to buy. Its buttons create
+a **draft** batch or a **draft** purchase order only; nothing is posted until a person does it.
+
 ## Test logins
 
 `make seed-demo` creates the DEMO organization `DEMO-FACTORY` with one login per role. Every password is
@@ -72,7 +78,7 @@ Set your own before exposing the app anywhere.
 |---|---|---|
 | Salesman | `salesman.a@aaharos-demo.invalid`, `salesman.b@aaharos-demo.invalid` | Take orders; sees only assigned customers and own orders |
 | Admin | `admin@aaharos-demo.invalid` | Approve orders, invoice, dispatch, payments, price lists, month close |
-| Production | `production@aaharos-demo.invalid` | Receipts, recipes, runs, run costs |
+| Production | `production@aaharos-demo.invalid` | Receipts, recipes, runs, run costs, draft batches and purchase orders |
 | Auditor | `auditor@aaharos-demo.invalid` | Read-only: every mutation returns 403 |
 | Owner | `owner@aaharos-demo.invalid` | Everything, including staff and reopening a closed month |
 

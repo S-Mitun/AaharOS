@@ -1,9 +1,9 @@
 # PROGRESS
 
-## Status: MP11 done (branch feat/mp11-reports, one commit per module; module 5 + docs in the last) / MP12 next
+## Status: MP12 done (branch feat/mp12-planning, one commit per module; docs in the last) / MP13 next
 
 
-## Benchmark scoreboard: 24/26
+## Benchmark scoreboard: 26/26
 - **Green:**
   - 1 flour closing 120 kg, 2 oil 19.5 L, 3 pouches 306, 15 spice 3.8 kg / cartons 21 (MP04)
   - 16 flour WAC ₹43.125/kg after the purchase (MP05), an `Explained` value from `valuation.wac`
@@ -18,6 +18,9 @@
     ₹3,114.36 + on hand 88 = ₹2,740.64; 25 B's e-way bill not required (₹6,300 ≤ ₹50,000), reason shown** (MP10)
   - **26 integrity on the NIT tenant: audit chain, laws 1–4 (law 3 with B-001's 2.4 kg gap disclosed and flagged,
     law 4 = tax lines = GST summary = GSTR-1 export), balance rebuild, invoices add up, no over-promised stock** (MP11)
+  - **23 shortage attribution: 12 of Distributor B's 32 short packets come from B-001's yield loss (would have been
+    20); 24 material runway after the run: flour 3.00, oil 1.95, spice 3.17, pouches 1.53, cartons 2.10, one full
+    batch, pouches binding** (MP12)
 - They are replayed through the real services into a fresh BENCHMARK tenant (`app/modules/judge/replay.py`):
   - J0 opening, valued; J1 as a purchase receipt
   - run B-001 created and started; J2 a real material issue at WAC; J3 the real `complete_run`
@@ -31,8 +34,35 @@
 - Oracle integrity: 10/10 checks pass (the sha256 guard on `inputs` + `nit_expected` included). No green row turned
   red.
 
-Red items and the MP that turns them green:
-- MP12: 23 shortage attribution, 24 runway
+Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP12 (material runway, shortage attribution, batch planner, Owner Morning Brief)
+- **Gate met:** **26/26** (rows 23 and 24 green; no green row turned red), oracle 10/10; `make integrity` OK;
+  Playwright 7/7 (repeat-order time printed 754 ms).
+- **Four commits, one per module:** a4520ea runway and attribution (rows 23, 24); 743d634 migration 0012, the CP-SAT
+  planner, draft batches and draft purchase orders; e9bfbad the Morning Brief, the Batch planner screen and "Why
+  short?"; the last commit holds ADR-0019 and the docs.
+- **Decisions L1–L8 (approved; [ADR-0019](adr/0019-planning-runway-planner-and-morning-brief.md)).**
+- **Backend:** `planning` (domain: runway, shortage attribution, `rank_actions`; planner.py: OR-Tools CP-SAT
+  `ortools==9.11.4210`, one worker, deterministic; service: runway, attribution, batch plan, approve → DRAFT run,
+  draft purchase orders with cancel, item planning settings; brief.py: the five cards and today's three actions);
+  `sales.open_demand`, `sales.day_orders`; migration 0012 (`item_planning`, `draft_purchase_orders` + insert-only
+  lines, RLS on all three); DEMO settings `planning.attribution_days` (30) and `planning.batches_per_day` (2) and
+  per-material planning settings, topped up on the DEMO factory.
+- **API:** `GET /api/planning/runway`, `/shortage/{order}`, `/plan`, `/brief`, `/purchase-drafts`, `/item-settings`
+  (`report.read`); `POST /api/planning/batches` (`run.start`, creates a DRAFT run), `/purchase-drafts` and
+  `/purchase-drafts/{id}/cancel` (`receipt.post`); `PUT /api/planning/item-settings/{item}` (`settings.manage`).
+- **Web:** Owner → Morning brief (owner lands there), Production → Batch planner (production lands there), "Why
+  short?" on a part-approved order card, an Owner step in the tour (12 steps), "1 batch" not "1 batches".
+- **Checks run:** backend **815 passed (was 747)**, ruff / format clean, mypy --strict clean, import-linter 2/2, `alembic check`
+  clean (0012 applied to the dev DB); web **66 passed (was 62)**, typecheck / lint / build clean; float grep clean; live on :5180 as
+  the DEMO owner: the brief shows "Decide 1 waiting order ₹7,500.00" then "Start 1 batch of MURUKKU-200G today
+  ₹5,000.00"; the planner marks flour and 200 g pouches as running out first (2.50 batches each).
+- **New tests:** `planning/tests/test_domain.py` (runway, attribution, action ranking), `planning/tests/test_planner.py`
+  (7: materials bind before capacity, purchases with safety / reorder / minimum order, the benchmark's 32, value
+  decides scarce capacity, no batch beyond the shortfall, nothing to plan, reorder without demand),
+  `tests/db/test_planning.py` (5: plan from backorders, drafts only and who may approve, item settings, draft lines
+  immutable, the brief), `src/owner/owner.test.tsx` (3), the order card's "Why short?" in `admin.test.tsx`.
 
 ## Done in MP11 (reports, GST export, month-end close, evidence pack)
 - **Gate met:** **24/26** (row 26 green; no green row turned red), oracle 10/10; `make integrity` OK with every law built
@@ -629,6 +659,8 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP12: [ADR-0019](adr/0019-planning-runway-planner-and-morning-brief.md): L1–L8 (runway, attribution, planning
+  settings, the CP-SAT planner, drafts only, the Morning Brief, screens, layering).
 - MP11: [ADR-0018](adr/0018-reports-gst-close-and-evidence.md): K1–K9 (report engine, reports, GST export and law 4,
   law 3 with flagged gaps, close and reopen with history, evidence pack, Tally XML, bank statement, Reports screen).
 - MP10: [ADR-0017](adr/0017-tax-invoices-dispatch-and-collections.md): J1–J10 (tax engine, invoices, cancel and
@@ -708,8 +740,13 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **Overheads are not absorbed** (F7): costing is direct cost; MP11 reports absorbed overheads.
 - **The dispatch in `test_costing.py` is a test stand-in** (a raw DISPATCH journal); MP10 builds the real dispatch,
   replays step 5 before step 8, and turns assertion 22 green.
-- **Salesman (MP08) and admin inbox (MP09) are built:** other roles land on `/leaks`; their screens come with MP10
-  (invoices), MP11 (reports). Unbuilt screens show an honest "Coming in MPxx" page.
+- **Landing pages:** salesman → Today, admin → Order inbox, owner → Morning brief, production → Batch planner,
+  auditor → Where profit leaks. Unbuilt screens (purchases, batch card, run costs, Judge Mode) show an honest
+  "Coming in MPxx" page.
+- **The planner plans one production day** from today's stock and open orders; no multi-day horizon, changeovers,
+  shelf life or supplier choice. Draft purchase orders have no "send to supplier" step; a delivery is still a
+  purchase receipt typed by a person.
+- **"Available vs pending" and the actions show item codes** ("murukku 200g"), not catalogue names.
 - **ADMIN cannot create orders** (`order.create` is SALESMAN and OWNER): phoned-in orders are entered by the owner or
   the salesman for now.
 - **Credit notes are value-only:** returned goods (stock back, food safety) are MP13.
@@ -747,22 +784,26 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-Run MP12 (owner morning brief, material runway, batch planner, reorder → rows 23 shortage attribution, 24 runway) in a
-fresh session: read the MP12 section of docs/MASTER_PACK.md, show the plan and wait for approval. Keep committing one
-module at a time (the user's standing request since MP11).
+Run MP13 (traceability, freshness, food-safety records) in a fresh session: read the MP13 section of
+docs/MASTER_PACK.md, show the plan and wait for approval. Keep committing one module at a time (the user's standing
+request since MP11). The 7-day schedule marks MP13 as "light" (day 6, with MP15 Judge Mode and MP17 hosting): agree the
+scope first.
 
 Before starting:
-- Branch `feat/mp12-planning` from `feat/mp11-reports`.
-- One frontend and one backend in Docker (compose services `frontend` and `backend`, renamed from `web` / `api` on
-  2026-11-26): http://localhost:5180 and http://localhost:8180 (`/docs`). After a dependency change rebuild the backend
-  image (`docker compose build backend && docker compose up -d backend`).
+- Branch `feat/mp13-traceability` from `feat/mp12-planning`.
+- One frontend and one backend in Docker (compose services `frontend` and `backend`): http://localhost:5180 and
+  http://localhost:8180 (`/docs`). After a dependency change rebuild the backend image
+  (`docker compose build backend && docker compose up -d backend`).
 - Everything runs in Docker; never two pytest runs at once; host Python is cp1252 / CRLF; long heredocs break the Bash
   tool, so write scripts with the editor tools.
-- MP12 inherits: `production.next_batch_for` (the MP09 planner stub the batch planner replaces), stock balances and
-  WAC, the recipe and pack snapshots, the oracle's `material_runway_after_run` and `shortage_attribution_B`, and the
-  Owner group in the sidebar.
+- MP13 inherits: FG lots with best-before dates and FEFO dispatch (MP10), frozen run snapshots (MP06), supplier lots
+  recorded on receipts (MP05, D4), the order card and the Owner Morning Brief (a freshness card would replace one of
+  the five, not add a sixth).
 - Supabase: the user has a Supabase account connected; it fits the hosted demo (MP17) as managed PostgreSQL. Nothing
   was created there.
+
+### Record: the MP12 plan as approved (implemented above)
+Approved by the user on 2026-11-26 as recommended (L1–L8, one commit per module); see ADR-0019.
 
 ### Record: the MP11 plan as approved (implemented above)
 Approved by the user on 2026-11-21 as recommended (K1–K9, one commit per module); see ADR-0018.
