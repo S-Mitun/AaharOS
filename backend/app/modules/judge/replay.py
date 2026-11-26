@@ -228,6 +228,7 @@ def setup_section5(
     recipe_version, pack_versions = setup_section5_bom(session, oracle, organization_id, ids, actor_id)
     price_list = setup_section5_price_list(session, oracle, organization_id, ids, actor_id)
     setup_section5_tax(session, oracle, organization_id, ids, actor_id)
+    setup_section5_planning(session, organization_id, ids, actor_id)
     return Section5(organization_id, ids, stock_units, supplier, customers, recipe_version, pack_versions, price_list)
 
 
@@ -285,6 +286,7 @@ def setup_section5_tax(
         "bank.stock_margin_pct": Decimal("25"),  # MP11: DEMO drawing-power margins
         "bank.debtors_margin_pct": Decimal("40"),
         "planning.attribution_days": Decimal("30"),  # MP12: yield losses this recent explain a shortage
+        "planning.batches_per_day": Decimal("2"),  # MP12: DEMO daily batch capacity
     }
     for key, value in settings.items():
         tax.put_setting(
@@ -295,6 +297,34 @@ def setup_section5_tax(
             value=value,
             effective_from=SETTINGS_FROM,
         )
+
+
+# MP12 (L3): DEMO planning settings per material, base units (g, mL, piece): reorder level, safety stock, minimum
+# order, lead time in days. Fictional; set your own.
+DEMO_ITEM_PLANNING: Final[dict[str, tuple[int, int, int, int]]] = {
+    "flour": (50_000, 20_000, 25_000, 3),
+    "cooking_oil": (20_000, 10_000, 15_000, 2),
+    "spice_mix": (2_000, 1_000, 1_000, 5),
+    "pouch_200g": (300, 200, 500, 7),
+    "carton_20": (20, 10, 50, 7),
+}
+
+
+def setup_section5_planning(
+    session: Session, organization_id: uuid.UUID, ids: dict[str, uuid.UUID], actor_id: uuid.UUID | None = None
+) -> None:
+    for code, (reorder, safety, minimum, lead) in DEMO_ITEM_PLANNING.items():
+        if code in ids:
+            planning.set_item_params(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                item_id=ids[code],
+                reorder_level_base=Decimal(reorder),
+                safety_stock_base=Decimal(safety),
+                min_order_base=Decimal(minimum),
+                lead_time_days=lead,
+            )
 
 
 def _cartons_per_batch(bom: dict[str, Any]) -> Decimal:

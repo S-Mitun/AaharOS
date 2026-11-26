@@ -73,7 +73,7 @@ def test_every_org_scoped_table_has_rls(owner_engine: Engine) -> None:
                 " GROUP BY c.relname, c.relrowsecurity"
             )
         ).all()
-    assert len(rows) == 63  # 61 from MP02 + auth_sessions, refresh_tokens (MP03)
+    assert len(rows) == 66  # 61 from MP02 + auth_sessions, refresh_tokens (MP03) + 3 planning tables (MP12)
     missing = [name for name, rls, policies in rows if not rls or policies == 0]
     assert missing == []
 

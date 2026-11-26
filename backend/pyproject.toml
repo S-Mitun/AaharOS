@@ -19,7 +19,8 @@ dependencies = [
     "argon2-cffi==23.1.0",
     "PyJWT==2.10.1",
     "segno==1.6.1",
-    "openpyxl==3.1.5",  # MP11: XLSX report downloads (pure Python)  # MP10: the DEMO UPI QR on invoices (pure Python, no system libraries)
+    "openpyxl==3.1.5",  # MP11: XLSX report downloads (pure Python)
+    "ortools==9.11.4210",  # MP12: the batch planner (CP-SAT)  # MP10: the DEMO UPI QR on invoices (pure Python, no system libraries)
 ]
 
 [project.optional-dependencies]

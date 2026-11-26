@@ -1552,6 +1552,23 @@ def order_line_ids(session: Session, order_id: uuid.UUID) -> dict[uuid.UUID, uui
     return {ln.item_id: ln.id for ln in _lines(session, {order_id})}
 
 
+def open_demand(session: Session) -> dict[uuid.UUID, tuple[int, Decimal]]:
+    """MP12: packets still to be supplied per finished good, and their value ex-tax: orders not yet decided
+    (requested) plus backorders of part-approved orders."""
+    out: dict[uuid.UUID, tuple[int, Decimal]] = {}
+    orders = session.execute(
+        select(SalesOrder.id, SalesOrder.status).where(SalesOrder.status.in_(domain.OPEN_STATUSES))
+    ).all()
+    status_of: dict[uuid.UUID, str] = {r[0]: r[1] for r in orders}
+    for ln in _lines(session, set(status_of)):
+        qty = ln.qty_requested if status_of[ln.order_id] == "SUBMITTED" else ln.qty_backordered
+        if qty <= 0:
+            continue
+        packets, value = out.get(ln.item_id, (0, Decimal(0)))
+        out[ln.item_id] = (packets + qty, value + qty * _price(ln))
+    return out
+
+
 def orders_to_bill(session: Session) -> list[dict[str, Any]]:
     """Approved orders with packets not yet invoiced (the 'Ready to invoice' list)."""
     orders = list(

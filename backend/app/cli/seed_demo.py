@@ -40,9 +40,11 @@ from app.modules.judge.replay import (
     post_section5_opening,
     setup_section5,
     setup_section5_bom,
+    setup_section5_planning,
     setup_section5_price_list,
     setup_section5_tax,
 )
+from app.modules.planning import service as planning
 from app.modules.recipe import service as recipes
 from app.modules.sales import service as sales
 from app.modules.tax import service as tax
@@ -188,12 +190,16 @@ def top_up_master_data(app_session: Session, org_id: uuid.UUID) -> list[str]:
         ("bank.stock_margin_pct", Decimal("25")),
         ("bank.debtors_margin_pct", Decimal("40")),
         ("planning.attribution_days", Decimal("30")),  # MP12
+        ("planning.batches_per_day", Decimal("2")),
     ):
         if effective_settings.value_on(app_session, key, date.today()) is None:
             tax.put_setting(
                 app_session, organization_id=org_id, actor_id=None, key=key, value=margin, effective_from=SETTINGS_FROM
             )
             added.append(f"DEMO {key}")
+    if not planning.item_params(app_session):  # MP12: DEMO reorder level, safety stock, minimum order, lead time
+        setup_section5_planning(app_session, org_id, ids)
+        added.append("DEMO item planning settings")
     for code, limit in CREDIT_LIMITS.items():  # MP09: only where no limit was ever set
         customer_id = sales.customer_id_by_code(app_session, code)
         if customer_id is not None and sales.credit_limit_of(app_session, customer_id) == 0:
