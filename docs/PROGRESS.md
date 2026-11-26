@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP14 done and the hosted demo prepared (Render + Supabase) / MP15 next (the user decides)
+## Status: MP14 done; hosted demo live at https://aaharos-demo.onrender.com / MP15 next (the user decides)
 
 
 ## Benchmark scoreboard: 26/26
@@ -868,9 +868,10 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-1. **Render (the user):** dashboard.render.com -> New -> Blueprint -> `S-Mitun/AaharOS`, branch `main` -> paste the
-   three values from `.env.supabase` -> Apply. Then verify the URL: home and tour signed out, a DEMO login, sign-up,
-   the scoreboard after about a minute (docs/deploy.md).
+1. **The hosted demo is live: https://aaharos-demo.onrender.com** (deployed by the user from the blueprint on
+   2026-11-26, commit 93661ec). Checked live: home and guided tour without a login, the scoreboard 26/26, a one-tap DEMO
+   Owner login landing on the Morning brief, and every MP13 / MP14 API answering in 0.1-1.2 s. Every push to `main`
+   redeploys it.
 2. Then MP15 (Tamil / English, accessibility, Judge Mode) only when the user says so: read MP15 in
    docs/MASTER_PACK.md, show the plan, wait for approval.
 

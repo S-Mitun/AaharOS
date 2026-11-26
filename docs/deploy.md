@@ -1,5 +1,7 @@
 # Hosted demo: Render (app) + Supabase (database)
 
+**Live: https://aaharos-demo.onrender.com** (Render service `aaharos-demo`, blueprint-managed, deploys `main`).
+
 One address serves everything: the API also serves the built web app (`AAHAR_WEB_DIST`), so judges open a single
 link. Free tiers only.
 

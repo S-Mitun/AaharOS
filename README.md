@@ -4,6 +4,10 @@
 
 **Every gram traced. Every rupee explained.**
 
+**Live demo: https://aaharos-demo.onrender.com** · open it and press **Start the guided tour** (no login needed).
+To try a role, **Sign in** and tap a DEMO login (shared password `change-me-demo`), or **Create your own factory**
+for a private copy. Free hosting: after a quiet spell the first visit takes about a minute to wake the server.
+
 Most billing apps record what was sold. AaharOS explains what was *made*, what it *cost*, where the profit *leaked*,
 and what to do *next*. Every number on every screen can be traced to the stock movement or document that produced it.
 
@@ -37,7 +41,7 @@ make integrity   # audit hash chain, law 1 per journal, balances rebuilt from th
 make e2e         # Playwright (official image, ~2 GB once) on a fresh scratch tenant: online, offline, duplicate, repeat-order time, stale price
 ```
 
-**Hosted demo:** one address on Render (see [docs/deploy.md](docs/deploy.md)): the guided tour works without a
+**Hosted demo:** https://aaharos-demo.onrender.com (Render + Supabase, see [docs/deploy.md](docs/deploy.md)): the guided tour works without a
 login, the sign-in page has one-tap DEMO logins (shared password `change-me-demo`), and **Create your own factory**
 gives you a private copy with the same starting data. Free tier: the first visit after a quiet spell takes about a
 minute to wake the server.
