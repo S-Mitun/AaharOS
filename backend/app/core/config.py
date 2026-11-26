@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5180"]
     # MP13 (T4): where the web app is served, for the batch-passport links printed in QR codes.
     public_base_url: str = "http://localhost:5180"
+    # Deployment: the built web app (apps/web/dist) served by the API itself, so the demo is one address.
+    web_dist: Path | None = None
+    # Deployment: visitors may create their own sandbox factory (POST /api/signup).
+    signups_open: bool = True
 
 
 DEMO_AUTH_SECRET = Settings.model_fields["auth_secret"].default

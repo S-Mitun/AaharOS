@@ -5,7 +5,9 @@ import { ApiError } from "../lib/api";
 import { useSession } from "../lib/sessionContext";
 import { SignOutButton } from "../shell/SignOutButton";
 
-/** The DEMO logins (make seed-demo). Passwords come from .env; the local default is documented in the README. */
+/** The DEMO logins (make seed-demo). Passwords come from .env; the shared default (also on the hosted demo) is
+ * DEMO_PASSWORD, which a tap fills in. */
+export const DEMO_PASSWORD = "change-me-demo";
 const DEMO_LOGINS = [
   {
     role: "Salesman A",
@@ -81,8 +83,9 @@ export function SignInPage() {
     <section className="signin">
       <h1>Sign in</h1>
       <p className="muted">
-        Pick a DEMO login to fill the email, then type the password. Locally the DEMO password is
-        the one in <code>.env</code> (default <code>change-me-demo</code>).
+        Tap a DEMO login: it fills the email and the shared DEMO password (
+        <code>{DEMO_PASSWORD}</code>), then press <strong>Sign in</strong>. Everyone shares this
+        DEMO factory. <Link to="/sign-up">Create your own factory</Link> to work on your own copy.
       </p>
       <ul className="demo-logins" aria-label="DEMO logins">
         {DEMO_LOGINS.map((d) => (
@@ -90,7 +93,10 @@ export function SignInPage() {
             <button
               type="button"
               className={`demo-login${email === d.email ? " picked" : ""}`}
-              onClick={() => setEmail(d.email)}
+              onClick={() => {
+                setEmail(d.email);
+                setPassword(DEMO_PASSWORD);
+              }}
             >
               <strong>{d.role}</strong>
               <span className="muted small">{d.does}</span>

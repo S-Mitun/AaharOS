@@ -8,3 +8,7 @@
 **/dist
 .env
 benchmark/results
+.env.*
+!.env.example
+.claude
+e2e/.tenant.json

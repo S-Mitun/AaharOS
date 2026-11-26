@@ -203,10 +203,18 @@ export function HomePage() {
             <span className="way-time">Your pace</span>
             <h3>Explore as any role</h3>
             <p>
-              Log in as a salesman, admin, production supervisor, owner or auditor. Each sees only
-              their own job.
+              Log in as a salesman, admin, production supervisor, owner or auditor of the shared
+              DEMO factory (one tap fills the login), or create your own factory to work on your own
+              copy. Each role sees only its own job.
             </p>
-            <StatusChip tone="todo">Demo logins in MP03</StatusChip>
+            <p className="actions-row">
+              <Link to="/sign-in" className="btn">
+                Use a DEMO login
+              </Link>
+              <Link to="/sign-up" className="btn">
+                Create your own factory
+              </Link>
+            </p>
           </article>
         </div>
       </section>

@@ -15,6 +15,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { BriefPage } from "./owner/BriefPage";
 import { PlannerPage } from "./owner/PlannerPage";
 import { SignInPage } from "./pages/SignInPage";
+import { SignUpPage } from "./pages/SignUpPage";
 import { FoodSafetyPage } from "./trace/FoodSafetyPage";
 import { FreshnessPage } from "./trace/FreshnessPage";
 import { PassportPage, ReorderPage } from "./trace/PassportPage";
@@ -104,6 +105,7 @@ export const appRoutes: RouteObject[] = [
       { path: "/guide/:stepId", element: <GuidePage /> },
       { path: "/leaks/:runId", element: <LeaksPage /> },
       { path: "/sign-in", element: <SignInPage /> },
+      { path: "/sign-up", element: <SignUpPage /> },
       {
         path: "/admin/invoices/:invoiceId",
         element: (

@@ -31,6 +31,7 @@ OPEN_ROUTES = PUBLIC_ROUTES | {
     ("GET", "/api/guide/expected"),
     ("GET", "/api/guide/scoreboard"),
     ("GET", "/api/public/passport/{token}"),
+    ("POST", "/api/signup"),  # deployment: a visitor creates their own sandbox factory (rate-limited per IP)
 }
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 LOGIN_ONLY = "<any logged-in role>"

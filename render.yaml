@@ -1,0 +1,27 @@
+# Render blueprint for the public AaharOS demo: one free web service built from the root Dockerfile.
+# The database is a free Supabase project (session pooler, IPv4). Secrets are entered in the Render dashboard
+# (sync: false) and never committed. See docs/deploy.md. The passport QR host comes from RENDER_EXTERNAL_URL.
+services:
+  - type: web
+    name: aaharos-demo
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: AAHAR_ENV
+        value: prod
+      - key: AAHAR_COOKIE_SECURE
+        value: "true"
+      - key: AAHAR_AUTH_SECRET
+        generateValue: true
+      - key: AAHAR_DATABASE_URL
+        sync: false
+      - key: AAHAR_MIGRATION_DATABASE_URL
+        sync: false
+      - key: AAHAR_APP_DB_PASSWORD
+        sync: false

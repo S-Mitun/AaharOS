@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_session, org_scope
-from app.core.errors import AuthenticationError, DomainError, PermissionDeniedError, RateLimitedError
+from app.core.errors import AuthenticationError, ConflictError, DomainError, PermissionDeniedError, RateLimitedError
 from app.modules.audit import service as audit
 from app.modules.identity.domain import (
     ACCESS_COOKIE,
@@ -490,7 +490,9 @@ def deactivate_member(session: Session, principal: Principal, user_id: uuid.UUID
 SCRATCH_ORG_KINDS = ("BENCHMARK", "SIM")
 
 
-def create_scratch_tenant(session: Session, *, kind: str, label: str, state_code: str = "33") -> uuid.UUID:
+def create_scratch_tenant(
+    session: Session, *, kind: str, label: str, state_code: str = "33", name: str | None = None
+) -> uuid.UUID:
     """A fresh BENCHMARK or SIM organization, scoped onto this session (ADR-0006: a new tenant per replay, no
     deletes). LIVE organizations are seeded by the owner only; the database refuses them for the app role too."""
     if kind not in SCRATCH_ORG_KINDS:
@@ -501,7 +503,7 @@ def create_scratch_tenant(session: Session, *, kind: str, label: str, state_code
         insert(Organization).values(
             id=org_id,
             code=f"{kind}-{label}-{org_id.hex[:8]}".upper(),
-            name=f"DEMO {kind.lower()} {label}",
+            name=name or f"DEMO {kind.lower()} {label}",
             kind=kind,
             state_code=state_code,
         )
@@ -516,6 +518,40 @@ def create_scratch_tenant(session: Session, *, kind: str, label: str, state_code
         after={"kind": kind, "label": label},
     )
     return org_id
+
+
+def create_first_owner(
+    session: Session, *, organization_id: uuid.UUID, email: str, display_name: str, password: str
+) -> uuid.UUID:
+    """Self sign-up (deployment): the first OWNER of a fresh sandbox organization. The caller commits."""
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise DomainError("weak_password", f"password must be at least {MIN_PASSWORD_LENGTH} characters")
+    user_id = uuid.uuid4()
+    try:
+        with session.begin_nested():
+            session.execute(
+                insert(User).values(
+                    id=user_id,
+                    email=email.strip(),
+                    display_name=display_name.strip(),
+                    password_hash=hash_password(password),
+                )
+            )
+            session.execute(
+                insert(Membership).values(organization_id=organization_id, user_id=user_id, role_code="OWNER")
+            )
+    except IntegrityError as exc:
+        raise ConflictError("email_taken", "an account with this email already exists; sign in instead") from exc
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=user_id,
+        action="user.signup",
+        entity_type="user",
+        entity_id=user_id,
+        after={"email": email.strip(), "display_name": display_name.strip(), "role": "OWNER"},
+    )
+    return user_id
 
 
 def assign_customer(
