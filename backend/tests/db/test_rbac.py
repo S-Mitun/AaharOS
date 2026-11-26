@@ -24,8 +24,14 @@ from app.modules.identity.domain import (
 from app.modules.identity.service import require, require_login
 from tests.db.conftest import Staff, login_client
 
-# Public on purpose: health check and the read-only benchmark guide for first-time visitors (judge module).
-OPEN_ROUTES = PUBLIC_ROUTES | {("GET", "/health"), ("GET", "/api/guide/expected"), ("GET", "/api/guide/scoreboard")}
+# Public on purpose: health check, the read-only benchmark guide for first-time visitors (judge module), and the
+# MP13 batch passport opened by scanning a pack (a signed token, pack-label facts only, rate-limited per IP).
+OPEN_ROUTES = PUBLIC_ROUTES | {
+    ("GET", "/health"),
+    ("GET", "/api/guide/expected"),
+    ("GET", "/api/guide/scoreboard"),
+    ("GET", "/api/public/passport/{token}"),
+}
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 LOGIN_ONLY = "<any logged-in role>"
 

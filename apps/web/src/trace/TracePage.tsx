@@ -10,6 +10,7 @@ import {
   type BatchBackward,
   type ForwardLot,
   type LotRow,
+  type PassportLabelData,
   type Recall,
   type SupplierBackward,
   type Trace,
@@ -135,6 +136,7 @@ export function TracePage() {
           )}
           <h3>Where it went</h3>
           <Forward lots={trace.forward} />
+          {trace.lot.kind !== "supplier_lot" && <PassportLabel lot={trace.lot} />}
 
           <h3>Recall simulator</h3>
           <p className="muted">
@@ -164,6 +166,45 @@ export function TracePage() {
         </>
       )}
     </section>
+  );
+}
+
+/** The batch passport label: the QR (from the server) that opens the public passport page. */
+function PassportLabel({ lot }: { lot: LotRow }) {
+  const [label, setLabel] = useState<PassportLabelData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setLabel(null);
+    apiGet<PassportLabelData>(`/api/trace/passport/${lot.lot_id}`)
+      .then(setLabel)
+      .catch((e) => setError(e instanceof ApiError ? e.message : "Could not make the label."));
+  }, [lot.lot_id]);
+  return (
+    <>
+      <h3>Batch passport</h3>
+      {error && <p className="muted">{error}</p>}
+      {label && (
+        <div className="passport-label" aria-label="Passport label">
+          <img
+            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(label.qr_svg)}`}
+            alt={`QR code for the passport of lot ${lot.lot_no}`}
+          />
+          <div>
+            <p>
+              <strong>{lot.item_name}</strong> · lot {lot.lot_no}
+              {lot.best_before && ` · best before ${lot.best_before}`}
+            </p>
+            <p className="muted small">
+              Scanning opens the public passport: product, lot, dates, net quantity and the FSSAI
+              number. No prices, no customers.
+            </p>
+            <a href={label.path} target="_blank" rel="noopener">
+              Open the passport
+            </a>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

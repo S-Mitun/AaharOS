@@ -138,6 +138,13 @@ function serve(who: unknown, failTrace = false) {
           ? json({ error: { code: "lot_not_found", message: "unknown lot" } }, 404)
           : json(TRACE);
       if (url.startsWith("/api/trace/recall/lot-b2")) return json(RECALL);
+      if (url === "/api/trace/passport/lot-b2")
+        return json({
+          token: "tok",
+          path: "/passport/tok",
+          url: "http://x/passport/tok",
+          qr_svg: "<svg></svg>",
+        });
       return json({ error: { code: "not_found", message: "no" } }, 404);
     }),
   );
@@ -165,6 +172,11 @@ describe("Trace and recall (MP13)", () => {
       "/admin/invoices/inv2",
     );
     expect(screen.getByText("120 packets")).toBeInTheDocument();
+    expect(await screen.findByAltText("QR code for the passport of lot B-002")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the passport" })).toHaveAttribute(
+      "href",
+      "/passport/tok",
+    );
   });
 
   it("simulates a recall with a DEMO banner and the reason in the request", async () => {

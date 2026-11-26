@@ -55,13 +55,21 @@ def _db_error(exc: DBAPIError) -> DomainError:
 
 DispatchFacts = Callable[[Session, uuid.UUID], dict[str, Any]]  # invoice -> {"packets": {item: n}, "lots": [...]}
 AllocatedProvider = Callable[[Session, uuid.UUID], Decimal]  # invoice -> rupees allocated from payments
+# MP13 (T4): (customer, dispatched lots) -> [{"lot_no", "url"}], the batch-passport links printed on the invoice
+PassportProvider = Callable[[Session, uuid.UUID, list[dict[str, Any]]], list[dict[str, str]]]
 _dispatch_facts: DispatchFacts | None = None
 _allocated: AllocatedProvider | None = None
+_passports: PassportProvider | None = None
 
 
 def register_dispatch_facts(provider: DispatchFacts | None) -> None:
     global _dispatch_facts
     _dispatch_facts = provider
+
+
+def register_passport_provider(provider: PassportProvider | None) -> None:
+    global _passports
+    _passports = provider
 
 
 def register_allocated_provider(provider: AllocatedProvider | None) -> None:
@@ -570,6 +578,7 @@ def invoice_view(session: Session, invoice_id: uuid.UUID) -> dict[str, Any]:
         "total": str(inv.total),
         "amount_in_words": tax_domain.amount_in_words(inv.total),
         "lots": dispatched["lots"],
+        "passports": [] if _passports is None else _passports(session, inv.customer_id, dispatched["lots"]),
         "paid": str(paid),
         "credited": str(credited),
         "outstanding": str(outstanding),

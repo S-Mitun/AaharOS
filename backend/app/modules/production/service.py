@@ -1518,6 +1518,7 @@ def trace_runs(session: Session, run_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID
                         "lot_id": str(pl.lot_id),
                         "lot_no": lot_nos[pl.lot_id],
                         "pack_code": versions.get(str(pl.pack_spec_version_id), {}).get("code"),
+                        "net_g": versions.get(str(pl.pack_spec_version_id), {}).get("net_g"),
                         "good_units": pl.good_units,
                     }
                     for pl in lines

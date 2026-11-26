@@ -16,6 +16,7 @@ import { BriefPage } from "./owner/BriefPage";
 import { PlannerPage } from "./owner/PlannerPage";
 import { SignInPage } from "./pages/SignInPage";
 import { FoodSafetyPage } from "./trace/FoodSafetyPage";
+import { PassportPage, ReorderPage } from "./trace/PassportPage";
 import { TracePage } from "./trace/TracePage";
 import { MyOrdersPage } from "./sales/MyOrdersPage";
 import { OrderDetailPage } from "./sales/OrderDetailPage";
@@ -87,6 +88,8 @@ function screenRoutes(): RouteObject[] {
 
 /** One app, one route table: the registry's screens plus the pages they lead to. */
 export const appRoutes: RouteObject[] = [
+  // MP13 (T4): the public batch passport, outside the shell (no sidebar, no login)
+  { path: "/passport/:token", element: <PassportPage /> },
   {
     element: <AppShell />,
     children: [
@@ -120,6 +123,7 @@ export const appRoutes: RouteObject[] = [
           { path: "orders", element: <MyOrdersPage /> },
           { path: "orders/:orderId", element: <OrderDetailPage /> },
           { path: "summary", element: <SummaryPage /> },
+          { path: "reorder/:token", element: <ReorderPage /> },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

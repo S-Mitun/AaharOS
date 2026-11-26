@@ -512,6 +512,20 @@ def units_per_carton(session: Session, fg_item_ids: Sequence[uuid.UUID]) -> dict
     return out
 
 
+def active_pack_net_g(session: Session, fg_item_id: uuid.UUID) -> Decimal:
+    """Net grams of a finished good's ACTIVE pack spec (MP13: the passport of an opening-stock lot)."""
+    found = session.execute(
+        select(PackSpecVersion.net_g)
+        .join(PackSpec, PackSpec.id == PackSpecVersion.pack_spec_id)
+        .where(PackSpec.fg_item_id == fg_item_id, PackSpecVersion.status == domain.ACTIVE)
+        .order_by(PackSpec.code)
+        .limit(1)
+    ).scalar_one_or_none()
+    if found is None:
+        raise NotFoundError("no_active_version", "this finished good has no ACTIVE pack spec")
+    return Decimal(found)
+
+
 def pack_spec_versions_for(session: Session, fg_item_id: uuid.UUID) -> list[uuid.UUID]:
     """Every pack spec version (any status) that packs this finished good (MP09: which runs will make it)."""
     return list(

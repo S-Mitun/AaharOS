@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     oracle_path: Path = _REPO_ROOT / "benchmark" / "expected_results.yaml"
     benchmark_results_path: Path = _REPO_ROOT / "benchmark" / "results" / "latest.json"
     cors_origins: list[str] = ["http://localhost:5180"]
+    # MP13 (T4): where the web app is served, for the batch-passport links printed in QR codes.
+    public_base_url: str = "http://localhost:5180"
 
 
 DEMO_AUTH_SECRET = Settings.model_fields["auth_secret"].default

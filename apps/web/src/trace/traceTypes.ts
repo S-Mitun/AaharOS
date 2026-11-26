@@ -170,3 +170,10 @@ export interface FillWeights {
   }[];
   note: string;
 }
+
+export interface PassportLabelData {
+  token: string;
+  path: string;
+  url: string;
+  qr_svg: string;
+}
