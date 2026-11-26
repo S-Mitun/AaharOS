@@ -30,8 +30,21 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg}"],
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        // Pages come from the network while online, so the server's current headers (its CSP) always apply; the cached
+        // shell is only the offline fallback. (Serving the precached page first kept a stale CSP after a settings change.)
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) =>
+              request.mode === "navigate" && !url.pathname.startsWith("/api/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "pages",
+              networkTimeoutSeconds: 5,
+              precacheFallback: { fallbackURL: "/index.html" },
+            },
+          },
+        ],
       },
       devOptions: { enabled: false },
     }),
