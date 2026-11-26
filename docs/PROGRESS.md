@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP17 done (branch feat/mp13-traceability) / MP18 next. Deploy only after MP18-MP19 (the user)
+## Status: MP18 done (branch feat/mp13-traceability) / MP19 next, then deploy (the user)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,14 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP18 (README, design note, demo script, impact)
+- [README](../README.md) rewritten: positioning, the tour-first flow, 4-command local run, logins per role, the
+  26-row benchmark table (real output), cost method and overhead rule, assumptions A1-A6, features by NIT tier with
+  status, test results, stack, known gaps. [design-note.md](design-note.md) (data model, ledger and BOM consumption,
+  valuation and costing, audit and reversal, the four laws), [demo-script.md](demo-script.md) (under 8 minutes, NIT's
+  order), [impact.md](impact.md) (pilot costs, ROI formulas tied to what the app measures, funding pathways to
+  verify).
 
 ## Done in MP17 (hardening, reliability, performance)
 - Security headers, a CSP for the web app, a same-origin check on every write (403 `cross_site_request`),

@@ -4,136 +4,114 @@
 
 **Every gram traced. Every rupee explained.**
 
-**Live demo: https://aaharos-demo.onrender.com** · open it and press **Start the guided tour** (no login needed).
-To try a role, **Sign in** and tap a DEMO login (shared password `change-me-demo`), or **Create your own factory**
-for a private copy. Free hosting: after a quiet spell the first visit takes about a minute to wake the server.
-
 Most billing apps record what was sold. AaharOS explains what was *made*, what it *cost*, where the profit *leaked*,
-and what to do *next*. Every number on every screen can be traced to the stock movement or document that produced it.
+and what to do *next*, for a small South Indian snack factory. Every number on every screen can be traced, with ⓘ, to
+the stock movement or document that produced it. Built for the NIT Tiruchirappalli Centre for Digital Infrastructure
+internship task. All companies, people, GSTINs and licence numbers are fictional (**DEMO**).
 
-An order-to-audit system for a small South Indian snack factory, built for the NIT Tiruchirappalli
-Centre for Digital Infrastructure internship task. All data is fictional (**DEMO**).
+**Live demo:** https://aaharos-demo.onrender.com (one address: the guided tour, the shared DEMO factory and your own
+factory). Free hosting: after a quiet spell the first visit takes about a minute to wake the server.
 
-> **Status: MP05 (valuation and purchase receipts).** Benchmark scoreboard **5/26** green: flour 120 kg, oil
-> 19.5 L, pouches 306, spice 3.8 kg / cartons 21, and flour WAC ₹43.125/kg after the purchase, replayed through the
-> real services. The rest are defined and marked "not built yet". Working today:
-> - the schema and its guards (MP02)
-> - logins per role and the hash-chained audit (MP03)
-> - the stock ledger and its read-only API (MP04)
-> - weighted-average valuation, purchase receipts and the purchase register (MP05)
-> - the DEMO factory's master data and opening stock (`make seed-demo`)
-> - the Start-here page and the guided tour
->
-> Business features arrive MP by MP (see `docs/PROGRESS.md`).
+## How to use it (the guided tour comes first)
+1. Open the site → **Start the guided tour**. Twelve short steps in NIT's order, each saying who does it, where to
+   click, what to type and the number you should see. **Take me there** opens the screen; tap a DEMO login on the
+   sign-in page (shared password `change-me-demo`) to act as that role.
+2. When every step has been opened, **Finish the tour** offers to **Create your own factory** (a private copy with
+   NIT's starting stock, recipe and prices; you are its Owner) or **Sign in to my account**. Own accounts open only
+   after the tour.
+3. **Restart tour** is in the top bar on every page, any number of times. **Judge Mode** shows the 26-row scoreboard
+   and lets the DEMO admin or owner replay NIT's nine steps on a fresh benchmark factory. **தமிழ்** switches the
+   app's frame to Tamil (needs fluent review).
 
-## Try it
-
-Needs Docker and `make` (Windows: `winget install ezwinports.make`).
-
-```bash
-make up          # postgres (:5442) + backend (:8180) + frontend (:5180)
-make migrate     # create the schema
-make seed-demo   # DEMO factory, one login per role (passwords from .env), master data + opening stock
-make seed-benchmark  # a fresh BENCHMARK tenant with NIT section 5 master data and opening stock
-make benchmark   # 26-row scoreboard against benchmark/expected_results.yaml
-make test        # backend tests (unit + PostgreSQL)
-make integrity   # audit hash chain, law 1 per journal, balances rebuilt from the ledger (laws 2-4 arrive in MP11)
-make e2e         # Playwright (official image, ~2 GB once) on a fresh scratch tenant: online, offline, duplicate, repeat-order time, stale price
+## Run it locally (Docker; 4 commands)
+Needs Docker and `make` (Windows: `winget install ezwinports.make`). No `.env` is needed for a local run (DEMO
+defaults); copy `.env.example` to `.env` to change passwords.
 ```
+make up          # postgres :5442, backend :8180 (/docs), frontend :5180
+make migrate     # the schema and its guards
+make seed-demo   # the DEMO factory: six logins, master data, opening stock, a short history, transport set-up
+make benchmark   # NIT's nine steps replayed on a fresh benchmark factory: the 26-row scoreboard
+```
+Then open http://localhost:5180. More: `make test` (backend), `make web-test`, `make e2e` (Playwright),
+`make integrity` (the four conservation laws), `make sim` / `make ml-eval` (synthetic analytics), `make backup` /
+`make restore-check`.
 
-**Hosted demo:** https://aaharos-demo.onrender.com (Render + Supabase, see [docs/deploy.md](docs/deploy.md)): the guided tour works without a
-login, the sign-in page has one-tap DEMO logins (shared password `change-me-demo`), and **Create your own factory**
-gives you a private copy with the same starting data. Free tier: the first visit after a quiet spell takes about a
-minute to wake the server.
-
-Then open http://localhost:5180 (the frontend; the backend API is http://localhost:8180, Swagger at `/docs`). The
-**Start here** page explains the system and the **Guided tour** walks you through NIT's nine benchmark steps: who does
-each step, where to click, what to type, and the number you should see. A **Guide** button on every page brings you
-back to the right step. The sidebar lists every screen by role; a screen not built yet says which stage builds it.
-
-**Try the salesman app in one minute:** Sign in → tap **Salesman A** → password `change-me-demo` (local default) →
-**Today** → DEMO Retailer A → **New order** → type 150 → **Save order**. The order opens as **Received by factory**
-with its number (SO/26-27/…) and ₹7,500.00 ex-tax. Turn the network off (browser dev tools → Offline) and save
-another: it says **Saved on phone**, then sends itself when you go back online.
-
-**Then decide as the factory:** Sign out → **Factory admin** → you land on the **Order inbox**. Open the order: the
-card shows available to promise (on hand − reserved), the shortage, the credit check, and one button per option:
-approve all, **send what is available now and backorder the rest**, wait for the next batch, or reject. Stock is held
-the moment you approve, and can never go below zero.
-
-**Then bill and collect:** Invoices and dispatch → **Create invoice** (CGST + SGST inside Tamil Nadu, IGST outside) →
-**Open printable invoice** to save it as PDF → **Preview the dispatch** (oldest batch first, with the e-way bill
-verdict) → **Record dispatch**. Collections → the customer → **Record payment**: it is applied to the oldest unpaid
-invoice, and the rest stays owed.
-
-**Then check the month:** Reports (any admin, owner or auditor) → pick a report and dates → **Show**, or download CSV,
-Excel or Print / PDF. **GST** has the month's GSTR-1 tables and GSTR-3B 3.1 and a GSTR-1 file for your CA (for review,
-never filed). **Close month** lists what is still open and runs the four conservation laws; closing locks the month
-against new postings. **Evidence** downloads the whole month in one ZIP.
-
-**Then start the owner's day:** Sign in as **Owner** → you land on the **Morning brief**: five cards (today's orders,
-available vs pending, where profit leaks, material runway, money to collect) and **Today's 3 actions**, biggest rupee
-impact first; tap ⓘ on any amount to see how it is worked out. **Production → Batch planner** shows how many batches
-each material allows (the ones that run out first are marked), what to make next and what to buy. Its buttons create
-a **draft** batch or a **draft** purchase order only; nothing is posted until a person does it.
-
-**Then plan the deliveries:** Admin → **Trips and cost-to-serve** → pick a dispatch date: the planner puts the
-day's dispatch notes on vehicles within their carton capacity (shortest route; straight-line distance × a road
-factor, no map service), with the trip cost, each stop's share, an estimated CO₂ and a backhaul suggestion when a
-supplier is on the way → **Create these trips** → record the actual km and tolls when the vehicle is back. Below,
-**cost-to-serve** per customer and the **Deal Desk floor**: the lowest price that still covers the product and the
-cost of serving that customer.
-
-**Then trace a batch:** `make seed-demo` adds a short DEMO history (supplier lots, batches B-001 to B-003, orders from
-three retailers). **Production → Trace and recall** → pick **B-002**: where it came from (recipe and pack versions,
-operator, each material issue and the supplier lots it *may contain*) and where every packet went (dispatch, invoice,
-customer, still in store). Pick the flour lot **DEMO-FL-02** → **Simulate recall**: the batches it may be in, every
-retailer holding those packets with their invoices, and a printable draft notice marked DEMO (nothing is sent). The
-**Batch passport** QR opens a public page with only what is printed on the pack; the QR on a printed invoice also lets
-the retailer **Ask for more**, which hands their salesman a link to a pre-filled order. **Production → Oil and fill
-weights** shows frying oil per day against the RUCO threshold, oil to discard, and the giveaway in rupees. In the
-salesman app, **Freshness** estimates what may still be on each shelf and flags packets near their best-before.
-
-## Test logins
-
-`make seed-demo` creates the DEMO organization `DEMO-FACTORY` with one login per role. Every password is
-`DEMO_PASSWORD_<ROLE>` from your `.env`; if you have not set one, it is the local-only default `change-me-demo`.
-Set your own before exposing the app anywhere.
-
-| Role | Email | What it can do |
+| Login (password `change-me-demo` locally) | Lands on | Can do |
 |---|---|---|
-| Salesman | `salesman.a@aaharos-demo.invalid`, `salesman.b@aaharos-demo.invalid` | Take orders; sees only assigned customers and own orders |
-| Admin | `admin@aaharos-demo.invalid` | Approve orders, invoice, dispatch, payments, price lists, month close |
-| Production | `production@aaharos-demo.invalid` | Receipts, recipes, runs, run costs, draft batches and purchase orders, trace and recall, oil and fill weights |
-| Auditor | `auditor@aaharos-demo.invalid` | Read-only: every mutation returns 403 |
-| Owner | `owner@aaharos-demo.invalid` | Everything, including staff and reopening a closed month |
+| Salesman A / B `salesman.a@aaharos-demo.invalid` | Today | Orders on the phone, offline too; own customers only |
+| Factory admin `admin@aaharos-demo.invalid` | Order inbox | Approve, invoice, dispatch, payments, trips, month close |
+| Production `production@aaharos-demo.invalid` | Batch planner | Purchases, batch card, run costs, trace, oil and fill weights |
+| Owner `owner@aaharos-demo.invalid` | Morning brief | Everything, including staff and reopening a month |
+| Auditor `auditor@aaharos-demo.invalid` | Where profit leaks | Read everything; every write returns 403 |
 
-The full permission matrix and the session design are in [docs/security.md](docs/security.md). The API is live from
-MP03 (`POST /api/auth/login`); the salesman app is live from MP08 (a salesman lands on **Today**) and the order inbox
-from MP09 (an admin lands on it); the other role screens arrive with their MPs. The sign-in page has one-tap buttons that fill each DEMO email.
+## Benchmark: NIT Section 5 (real output of `make benchmark`, 2026-11-26)
+**26 / 26 green**, oracle integrity 10 / 10. The oracle is `benchmark/expected_results.yaml` (inputs and NIT's
+expected values are guarded by a checksum test).
+
+| # | Check | Result | # | Check | Result |
+|---|---|---|---|---|---|
+| 1 | Flour closing 120 kg | green | 14 | Distributor B IGST ₹300 (₹220 on 88) | green |
+| 2 | Oil closing 19.5 L | green | 15 | Spice 3.8 kg, cartons 21 | green |
+| 3 | Pouches closing 306 | green | 16 | Flour WAC ₹43.125/kg | green |
+| 4 | Finished packets after the run 238 | green | 17 | Run cost ₹5,855.00 | green |
+| 5 | Finished packets after dispatch A 88 | green | 18 | Cost per good packet ₹31.14 | green |
+| 6 | Yield variance −6.00% (flagged) | green | 19 | Waterfall ₹431.20 unfavourable | green |
+| 7 | Oil variance +5.00% (flagged) | green | 20 | Pouch flexible variance +3.19% | green |
+| 8 | Invoice A taxable ₹7,500.00 | green | 21 | FEFO: 50 opening + 100 of B-001 | green |
+| 9 | CGST ₹187.50 | green | 22 | Value conservation (sold + on hand) | green |
+| 10 | SGST ₹187.50 | green | 23 | 12 of B's 32 short come from yield loss | green |
+| 11 | Invoice A total ₹7,875.00 | green | 24 | Material runway: 1 full batch | green |
+| 12 | Retailer A outstanding ₹3,875.00 | green | 25 | B's e-way bill not required | green |
+| 13 | B: 120 asked, 88 available, 32 short | green | 26 | Integrity: four laws, audit chain, rebuild | green |
+
+**Cost method:** weighted average cost (WAC) posts; FIFO (₹30.90/packet) and last price (₹31.54) are shown beside it,
+never posted. Cost per packet divides by good packets (188), not the expected 200. **Overheads** are not absorbed
+into lots (direct cost only; ADR-0014 F7). **Assumptions A1-A6** (opening finished packets at standard ₹28.85, the
+standard card at opening rates, FEFO lots, labour and gas direct to the run, the carton as packing and packaging,
+both customers GST-registered): [docs/assumptions.md](docs/assumptions.md).
+
+## What NIT asked for, and what is built
+| Tier | Feature | Status |
+|---|---|---|
+| Must | Salesman order (mobile, offline outbox, repeat order) | built (MP08) |
+| Must | Approval against available-to-promise, part-approve and backorder | built (MP09) |
+| Must | GST invoice (CGST / SGST or IGST), printable, FEFO dispatch, payments and outstanding | built (MP10) |
+| Must | Purchases at WAC, BOM issue, production run, finished goods, variances | built (MP05-MP06, MP15 screens) |
+| Must | Run cost, cost per packet, where profit leaks (waterfall) | built (MP07) |
+| Must | Reports, GST summary and GSTR-1-shaped export, month close, audit trail | built (MP11, MP03) |
+| Should | Batch planner (CP-SAT), material runway, shortage attribution, Morning brief | built (MP12) |
+| Should | Trace a lot, recall simulator, batch passport QR, freshness radar, oil and fill weights | built (MP13) |
+| Stretch | Trips (CVRP), cost-to-serve, Deal Desk floor, CO₂ estimate | built, light (MP14) |
+| Stretch | Tamil / English, accessibility checks, Judge Mode | built (MP15; Tamil covers the app's frame) |
+| Stretch | Synthetic factory simulator and analytics vs baselines | built (MP16; synthetic only, no UI) |
+| Mock | E-way bill and IRP payloads, UPI QR on invoices | mock adapters, labelled DEMO; nothing is sent |
+
+## Tests (real results, 2026-11-26)
+| Suite | Command | Result |
+|---|---|---|
+| Backend unit + PostgreSQL | `make test` | 964 passed |
+| Web | `make web-test` | 93 passed |
+| Browser (Playwright: salesman, journey, production, axe accessibility) | `make e2e` | 11 passed |
+| Benchmark | `make benchmark` | 26/26, oracle 10/10 |
+| Conservation laws | `make integrity` | OK |
+| Analytics (synthetic, planted truths) | `make ml-eval` | 5 passed; report in [analytics/REPORT.md](analytics/REPORT.md) |
 
 ## Stack (and why)
 PostgreSQL gives exact NUMERIC arithmetic, real transactions and constraint triggers, so the ledger's correctness is
-enforced by the database, not only by app code. FastAPI with Pydantic and Python `Decimal` keep the money and tax logic
-typed and testable, and Python gives direct access to OR-Tools and the analytics stack. A React PWA covers phone,
-tablet and desktop from one codebase and supports offline order capture with no app-store dependency.
+enforced by the database, not only by app code. FastAPI with Pydantic and Python `Decimal` keep money and tax logic
+typed and testable, and Python gives direct access to OR-Tools for the planner and trips. A React PWA covers phone,
+tablet and desktop from one codebase and supports offline order capture without an app store.
 
-## Repository map
-| Path | What |
-|---|---|
-| `apps/web` | React + TypeScript PWA, one app for every role: Start here, guided tour, salesman app (MP08), Where profit leaks, trace and recall (MP13) |
-| `e2e` | Playwright scenarios (`make e2e`) |
-| `backend/app` | FastAPI modular monolith: `core/` kernel + 21 modules in 7 layers |
-| `benchmark/` | NIT oracle, 26 assertions, oracle-integrity checks, scoreboard runner |
-| `analytics/` | Simulator and analytics (MP16), read-only |
-| `docs/` | Brief, master pack, architecture, ADRs, assumptions, traceability, progress |
+## Known gaps (honest)
+Real GST filing, IRP and e-way bill calls are mocks; HSN, rates, GSTIN, FSSAI, RUCO, TPC and Legal Metrology figures
+are DEMO settings to verify with a chartered accountant and the regulators. Tamil covers the frame of the app, not the
+screen bodies. Analytics run on synthetic data only and have no screen. The supplier-lot recall can over-name batches
+(conservative by design). Trips use straight-line distance × a road factor. Starlette 0.41 stays until a FastAPI
+upgrade is tested. Free hosting sleeps when idle. Full list: [docs/PROGRESS.md](docs/PROGRESS.md#known-gaps--risks).
 
 ## Documentation
-- [Architecture and pipelines](docs/architecture/overview.md)
-- [Requirements traceability](docs/requirements-traceability.md)
-- [Assumptions](docs/assumptions.md)
-- [Decisions (ADRs)](docs/adr/)
-- [Security: roles, permissions, sessions, audit](docs/security.md)
-- [Progress and next step](docs/PROGRESS.md)
-
-Benchmark numbers, demo logins, design note and known gaps are added as they are built (MP03–MP18).
+- [Design note (2 pages)](docs/design-note.md) · [Demo script (8 minutes)](docs/demo-script.md) ·
+  [Impact](docs/impact.md) · [Judge readiness](docs/judge-readiness.md)
+- [Architecture](docs/architecture/overview.md) · [Decisions (ADRs 0000-0022)](docs/adr/) ·
+  [Assumptions](docs/assumptions.md) · [Security](docs/security.md) · [Deploy](docs/deploy.md) ·
+  [Requirements traceability](docs/requirements-traceability.md) · [Progress](docs/PROGRESS.md)
