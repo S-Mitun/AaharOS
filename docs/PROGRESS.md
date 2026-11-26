@@ -784,10 +784,9 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-Run MP13 (traceability, freshness, food-safety records) in a fresh session: read the MP13 section of
-docs/MASTER_PACK.md, show the plan and wait for approval. Keep committing one module at a time (the user's standing
-request since MP11). The 7-day schedule marks MP13 as "light" (day 6, with MP15 Judge Mode and MP17 hosting): agree the
-scope first.
+Build MP13 from the **approved plan below** (approved by the user on 2026-11-26 as recommended, all five modules, the
+radar included). Commit one module at a time (the user's standing request since MP11). Stop after MP13; do not start
+MP14 or MP15.
 
 Before starting:
 - Branch `feat/mp13-traceability` from `feat/mp12-planning`.
@@ -795,12 +794,61 @@ Before starting:
   http://localhost:8180 (`/docs`). After a dependency change rebuild the backend image
   (`docker compose build backend && docker compose up -d backend`).
 - Everything runs in Docker; never two pytest runs at once; host Python is cp1252 / CRLF; long heredocs break the Bash
-  tool, so write scripts with the editor tools.
-- MP13 inherits: FG lots with best-before dates and FEFO dispatch (MP10), frozen run snapshots (MP06), supplier lots
-  recorded on receipts (MP05, D4), the order card and the Owner Morning Brief (a freshness card would replace one of
-  the five, not add a sixth).
-- Supabase: the user has a Supabase account connected; it fits the hosted demo (MP17) as managed PostgreSQL. Nothing
-  was created there.
+  tool, so write scripts with the editor tools. Benchmark: `MSYS_NO_PATHCONV=1 docker compose run --rm -T backend
+  python /workspace/benchmark/runner.py` (must stay 26/26).
+- Supabase: the user has a Supabase account connected; it fits the hosted demo (MP17). Nothing was created there.
+
+### The MP13 plan as approved (to build)
+Facts found while planning: supplier lot numbers are on receipt lines and in `lots` (source `purchase_receipt`), FG
+lots carry best-before, dispatch lines carry `lot_id` (FEFO), runs carry snapshots and `operator_id`, and
+`oil_sessions` / `fill_weight_samples` are written at batch completion (MP06). The DEMO factory has no runs, receipts or
+dispatches yet; the NIT benchmark tenant has B-001 and 2 dispatches but no supplier lots, oil or fill samples. No
+benchmark row belongs to MP13.
+
+- **T1. Trace a lot.** From an FG lot, backward: the batch, its frozen recipe and pack versions, the operator, the
+  materials issued (amount, date), and the supplier lots each issue may contain (T2); opening stock shows as "opening
+  stock, no supplier lot recorded". Forward: every dispatch of the lot (dispatch no, date, invoice no, customer,
+  packets) and what is still on hand. Every figure from posted rows, each linking to its document.
+- **T2. Supplier lot → batches.** Raw stock is lot-less (ADR-0012 D4), so a supplier lot (accepted qty > 0) "may be
+  in" every issue of that material after its receipt, until RAW_STORE stock of that material first falls to zero (then
+  it is certainly used up). Conservative: a recall may name an extra batch, never miss one. The UI says "may contain".
+  Rejected: lot-tracked raw stock (changes ledger posting rules late); FIFO guessing (misses batches when the floor
+  does not use oldest first).
+- **T3. Recall simulator.** Pick a supplier lot or an FG lot → affected batches and FG lots (made, dispatched, on
+  hand), customers with packets and invoice numbers, and a printable draft recall notice marked "DEMO simulation,
+  nothing sent". Read-only; nothing stored, nothing sent.
+- **T4. Batch passport + QR.** Public page `/passport/{token}` (no login): product, lot, made on, best before, net
+  quantity, the DEMO FSSAI number (org profile setting), factory name, DEMO banner; no prices, no customers. Token =
+  org + lot (+ optional customer) signed with HMAC-SHA256 under a key derived from `AAHAR_AUTH_SECRET`; no table.
+  Public route `GET /api/public/passport/{token}` with a per-IP rate limit; forged tokens refused. QR as SVG from the
+  server with `segno==1.6.1`; a printable label on the trace screen. Scan to reorder: the QR on an invoice carries the
+  customer; "Ask for more" opens the phone's share sheet (WhatsApp) with a link to the salesman app's pre-filled order
+  for that customer, which the salesman opens signed in and submits. No unauthenticated write into orders.
+- **T5. Freshness radar.** Per customer × FG lot: dispatched − estimated sold. Selling rate from that customer's order
+  rhythm for the item over the last 90 days (packets ordered before their latest order ÷ days from first to latest
+  order); oldest best-before counted as sold first. Uncertainty: a low–high range from the slowest and fastest gaps
+  between orders; fewer than two orders → "not enough history", the whole delivery possibly on the shelf. Flag when
+  days to best-before ≤ `freshness.alert_days` (DEMO 15) and the high estimate > 0. Shown as a chip on the salesman's
+  Today list, a Freshness tab, and one more action candidate on the Morning brief ("Visit X: up to N packets expire in D
+  days", ₹ = packets × price). The brief keeps five cards and three actions.
+- **T6. Oil log (RUCO) and fill weights** (read what batch completion records; no new write routes). Oil: litres per
+  day (fresh + top-ups) vs `fssai.ruco_threshold_l_per_day` (DEMO 50) → "daily records required" above it; TPC above
+  `fssai.tpc_limit_pct` (DEMO 25) flagged "discard". Fill: giveaway ₹ = grams over declared per packet × good packets
+  × material cost per gram (Explained); short-fill alert against a tolerance table in settings (DEMO 200 g → 9 g,
+  500 g → 15 g, marked "verify with a Legal Metrology officer").
+- **T7. DEMO history.** `make seed-demo` adds once, through the real services and dated over the past 3 weeks: 2 flour
+  receipts and 1 spice receipt with supplier lots, 3 completed batches with oil sessions and fill samples, orders from
+  3 retailers at different rhythms, invoices and FEFO dispatches. Real stock movements in the DEMO factory only
+  (`make integrity` covers them); BENCHMARK tenants and the oracle untouched.
+- **T8. Screens.** "Trace and recall" (lot search, backward / forward, recall simulator, passport label), "Oil and
+  fill weights", the public passport page, the salesman freshness chip, one tour step updated. Views need
+  `report.read`. No migration expected (settings in the effective-dated store; tokens signed, not stored). ADR-0020.
+
+Commits, one per module: (1) trace + recall (T1–T3) with its screen, tested on B-001 and on a tenant with supplier
+lots, including that the "may contain" window never misses a batch; (2) DEMO history + oil log + fill weights (T6,
+T7) with its screen; (3) passport, QR, reorder link (T4), with tests that the public route leaks nothing else and
+refuses forged tokens; (4) freshness radar (T5): chip, tab, brief action; (5) full checks (backend, web, Playwright,
+integrity, benchmark 26/26, float grep), ADR-0020, PROGRESS, README.
 
 ### Record: the MP12 plan as approved (implemented above)
 Approved by the user on 2026-11-26 as recommended (L1–L8, one commit per module); see ADR-0019.
