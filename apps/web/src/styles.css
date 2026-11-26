@@ -1128,3 +1128,25 @@ main {
 .fresh-list .customer-card {
   align-items: flex-start;
 }
+
+/* Admin → Trips and cost-to-serve (MP14) */
+.trip-stops {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.4rem;
+}
+
+.actual-form {
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.actual-form input {
+  width: 6rem;
+  min-height: 36px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}

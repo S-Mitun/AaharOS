@@ -45,6 +45,7 @@ from app.modules.judge.replay import (
     setup_section5_planning,
     setup_section5_price_list,
     setup_section5_tax,
+    setup_section5_transport,
 )
 from app.modules.planning import service as planning
 from app.modules.recipe import service as recipes
@@ -234,6 +235,9 @@ def main() -> int:
         cast = {role: user_ids[email] for role, email in demo_history.USER_EMAILS.items()}
         history = demo_history.seed_history(app_session, org_id, cast)  # MP13 (T7), once
         app_session.commit()
+        transport_added = setup_section5_transport(app_session, org_id)  # MP14: settings, vehicles, locations
+        trips = demo_history.seed_trips(app_session, org_id, cast)  # MP14: the history's trips, once
+        app_session.commit()
     print(f"DEMO organization {ORG_CODE}: {len(seeded)} logins (passwords from .env, DEMO_PASSWORD_<ROLE>)")
     for email, role in seeded:
         print(f"  {role:<11} {email}")
@@ -244,6 +248,9 @@ def main() -> int:
         print("  master data topped up: " + "; ".join(topped_up))
     else:
         print("  master data already present: left unchanged")
+    if transport_added or trips:
+        print(f"  transport (MP14): {len(transport_added)} settings/vehicles/locations added")
+        print(f"  trips: {', '.join(trips) or '-'}")
     if history:
         print("  DEMO history (MP13): " + "; ".join(history))
     else:

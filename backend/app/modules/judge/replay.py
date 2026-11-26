@@ -51,6 +51,7 @@ from app.modules.reports import close
 from app.modules.sales import service as sales
 from app.modules.sales.domain import OrderLineIn
 from app.modules.tax import service as tax
+from app.modules.transport import service as transport
 from app.modules.uom.domain import BASE_UNIT, from_base, to_base, unit
 from app.modules.valuation import service as valuation
 from app.modules.valuation.service import OpeningLine
@@ -358,6 +359,84 @@ def setup_section5_food_safety(
                 effective_from=SETTINGS_FROM,
             )
             added.append(key)
+    return added
+
+
+# MP14 (ADR-0021): DEMO transport settings, vehicles and town-centre locations (public coordinates, no addresses).
+DEMO_TRANSPORT: Final[dict[str, str]] = {
+    "transport.depot_latitude": "10.790500",  # the DEMO factory: Tiruchirappalli
+    "transport.depot_longitude": "78.704700",
+    "transport.road_factor": "1.3",  # road km per straight-line km (DEMO)
+    "transport.fuel_inr_per_l": "94.00",  # diesel, DEMO
+    "transport.co2_kg_per_km": "0.20",  # small diesel goods vehicle, DEMO estimate
+    "transport.credit_cost_pct_pa": "12",  # the factory's rate of money, DEMO
+    "transport.backhaul_detour_km": "15",
+}
+DEMO_VEHICLES: Final = (
+    ("DEMO mini truck", 40, "6.5", "500.00", "300.00"),
+    ("DEMO two-wheeler", 4, "2.5", "200.00", "50.00"),
+)
+DEMO_LOCATIONS: Final[dict[str, tuple[str, str]]] = {
+    "RET-A": ("10.862000", "78.690000"),  # Srirangam
+    "RET-C": ("10.787000", "79.137800"),  # Thanjavur
+    "RET-D": ("10.960100", "78.076600"),  # Karur
+    "DIST-B": ("12.971600", "77.594600"),  # Bengaluru
+}
+DEMO_SUPPLIER_LOCATION: Final = ("10.935600", "78.420600")  # Kulithalai, on the Karur road
+
+
+def setup_section5_transport(
+    session: Session, organization_id: uuid.UUID, actor_id: uuid.UUID | None = None
+) -> list[str]:
+    """The DEMO transport settings, vehicles and locations, each only where missing. Returns what was added."""
+    added = []
+    for key, value in DEMO_TRANSPORT.items():
+        if effective_settings.value_on(session, key, SETTINGS_FROM) is None:
+            tax.put_setting(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                key=key,
+                value=value,
+                effective_from=SETTINGS_FROM,
+            )
+            added.append(key)
+    if not transport.vehicles(session):
+        for name, cap, fuel, driver, fixed in DEMO_VEHICLES:
+            transport.create_vehicle(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                name=name,
+                capacity_cartons=cap,
+                fuel_l_per_100km=Decimal(fuel),
+                driver_allowance=Decimal(driver),
+                fixed_cost=Decimal(fixed),
+            )
+        added.append("DEMO vehicles")
+    for cid, place in sales.customer_locations(session).items():
+        if place["latitude"] is None and place["code"] in DEMO_LOCATIONS:
+            lat, lon = DEMO_LOCATIONS[place["code"]]
+            sales.set_customer_location(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                customer_id=cid,
+                latitude=Decimal(lat),
+                longitude=Decimal(lon),
+            )
+            added.append(f"location {place['code']}")
+    for sid, sup in procurement.supplier_locations(session).items():
+        if sup["latitude"] is None:
+            procurement.set_supplier_location(
+                session,
+                organization_id=organization_id,
+                actor_id=actor_id,
+                supplier_id=sid,
+                latitude=Decimal(DEMO_SUPPLIER_LOCATION[0]),
+                longitude=Decimal(DEMO_SUPPLIER_LOCATION[1]),
+            )
+            added.append(f"location {sup['code']}")
     return added
 
 

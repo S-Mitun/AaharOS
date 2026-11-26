@@ -13,7 +13,7 @@ starts on the opening day; any day after today is clamped to today.
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from typing import Final
 
 from sqlalchemy.orm import Session
@@ -31,6 +31,7 @@ from app.modules.production import service as production
 from app.modules.recipe import service as recipes
 from app.modules.sales import service as sales
 from app.modules.sales.domain import OrderLineIn
+from app.modules.transport import service as transport
 
 D = Decimal
 MARKER_LOT: Final = "DEMO-FL-01"  # the history is there once the first flour lot exists
@@ -236,3 +237,28 @@ def seed_history(
         f"batches {', '.join(made)} with oil sessions and fill samples",
         f"{len(orders)} orders from RET-A, RET-C and RET-D, invoiced and dispatched FEFO",
     ]
+
+
+def seed_trips(session: Session, org_id: uuid.UUID, users: dict[str, uuid.UUID]) -> list[str]:
+    """MP14: put the DEMO history's dispatches on planned trips and record their actual km (planned + 4%, rounded
+    up to a whole km), once. Returns the trip numbers, or [] when trips already exist."""
+    if transport.trip_count(session) > 0:
+        return []
+    days = sorted({b.dispatch_date for b in dispatch.dispatch_briefs(session)})
+    made: list[str] = []
+    for on in days:
+        try:
+            made += transport.create_trips(session, organization_id=org_id, actor_id=users["ADMIN"], on=on)
+        except transport.TransportError:
+            continue
+    for trip in transport.trips(session, date_from=min(days, default=business_date()), date_to=business_date()):
+        planned = D(trip["planned_km"] or "0")
+        transport.complete_trip(
+            session,
+            organization_id=org_id,
+            actor_id=users["ADMIN"],
+            trip_id=uuid.UUID(trip["id"]),
+            actual_km=(planned * D("1.04")).to_integral_value(rounding=ROUND_CEILING),
+            tolls=D("0"),
+        )
+    return made

@@ -20,6 +20,7 @@ import { FoodSafetyPage } from "./trace/FoodSafetyPage";
 import { FreshnessPage } from "./trace/FreshnessPage";
 import { PassportPage, ReorderPage } from "./trace/PassportPage";
 import { TracePage } from "./trace/TracePage";
+import { TripsPage } from "./transport/TripsPage";
 import { MyOrdersPage } from "./sales/MyOrdersPage";
 import { OrderDetailPage } from "./sales/OrderDetailPage";
 import { OrderPage } from "./sales/OrderPage";
@@ -68,6 +69,11 @@ const BUILT: Record<string, ReactNode> = {
   trace: (
     <Gate permission="report.read" what="trace and recall">
       <TracePage />
+    </Gate>
+  ),
+  trips: (
+    <Gate permission="report.read" what="trips and cost-to-serve">
+      <TripsPage />
     </Gate>
   ),
   foodSafety: (

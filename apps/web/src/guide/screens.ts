@@ -115,6 +115,18 @@ export const SCREENS: Record<string, Screen> = {
     description: "Record payments and see what each customer still owes.",
     permission: "payment.post",
   },
+  trips: {
+    name: "Admin → Trips and cost-to-serve",
+    label: "Trips and cost-to-serve",
+    route: "/admin/trips",
+    mp: "MP14",
+    built: true,
+    group: "Admin",
+    icon: "⛟",
+    description:
+      "Plan delivery trips from the day's dispatches, record actual km, and see each customer's cost-to-serve.",
+    permission: "report.read",
+  },
   purchases: {
     name: "Purchases → New receipt",
     label: "Purchases",

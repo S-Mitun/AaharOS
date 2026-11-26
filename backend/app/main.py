@@ -30,6 +30,7 @@ from app.modules.sales.api import router as sales_router
 from app.modules.tax.api import router as tax_router
 from app.modules.traceability.api import public_router as public_trace_router
 from app.modules.traceability.api import router as trace_router
+from app.modules.transport.api import router as transport_router
 from app.modules.valuation.api import router as valuation_router
 
 
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(reports_router)
     app.include_router(planning_router)
     app.include_router(trace_router)
+    app.include_router(transport_router)
     app.include_router(public_trace_router)
     app.include_router(signup_router)
     if settings.web_dist is not None:

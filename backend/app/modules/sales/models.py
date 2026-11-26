@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     PrimaryKeyConstraint,
     Text,
     UniqueConstraint,
@@ -41,6 +42,11 @@ class Customer(OrgScoped, Base):
         CheckConstraint("state_code ~ '^[0-9]{2}$'", name="state_code_format"),
         CheckConstraint("credit_limit >= 0", name="credit_limit_not_negative"),
         CheckConstraint("payment_terms_days >= 0", name="terms_not_negative"),
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)"
+            " AND (latitude IS NULL OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180))",
+            name="location_valid",
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -52,6 +58,9 @@ class Customer(OrgScoped, Base):
     credit_limit: Mapped[Decimal] = mapped_column(Money, nullable=False, server_default="0")
     payment_terms_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     msme_terms: Mapped[bool] = mapped_column(nullable=False, server_default="false")
+    # MP14 (ADR-0021): an optional location in degrees, for trip planning
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
 
 
 class PriceList(OrgScoped, Base):

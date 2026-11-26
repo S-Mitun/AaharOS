@@ -37,6 +37,11 @@ make integrity   # audit hash chain, law 1 per journal, balances rebuilt from th
 make e2e         # Playwright (official image, ~2 GB once) on a fresh scratch tenant: online, offline, duplicate, repeat-order time, stale price
 ```
 
+**Hosted demo:** one address on Render (see [docs/deploy.md](docs/deploy.md)): the guided tour works without a
+login, the sign-in page has one-tap DEMO logins (shared password `change-me-demo`), and **Create your own factory**
+gives you a private copy with the same starting data. Free tier: the first visit after a quiet spell takes about a
+minute to wake the server.
+
 Then open http://localhost:5180 (the frontend; the backend API is http://localhost:8180, Swagger at `/docs`). The
 **Start here** page explains the system and the **Guided tour** walks you through NIT's nine benchmark steps: who does
 each step, where to click, what to type, and the number you should see. A **Guide** button on every page brings you
@@ -67,6 +72,13 @@ available vs pending, where profit leaks, material runway, money to collect) and
 impact first; tap ⓘ on any amount to see how it is worked out. **Production → Batch planner** shows how many batches
 each material allows (the ones that run out first are marked), what to make next and what to buy. Its buttons create
 a **draft** batch or a **draft** purchase order only; nothing is posted until a person does it.
+
+**Then plan the deliveries:** Admin → **Trips and cost-to-serve** → pick a dispatch date: the planner puts the
+day's dispatch notes on vehicles within their carton capacity (shortest route; straight-line distance × a road
+factor, no map service), with the trip cost, each stop's share, an estimated CO₂ and a backhaul suggestion when a
+supplier is on the way → **Create these trips** → record the actual km and tolls when the vehicle is back. Below,
+**cost-to-serve** per customer and the **Deal Desk floor**: the lowest price that still covers the product and the
+cost of serving that customer.
 
 **Then trace a batch:** `make seed-demo` adds a short DEMO history (supplier lots, batches B-001 to B-003, orders from
 three retailers). **Production → Trace and recall** → pick **B-002**: where it came from (recipe and pack versions,

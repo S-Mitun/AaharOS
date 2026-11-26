@@ -18,7 +18,12 @@ from app.core.config import get_settings
 from app.core.errors import DomainError, RateLimitedError
 from app.core.oracle import load_oracle
 from app.modules.identity import service as identity
-from app.modules.judge.replay import post_section5_opening, setup_section5, setup_section5_food_safety
+from app.modules.judge.replay import (
+    post_section5_opening,
+    setup_section5,
+    setup_section5_food_safety,
+    setup_section5_transport,
+)
 
 PER_IP_PER_HOUR: Final = 5
 _hits: dict[str, deque[float]] = {}
@@ -55,5 +60,6 @@ def sign_up(session: Session, *, factory_name: str, display_name: str, email: st
     s5 = setup_section5(session, oracle, org)
     post_section5_opening(session, oracle, s5)
     setup_section5_food_safety(session, org)
+    setup_section5_transport(session, org)  # MP14: vehicles, locations, rates
     code = session.execute(text("SELECT code FROM organizations WHERE id = :o"), {"o": org}).scalar_one()
     return SignedUp(str(code), email.strip())

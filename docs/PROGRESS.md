@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP13 done (branch feat/mp13-traceability, one commit per module; docs in the last) / MP14 or MP15 next (the user decides)
+## Status: MP14 done and the hosted demo prepared (Render + Supabase) / MP15 next (the user decides)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,32 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP14 and the deployment (2026-11-26, at the user's request: everything on main, MP14, hosted demo)
+- **Git:** MP04-MP13 fast-forwarded onto `main` and pushed to GitHub (no merge commits); the work continues on
+  `feat/mp13-traceability` and is fast-forwarded to `main` after each step (Render deploys `main`).
+- **Hosted demo (one address):** the root `Dockerfile` builds the web app and the API serves it (`AAHAR_WEB_DIST`);
+  `backend/deploy/start.sh` migrates, seeds the permanent DEMO factory (idempotent, re-activates the DEMO logins), runs
+  the NIT benchmark in the background for the home scoreboard, and serves. `render.yaml`: one free Render web service
+  (Singapore). Database: a free Supabase project `aaharos-demo` (ap-southeast-1, $0 confirmed with the user), roles
+  `aahar_owner` (tables, migrations, seeds; not a superuser) and `aahar_app` (RLS); Supabase's `anon` /
+  `authenticated` roles can read none of the 74 tables. Migrations, the DEMO seed and the benchmark (26/26) were run
+  against it from the production image; peak memory about 300 MB of Render's 512 MB. Steps and limits:
+  [docs/deploy.md](deploy.md). Secrets live only in the git-ignored `.env.deploy` / `.env.supabase`.
+- **Visitors:** the guided tour and home page need no login; the sign-in page's DEMO tiles fill the email and the
+  shared DEMO password; **Create your own factory** (`POST /api/signup`, public, 5 per IP per hour) makes a private
+  sandbox (SIM tenant) with NIT's Section 5 data, opening stock, the DEMO settings and the visitor as Owner.
+- **MP14 (light) decisions M1-M7: [ADR-0021](adr/0021-transport-trips-and-cost-to-serve.md).** Migration 0013
+  (locations on customers and suppliers, vehicle running costs, trip number / status / tolls, a dispatch on one trip
+  only). `transport`: MockAdapter routing (straight line x road factor), OR-Tools CVRP trip planner (deterministic),
+  trip cost and per-stop share by packets, planned vs actual, CO2 estimate, backhaul suggestion, cost-to-serve and the
+  Deal Desk floor. API `/api/transport/*`; web Admin -> Trips and cost-to-serve. DEMO: two vehicles, town-centre
+  locations, the four DEMO-history trips completed. Not built: the visit check-in and an OSRM adapter.
+- **Checks run:** backend **953 passed** (was 890; the state machine at 60 examples), ruff / format / mypy --strict /
+  import-linter 2/2 / `alembic check` clean (migration 0013 up, down and up again); web **84 passed**, typecheck / lint /
+  build clean; Playwright 7/7; `make integrity` OK; benchmark **26/26**, oracle 10/10; float grep: one hit, the
+  haversine trigonometry in transport/domain.py (rounded to a Decimal at once, documented in ADR-0021); the production
+  image run against Supabase (home, tour, one-tap DEMO login, sign-up, brief); Trips live on :5180 as the DEMO admin.
 
 ## Done in MP13 (trace and recall, batch passport, freshness radar, oil log and fill weights)
 - **Gate met:** **26/26** unchanged (no row belongs to MP13), oracle 10/10; `make integrity` OK (the DEMO history's
@@ -698,6 +724,8 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP14: [ADR-0021](adr/0021-transport-trips-and-cost-to-serve.md): M1-M7 (locations, mock routing, CVRP trips,
+  trip cost, cost-to-serve and the Deal Desk floor, backhaul, what is not built).
 - MP13: [ADR-0020](adr/0020-traceability-recall-passport-freshness-and-food-safety.md): T1–T8 (trace, the "may
   contain" window, recall simulator, signed passport tokens and QR, scan to reorder, freshness radar, oil and fill
   weights, DEMO history from the opening day).
@@ -840,19 +868,20 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-MP13 is done; **stop here**. The user chooses what comes next: MP14 (transport, light, first on the cut line) or MP15
-(Tamil / English, accessibility, Judge Mode). Do not start either without the user's go-ahead. Read the chosen MP in
-docs/MASTER_PACK.md, show the plan, wait for approval, then branch from `feat/mp13-traceability`.
+1. **Render (the user):** dashboard.render.com -> New -> Blueprint -> `S-Mitun/AaharOS`, branch `main` -> paste the
+   three values from `.env.supabase` -> Apply. Then verify the URL: home and tour signed out, a DEMO login, sign-up,
+   the scoreboard after about a minute (docs/deploy.md).
+2. Then MP15 (Tamil / English, accessibility, Judge Mode) only when the user says so: read MP15 in
+   docs/MASTER_PACK.md, show the plan, wait for approval.
 
 Working notes that still hold:
 - One frontend and one backend in Docker (compose services `frontend` and `backend`): http://localhost:5180 and
-  http://localhost:8180 (`/docs`). After a dependency change rebuild the backend image
-  (`docker compose build backend && docker compose up -d backend`).
+  http://localhost:8180 (`/docs`). The production image is the root `Dockerfile` (port 8000 inside).
 - Everything runs in Docker; never two pytest runs at once; host Python is cp1252 / CRLF; long heredocs break the Bash
   tool, so write scripts with the editor tools. Benchmark: `MSYS_NO_PATHCONV=1 docker compose run --rm -T backend
   python /workspace/benchmark/runner.py` (must stay 26/26). Never run Prettier over all of `src`: it reflows
   `apps/web/src/test-fixtures/b001.json` (restore it with `git checkout` if it happens).
-- Supabase: the user has a Supabase account connected; it fits the hosted demo (MP17). Nothing was created there.
+- The app role cannot read `organizations` without an org scope: scripts look up an org as the owner first.
 
 ### Record: the MP13 plan as approved (implemented above)
 Facts found while planning: supplier lot numbers are on receipt lines and in `lots` (source `purchase_receipt`), FG

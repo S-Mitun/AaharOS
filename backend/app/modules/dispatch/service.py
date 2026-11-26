@@ -522,3 +522,37 @@ def deliveries_since(session: Session, since: date) -> list[Delivery]:
         {"since": since},
     ).all()
     return [Delivery(*r) for r in rows]
+
+
+@dataclass(frozen=True)
+class DispatchBrief:
+    """A dispatch note as trip planning sees it (MP14): who it goes to and how many packets of each item."""
+
+    dispatch_id: uuid.UUID
+    dispatch_no: str
+    dispatch_date: date
+    invoice_no: str
+    customer_id: uuid.UUID
+    packets: dict[uuid.UUID, int]
+
+
+def dispatch_briefs(
+    session: Session, *, on: date | None = None, dispatch_ids: list[uuid.UUID] | None = None
+) -> list[DispatchBrief]:
+    """Dispatch notes of one date, or these notes, with their customer and packets per item, in number order."""
+    rows = session.execute(
+        text(
+            "SELECT d.id, d.dispatch_no, d.dispatch_date, i.invoice_no, i.customer_id, dl.item_id, sum(dl.qty)::int"
+            " FROM dispatches d JOIN invoices i ON i.id = d.invoice_id JOIN dispatch_lines dl ON dl.dispatch_id = d.id"
+            " WHERE (CAST(:on AS date) IS NULL OR d.dispatch_date = :on)"
+            " AND (CAST(:ids AS uuid[]) IS NULL OR d.id = ANY(:ids))"
+            " GROUP BY d.id, d.dispatch_no, d.dispatch_date, i.invoice_no, i.customer_id, dl.item_id"
+            " ORDER BY d.dispatch_no"
+        ),
+        {"on": on, "ids": dispatch_ids},
+    ).all()
+    out: dict[uuid.UUID, DispatchBrief] = {}
+    for did, no, on_, inv, cust, item, qty in rows:
+        brief = out.setdefault(did, DispatchBrief(did, no, on_, inv, cust, {}))
+        brief.packets[item] = brief.packets.get(item, 0) + int(qty)
+    return list(out.values())

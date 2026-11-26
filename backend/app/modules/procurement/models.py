@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,6 +18,11 @@ class Supplier(OrgScoped, Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "code"),
         CheckConstraint("state_code ~ '^[0-9]{2}$'", name="state_code_format"),
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)"
+            " AND (latitude IS NULL OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180))",
+            name="location_valid",
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -25,6 +30,9 @@ class Supplier(OrgScoped, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     state_code: Mapped[str] = mapped_column(Text, nullable=False)
     gstin: Mapped[str | None] = mapped_column(Text)
+    # MP14 (ADR-0021): an optional location in degrees, for trip planning
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
 
 
 class PurchaseReceipt(OrgScoped, Base):

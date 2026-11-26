@@ -15,7 +15,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, insert, select, text
+from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
@@ -1655,3 +1655,46 @@ def order_points(session: Session, since: date) -> list[OrderPoint]:
         .order_by(SalesOrder.order_date, SalesOrder.order_no)
     ).all()
     return [OrderPoint(c, i, o, n, d, int(q), Decimal(p)) for c, i, o, n, d, q, p in rows]
+
+
+# ---------- locations for trip planning (MP14, ADR-0021) ----------
+
+
+def customer_locations(session: Session, customer_ids: Sequence[uuid.UUID] | None = None) -> dict[uuid.UUID, Any]:
+    """Customer id -> {code, name, latitude, longitude} (None where no location is recorded)."""
+    q = select(Customer.id, Customer.code, Customer.name, Customer.latitude, Customer.longitude)
+    if customer_ids is not None:
+        q = q.where(Customer.id.in_(list(customer_ids)))
+    return {
+        cid: {"code": code, "name": name, "latitude": lat, "longitude": lon}
+        for cid, code, name, lat, lon in session.execute(q).all()
+    }
+
+
+def set_customer_location(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    customer_id: uuid.UUID,
+    latitude: Decimal,
+    longitude: Decimal,
+) -> None:
+    """Master data: where a customer's shop is, for trip planning. Audited."""
+    if not (Decimal(-90) <= latitude <= Decimal(90) and Decimal(-180) <= longitude <= Decimal(180)):
+        raise DomainError("bad_location", "latitude must be within +-90 and longitude within +-180 degrees")
+    found = session.execute(select(Customer).where(Customer.id == customer_id)).scalar_one_or_none()
+    if found is None:
+        raise NotFoundError("customer_not_found", "unknown customer")
+    before = {"latitude": found.latitude, "longitude": found.longitude}
+    session.execute(update(Customer).where(Customer.id == customer_id).values(latitude=latitude, longitude=longitude))
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="customer.location",
+        entity_type="customer",
+        entity_id=customer_id,
+        before=before,
+        after={"latitude": latitude, "longitude": longitude},
+    )

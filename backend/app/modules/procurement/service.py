@@ -468,3 +468,36 @@ def received_lots(
     if journal_ids is not None:
         query = query.where(PurchaseReceipt.journal_id.in_(list(journal_ids)))
     return [ReceivedLot(*row) for row in session.execute(query).all()]
+
+
+# ---------- locations for backhaul suggestions (MP14, ADR-0021) ----------
+
+
+def supplier_locations(session: Session) -> dict[uuid.UUID, dict[str, Any]]:
+    rows = session.execute(
+        select(Supplier.id, Supplier.code, Supplier.name, Supplier.latitude, Supplier.longitude)
+    ).all()
+    return {sid: {"code": c, "name": n, "latitude": lat, "longitude": lon} for sid, c, n, lat, lon in rows}
+
+
+def set_supplier_location(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    supplier_id: uuid.UUID,
+    latitude: Decimal,
+    longitude: Decimal,
+) -> None:
+    if not (Decimal(-90) <= latitude <= Decimal(90) and Decimal(-180) <= longitude <= Decimal(180)):
+        raise DomainError("bad_location", "latitude must be within +-90 and longitude within +-180 degrees")
+    session.execute(update(Supplier).where(Supplier.id == supplier_id).values(latitude=latitude, longitude=longitude))
+    audit.record(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="supplier.location",
+        entity_type="supplier",
+        entity_id=supplier_id,
+        after={"latitude": latitude, "longitude": longitude},
+    )

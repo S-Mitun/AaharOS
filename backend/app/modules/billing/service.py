@@ -792,3 +792,14 @@ def tax_line_mismatches(session: Session) -> list[dict[str, str]]:
         }
         for o, n, ht, lt, htx, ltx in rows
     ]
+
+
+def credit_note_totals(session: Session, date_from: date, date_to: date) -> dict[uuid.UUID, Decimal]:
+    """Customer -> rupees credited (credit notes dated in the range, with tax): MP14's cost-to-serve returns."""
+    rows = session.execute(
+        select(Invoice.customer_id, func.sum(CreditNote.total))
+        .join(Invoice, Invoice.id == CreditNote.invoice_id)
+        .where(CreditNote.note_date >= date_from, CreditNote.note_date <= date_to)
+        .group_by(Invoice.customer_id)
+    ).all()
+    return {c: Decimal(v) for c, v in rows}
