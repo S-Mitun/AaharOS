@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { restartTour } from "../guide/memory";
+import { STEPS } from "../guide/steps";
 import { GuideDrawer } from "../components/GuideDrawer";
 import { useSession } from "../lib/sessionContext";
 import { Sidebar } from "./Sidebar";
@@ -7,6 +9,23 @@ import { SignOutButton } from "./SignOutButton";
 
 /** One app for every role (G9): a grouped sidebar, a top bar with who is signed in, and the page. At phone width the
  * sidebar folds into a Menu button. */
+/** Always at the top, signed in or not: start the guided tour again from step 1, as often as wanted. */
+function RestartTourButton() {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost restart-tour"
+      onClick={() => {
+        restartTour();
+        navigate(`/guide/${STEPS[0]!.id}`);
+      }}
+    >
+      <span aria-hidden="true">↺</span> Restart tour
+    </button>
+  );
+}
+
 export function AppShell() {
   const { me } = useSession();
   const { pathname } = useLocation();
@@ -48,6 +67,7 @@ export function AppShell() {
           DEMO
         </span>
         <div className="topbar-right">
+          <RestartTourButton />
           {me ? (
             <>
               <span className="who">

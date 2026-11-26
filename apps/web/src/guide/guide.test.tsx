@@ -122,7 +122,10 @@ describe("guided tour and landing page", () => {
       await user.click(screen.getByRole("button", { name: /^Next:/ }));
       expect(screen.getByText(`Step ${i} of 12`)).toBeInTheDocument();
     }
-    expect(screen.getByRole("link", { name: /Finish/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Finish the tour" }));
+    expect(
+      await screen.findByRole("heading", { name: "You have finished the guided tour" }),
+    ).toBeInTheDocument(); // every step was opened by walking it with Next
   });
 
   it("shows unbuilt screens honestly instead of linking to them", async () => {

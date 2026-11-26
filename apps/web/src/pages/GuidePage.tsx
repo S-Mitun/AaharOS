@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { StepCard } from "../components/StepCard";
-import { rememberStep } from "../guide/memory";
+import { markTourCompleted, rememberStep, restartTour, stepsLeft } from "../guide/memory";
 import { STEPS, stepIndex } from "../guide/steps";
 
 export function GuidePage() {
@@ -18,6 +18,13 @@ export function GuidePage() {
 
   const prev = STEPS[index - 1];
   const next = STEPS[index + 1];
+  const [finished, setFinished] = useState<string[] | null>(null); // null: not asked yet; []: done; else steps left
+
+  function finish() {
+    const left = stepsLeft();
+    if (left.length === 0) markTourCompleted();
+    setFinished(left);
+  }
 
   return (
     <div className="guide">
@@ -85,11 +92,54 @@ export function GuidePage() {
                 Next: {next.title} →
               </button>
             ) : (
-              <Link to="/" className="btn btn-primary">
-                Finish → back to start
-              </Link>
+              <button type="button" className="btn btn-primary" onClick={finish}>
+                Finish the tour
+              </button>
             )}
           </div>
+          {finished && finished.length > 0 && (
+            <div className="tour-finish" role="status">
+              <p>
+                <strong>Almost there.</strong> Open every step once to finish the tour. Not seen
+                yet:
+              </p>
+              <ul>
+                {STEPS.filter((s) => finished.includes(s.id)).map((s) => (
+                  <li key={s.id}>
+                    <Link to={`/guide/${s.id}`}>{s.title}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {finished && finished.length === 0 && (
+            <div className="tour-finish" role="status">
+              <h2>You have finished the guided tour</h2>
+              <p>
+                Continue with your own account? Your own factory starts with the same data as the
+                tour, and you can take the tour again at any time from the top bar.
+              </p>
+              <p className="actions-row">
+                <Link to="/sign-up" className="btn btn-primary">
+                  Create your own factory
+                </Link>
+                <Link to="/sign-in" className="btn">
+                  Sign in to my account
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    restartTour();
+                    setFinished(null);
+                    navigate(`/guide/${STEPS[0]!.id}`);
+                  }}
+                >
+                  Restart the tour
+                </button>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { homeFor } from "../guide/screens";
+import { stepsLeft, tourCompleted } from "../guide/memory";
+import { STEPS } from "../guide/steps";
 import { ApiError, apiPost } from "../lib/api";
 import { useSession } from "../lib/sessionContext";
 
@@ -39,6 +41,8 @@ export function SignUpPage() {
       setBusy(false);
     }
   }
+
+  if (!tourCompleted()) return <TourFirst what="create your own factory" />;
 
   return (
     <section className="signin">
@@ -104,6 +108,32 @@ export function SignUpPage() {
       <p className="muted small">
         Just looking? <Link to="/sign-in">Use a shared DEMO login</Link> or{" "}
         <Link to="/guide">follow the guided tour</Link>.
+      </p>
+    </section>
+  );
+}
+
+/** The guided tour is the mandatory first task: own accounts open once it has been finished. */
+export function TourFirst({ what }: { what: string }) {
+  const left = stepsLeft();
+  const seen = STEPS.length - left.length;
+  const resume = left[0] ?? STEPS[0]!.id;
+  return (
+    <section className="signin">
+      <h1>Take the guided tour first</h1>
+      <p>
+        Before you {what}, follow the guided tour once with the shared DEMO logins, so the workflow
+        makes sense: order → approval → GST invoice → dispatch → payment, and purchase → batch →
+        cost → where profit leaks.
+      </p>
+      <p className="muted">
+        {seen} of {STEPS.length} steps seen. When you finish, the tour offers to continue with your
+        own account.
+      </p>
+      <p className="actions-row">
+        <Link to={`/guide/${resume}`} className="btn btn-primary btn-lg">
+          {seen ? "Continue the tour →" : "Start the guided tour →"}
+        </Link>
       </p>
     </section>
   );

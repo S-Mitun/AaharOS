@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { DEMO_EMAIL_DOMAIN, tourCompleted } from "../guide/memory";
 import { homeFor } from "../guide/screens";
 import { ApiError } from "../lib/api";
 import { useSession } from "../lib/sessionContext";
@@ -47,8 +48,14 @@ export function SignInPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError(null);
+    if (!email.trim().toLowerCase().endsWith(DEMO_EMAIL_DOMAIN) && !tourCompleted()) {
+      setError(
+        "Your own account opens after the guided tour. Use a DEMO login above to follow it, then sign in here.",
+      );
+      return;
+    }
+    setBusy(true);
     try {
       const who = await signIn(email.trim(), password, org.trim() || undefined);
       const target = next && next !== "/sign-in" && next !== "/" ? next : homeFor(who.role);
@@ -85,7 +92,8 @@ export function SignInPage() {
       <p className="muted">
         Tap a DEMO login: it fills the email and the shared DEMO password (
         <code>{DEMO_PASSWORD}</code>), then press <strong>Sign in</strong>. Everyone shares this
-        DEMO factory. <Link to="/sign-up">Create your own factory</Link> to work on your own copy.
+        DEMO factory. After the <Link to="/guide">guided tour</Link>, sign in with your own account
+        or <Link to="/sign-up">create your own factory</Link>.
       </p>
       <ul className="demo-logins" aria-label="DEMO logins">
         {DEMO_LOGINS.map((d) => (

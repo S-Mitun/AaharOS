@@ -1150,3 +1150,20 @@ main {
   border-radius: 8px;
   font: inherit;
 }
+
+/* The tour-first flow (deployment) */
+.tour-finish {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+.tour-finish h2 {
+  margin-top: 0;
+}
+
+.restart-tour {
+  white-space: nowrap;
+}
