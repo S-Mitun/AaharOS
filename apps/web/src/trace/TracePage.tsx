@@ -223,7 +223,7 @@ function BatchBack({ back }: { back: BatchBackward }) {
     <>
       <h3>Where it came from</h3>
       <BatchCard b={back.batch} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table className="lines">
           <thead>
             <tr>
@@ -305,7 +305,7 @@ function Forward({ lots }: { lots: ForwardLot[] }) {
   return (
     <>
       {lots.map((l) => (
-        <div key={l.lot_id} className="table-wrap">
+        <div key={l.lot_id} className="table-wrap" tabIndex={0}>
           <p>
             <strong>Lot {l.lot_no}</strong>
             {l.best_before && ` (best before ${l.best_before})`}:{" "}
@@ -372,7 +372,7 @@ function RecallView({ recall }: { recall: Recall }) {
         the store
       </p>
       {recall.may_contain_note && <p className="muted">{recall.may_contain_note}</p>}
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table className="lines">
           <thead>
             <tr>

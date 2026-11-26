@@ -98,7 +98,7 @@ export function PlannerPage() {
         <p className="muted">Loading…</p>
       ) : (
         runway.map((p) => (
-          <div key={p.pack_code} className="table-wrap">
+          <div key={p.pack_code} className="table-wrap" tabIndex={0}>
             <p>
               <strong>{p.pack_name}</strong> ({p.recipe}): stock allows{" "}
               <Num value={p.full_batches} label={`full batches of ${p.pack_code}`} /> in full. Runs
@@ -146,7 +146,7 @@ export function PlannerPage() {
             materials and the day allow (
             {plan.status === "OPTIMAL" ? "best plan found" : plan.status.toLowerCase()}).
           </p>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table className="lines">
               <thead>
                 <tr>
@@ -221,7 +221,7 @@ export function PlannerPage() {
             <p className="muted">Nothing to buy: stock covers the orders and the reorder levels.</p>
           ) : (
             <>
-              <div className="table-wrap">
+              <div className="table-wrap" tabIndex={0}>
                 <table className="lines">
                   <thead>
                     <tr>

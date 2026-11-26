@@ -55,7 +55,7 @@ export function FoodSafetyPage() {
           {oil.days.length === 0 ? (
             <p className="muted">No oil sessions recorded in these 30 days.</p>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0}>
               <table className="lines">
                 <thead>
                   <tr>
@@ -123,7 +123,7 @@ export function FoodSafetyPage() {
           {fill.runs.length === 0 ? (
             <p className="muted">No fill-weight samples recorded in these 30 days.</p>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0}>
               <table className="lines">
                 <thead>
                   <tr>

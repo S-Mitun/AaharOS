@@ -122,7 +122,7 @@ export function OrderCardPage() {
       )}
 
       <h2>Products and stock</h2>
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table className="lines">
           <thead>
             <tr>

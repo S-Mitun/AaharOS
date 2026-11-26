@@ -201,7 +201,7 @@ export function BatchPage() {
       return `Batch ${made.run_no} started. The recipe and pack are now frozen for this batch.`;
     });
 
-  const ingredients = run?.analysis?.ingredients ?? [];
+  const ingredients = useMemo(() => run?.analysis?.ingredients ?? [], [run]);
   const line = run?.analysis?.pack_lines[0];
   const runPack = packs
     .find((p) => p.code === line?.pack_spec)
@@ -376,7 +376,7 @@ export function BatchPage() {
             Batch {run.run_no} <StatusChip tone="info">in progress</StatusChip>
           </h2>
           <h3>1. Materials used</h3>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table className="lines">
               <thead>
                 <tr>

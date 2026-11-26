@@ -1,3 +1,4 @@
+import { useT } from "../lib/i18n";
 import { Link } from "react-router-dom";
 import { StatusChip } from "../components/StatusChip";
 import { NIT_CHECKS, type Check } from "../guide/checks";
@@ -55,7 +56,7 @@ function ChecksTable() {
   const payload = oracle.state === "ok" ? oracle.data : undefined;
   const rows = scoreboard.state === "ok" && scoreboard.data.available ? scoreboard.data.rows : null;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" tabIndex={0}>
       <table className="checks">
         <caption className="sr-only">
           NIT benchmark checks with expected values and build status
@@ -136,23 +137,24 @@ const ROLES = [
 ];
 
 export function HomePage() {
+  const { t } = useT();
   const { oracle } = useGuideData();
 
   return (
     <div className="home">
       <section className="hero">
         <p className="eyebrow">Order-to-audit system for a small snack factory</p>
-        <h1>Every gram traced. Every rupee explained.</h1>
+        <h1>{t("Every gram traced. Every rupee explained.")}</h1>
         <p className="lead">
           Most billing apps record what was sold. AaharOS explains what was <em>made</em>, what it{" "}
           <em>cost</em>, where the profit <em>leaked</em>, and what to do <em>next</em>.
         </p>
         <div className="hero-actions">
           <Link to="/guide" className="btn btn-primary btn-lg">
-            Start the guided tour →
+            {t("Start the guided tour →")}
           </Link>
           <a href="#checks" className="btn btn-lg">
-            See what gets checked
+            {t("See what gets checked")}
           </a>
         </div>
         <div className="hero-status">

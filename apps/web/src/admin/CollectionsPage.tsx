@@ -115,7 +115,7 @@ export function CollectionsPage() {
               <span aria-hidden="true">✓</span> {done}
             </p>
           )}
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table className="lines">
               <thead>
                 <tr>

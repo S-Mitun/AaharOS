@@ -1,3 +1,4 @@
+import { LanguageSwitch, useT } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { restartTour } from "../guide/memory";
@@ -12,6 +13,7 @@ import { SignOutButton } from "./SignOutButton";
 /** Always at the top, signed in or not: start the guided tour again from step 1, as often as wanted. */
 function RestartTourButton() {
   const navigate = useNavigate();
+  const { t } = useT();
   return (
     <button
       type="button"
@@ -21,12 +23,13 @@ function RestartTourButton() {
         navigate(`/guide/${STEPS[0]!.id}`);
       }}
     >
-      <span aria-hidden="true">↺</span> Restart tour
+      <span aria-hidden="true">↺</span> {t("Restart tour")}
     </button>
   );
 }
 
 export function AppShell() {
+  const { t } = useT();
   const { me } = useSession();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,7 +48,7 @@ export function AppShell() {
   return (
     <div className="shell">
       <a className="skip-link" href="#main">
-        Skip to content
+        {t("Skip to content")}
       </a>
       <header className="topbar">
         <button
@@ -55,7 +58,7 @@ export function AppShell() {
           aria-controls="sidebar"
           onClick={() => setMenuOpen(!menuOpen)}
         >
-          <span aria-hidden="true">☰</span> Menu
+          <span aria-hidden="true">☰</span> {t("Menu")}
         </button>
         <Link to="/" className="brand" aria-label="AaharOS home">
           <span className="brand-mark" aria-hidden="true">
@@ -67,6 +70,7 @@ export function AppShell() {
           DEMO
         </span>
         <div className="topbar-right">
+          <LanguageSwitch />
           <RestartTourButton />
           {me ? (
             <>
@@ -78,7 +82,7 @@ export function AppShell() {
             </>
           ) : (
             <Link className="btn btn-primary" to="/sign-in" state={{ next: pathname }}>
-              Sign in
+              {t("Sign in")}
             </Link>
           )}
         </div>

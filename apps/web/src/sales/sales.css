@@ -264,7 +264,7 @@
 }
 
 .sales-tabs a.active {
-  background: var(--accent);
+  background: var(--accent-strong); /* WCAG AA */
   color: #fff;
 }
 
@@ -655,8 +655,8 @@
 }
 
 .filter-chip.on {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-strong); /* WCAG AA: white on the strong accent is 5.6:1 */
+  border-color: var(--accent-strong);
   color: #fff;
 }
 

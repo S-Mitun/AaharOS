@@ -58,7 +58,7 @@ export function ReportTable({ report }: { report: ReportData }) {
       {report.rows.length === 0 ? (
         <p className="muted">Nothing in this range.</p>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table className="lines">
             <thead>
               <tr>

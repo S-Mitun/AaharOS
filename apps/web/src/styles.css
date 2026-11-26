@@ -224,14 +224,15 @@ main {
   cursor: not-allowed;
 }
 
+/* MP15 (axe, WCAG AA): white on the turmeric accent is 3.8:1, so filled buttons use the strong accent (5.6:1). */
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
   color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-strong);
+  background: #6f4100;
 }
 
 .btn-lg {
@@ -686,7 +687,7 @@ main {
   padding: 0 1.2rem;
   border: none;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--accent-strong);
   color: #fff;
   font: inherit;
   font-weight: 700;

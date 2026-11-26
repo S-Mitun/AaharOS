@@ -1,3 +1,4 @@
+import { useT } from "../lib/i18n";
 import { NavLink, useLocation } from "react-router-dom";
 import { ROLE_GROUP } from "../guide/screens";
 import type { Me } from "../lib/sessionContext";
@@ -5,6 +6,7 @@ import { groupsFor } from "./nav";
 
 export function Sidebar({ me, onNavigate }: { me: Me | null; onNavigate?: () => void }) {
   const { pathname } = useLocation();
+  const { t } = useT();
   const roleGroup = me ? ROLE_GROUP[me.role] : undefined;
   return (
     <nav aria-label="All screens" className="sidebar-nav">
@@ -16,8 +18,8 @@ export function Sidebar({ me, onNavigate }: { me: Me | null; onNavigate?: () => 
         return (
           <details key={group} className="side-group" open={open}>
             <summary>
-              {group}
-              {roleGroup === group && <span className="side-you">you</span>}
+              {t(group)}
+              {roleGroup === group && <span className="side-you">{t("you")}</span>}
             </summary>
             <ul>
               {screens.map((s) => (
@@ -32,7 +34,7 @@ export function Sidebar({ me, onNavigate }: { me: Me | null; onNavigate?: () => 
                     <span className="side-icon" aria-hidden="true">
                       {s.icon}
                     </span>
-                    <span className="side-label">{s.label}</span>
+                    <span className="side-label">{t(s.label)}</span>
                     {!s.built && <span className="side-soon">{s.mp}</span>}
                   </NavLink>
                 </li>

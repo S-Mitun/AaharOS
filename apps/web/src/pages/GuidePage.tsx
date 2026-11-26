@@ -1,3 +1,4 @@
+import { useT } from "../lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { StepCard } from "../components/StepCard";
@@ -7,6 +8,7 @@ import { STEPS, stepIndex } from "../guide/steps";
 export function GuidePage() {
   const { stepId } = useParams();
   const navigate = useNavigate();
+  const { t } = useT();
   const index = stepIndex(stepId);
   const step = STEPS[index]!;
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -30,7 +32,7 @@ export function GuidePage() {
     <div className="guide">
       <div className="guide-top">
         <h1 tabIndex={-1} ref={headingRef}>
-          Guided tour
+          {t("Guided tour")}
         </h1>
         <p className="progress-text" aria-live="polite">
           Step {index + 1} of {STEPS.length}
@@ -81,7 +83,7 @@ export function GuidePage() {
               disabled={!prev}
               onClick={() => prev && navigate(`/guide/${prev.id}`)}
             >
-              ← Back
+              {t("← Back")}
             </button>
             {next ? (
               <button
@@ -93,7 +95,7 @@ export function GuidePage() {
               </button>
             ) : (
               <button type="button" className="btn btn-primary" onClick={finish}>
-                Finish the tour
+                {t("Finish the tour")}
               </button>
             )}
           </div>
@@ -114,17 +116,17 @@ export function GuidePage() {
           )}
           {finished && finished.length === 0 && (
             <div className="tour-finish" role="status">
-              <h2>You have finished the guided tour</h2>
+              <h2>{t("You have finished the guided tour")}</h2>
               <p>
                 Continue with your own account? Your own factory starts with the same data as the
                 tour, and you can take the tour again at any time from the top bar.
               </p>
               <p className="actions-row">
                 <Link to="/sign-up" className="btn btn-primary">
-                  Create your own factory
+                  {t("Create your own factory")}
                 </Link>
                 <Link to="/sign-in" className="btn">
-                  Sign in to my account
+                  {t("Sign in to my account")}
                 </Link>
                 <button
                   type="button"
@@ -135,7 +137,7 @@ export function GuidePage() {
                     navigate(`/guide/${STEPS[0]!.id}`);
                   }}
                 >
-                  Restart the tour
+                  {t("Restart the tour")}
                 </button>
               </p>
             </div>

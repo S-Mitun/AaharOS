@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP14 done, regression review done; MP15 next. Deploy only after MP15-MP19 (the user)
+## Status: MP15 done (branch feat/mp13-traceability) / MP16 next. Deploy only after MP16-MP19 (the user)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,23 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP15 (production screens, Judge Mode, Tamil / English, accessibility)
+- **Decisions P1-P5: [ADR-0022](adr/0022-production-screens-judge-mode-i18n-a11y.md).**
+- **Production screens:** Purchases → New receipt, Batch card (stock-impact preview, reason chips, big inputs, a
+  device draft), Run costs (per good packet, mark final). Every registered screen is now built; the tour's "Take me
+  there" opens each one. Playwright does NIT steps 1-3 and 8 in the browser: Rs 43.13/kg, 160 -> 120 kg, -6.00%
+  yield, Rs 5,855.00, Rs 31.14 a packet.
+- **Judge Mode:** `POST /api/judge/run` (`benchmark.run`, one at a time, AAHAR_JUDGE_MODE), `GET /api/judge/status`
+  (public); page with the nine steps, "Run the benchmark now" and the 26 rows linked to their tour steps. Checked live
+  on :5180: a replay ran (exit 0) and the scoreboard refreshed, 26/26.
+- **Tamil / English:** top-bar switch, the shell, menu, screen names, tour chrome, home hero and sign-in translated
+  (needs fluent review); English fallback; gaps in [i18n-gaps.md](i18n-gaps.md).
+- **Accessibility:** axe in Playwright on 16 screens (signed out and signed in); fixed white-on-accent contrast
+  (buttons, the Guide button, the active salesman tab, the selected filter chip) and keyboard access to scrollable
+  tables.
+- **Checks:** backend **961 passed**, ruff / mypy clean; web **93 passed**, build clean; Playwright **11/11**
+  (journey, production, accessibility, salesman); benchmark **26/26**; `make integrity` OK.
 
 ## Regression review and the tour-first flow (2026-11-26, at the user's request, before MP15)
 - **The guided tour comes first:** sign-up and signing in with a non-DEMO email stay closed until the tour is
@@ -743,6 +760,8 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP15: [ADR-0022](adr/0022-production-screens-judge-mode-i18n-a11y.md): P1-P5 (production screens, Judge Mode,
+  Tamil / English, accessibility, the tour comes first).
 - MP14: [ADR-0021](adr/0021-transport-trips-and-cost-to-serve.md): M1-M7 (locations, mock routing, CVRP trips,
   trip cost, cost-to-serve and the Deal Desk floor, backhaul, what is not built).
 - MP13: [ADR-0020](adr/0020-traceability-recall-passport-freshness-and-food-safety.md): T1–T8 (trace, the "may
@@ -891,8 +910,8 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
    2026-11-26, commit 93661ec). Checked live: home and guided tour without a login, the scoreboard 26/26, a one-tap DEMO
    Owner login landing on the Morning brief, and every MP13 / MP14 API answering in 0.1-1.2 s. Every push to `main`
    redeploys it.
-2. Then MP15 (Tamil / English, accessibility, Judge Mode) only when the user says so: read MP15 in
-   docs/MASTER_PACK.md, show the plan, wait for approval.
+2. MP16 (simulator, analytics), MP17 (hardening), MP18 (README, design note), MP19 (red-team), then deploy the
+   whole project (the user: Vercel or another host; one address for the tour and own accounts).
 
 Working notes that still hold:
 - One frontend and one backend in Docker (compose services `frontend` and `backend`): http://localhost:5180 and

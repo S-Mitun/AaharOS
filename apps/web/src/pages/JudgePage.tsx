@@ -130,7 +130,7 @@ export function JudgePage() {
       {!board?.available ? (
         <p className="muted">{board?.reason ?? "Loading…"}</p>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table className="lines">
             <thead>
               <tr>

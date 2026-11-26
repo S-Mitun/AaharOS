@@ -1,3 +1,4 @@
+import { useT } from "../lib/i18n";
 import { Link } from "react-router-dom";
 import { screenFor } from "../guide/screens";
 import type { GuideStep } from "../guide/types";
@@ -27,6 +28,7 @@ function ProofStatus({ assertions }: { assertions: number[] }) {
 }
 
 export function StepCard({ step, compact = false }: { step: GuideStep; compact?: boolean }) {
+  const { t } = useT();
   const { oracle } = useGuideData();
   const payload = oracle.state === "ok" ? oracle.data : undefined;
   const screen = screenFor(step.screen);
@@ -55,7 +57,7 @@ export function StepCard({ step, compact = false }: { step: GuideStep; compact?:
             {screen.name}{" "}
             {screen.built ? (
               <Link to={screen.route} className="link-strong">
-                Take me there →
+                {t("Take me there")} →
               </Link>
             ) : (
               <StatusChip tone="todo">{`Coming in ${screen.mp}`}</StatusChip>

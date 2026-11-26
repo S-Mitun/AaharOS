@@ -1,3 +1,4 @@
+import { useT } from "../lib/i18n";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { DEMO_EMAIL_DOMAIN, tourCompleted } from "../guide/memory";
@@ -37,6 +38,7 @@ const DEMO_LOGINS = [
 /** Sign in; each role lands on its own home (G7): a salesman on Today, other roles on today's pages. */
 export function SignInPage() {
   const { me, signIn } = useSession();
+  const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const next = (location.state as { next?: string } | null)?.next;
@@ -72,13 +74,13 @@ export function SignInPage() {
   if (me) {
     return (
       <section className="signin">
-        <h1>Signed in</h1>
+        <h1>{t("Signed in")}</h1>
         <p>
           {me.user.display_name} · {me.role} · {me.organization.name}
         </p>
         <p className="actions-row">
           <Link className="btn btn-primary" to={homeFor(me.role)}>
-            Go to my home screen
+            {t("Go to my home screen")}
           </Link>
           <SignOutButton className="btn" />
         </p>
@@ -88,7 +90,7 @@ export function SignInPage() {
 
   return (
     <section className="signin">
-      <h1>Sign in</h1>
+      <h1>{t("Sign in")}</h1>
       <p className="muted">
         Tap a DEMO login: it fills the email and the shared DEMO password (
         <code>{DEMO_PASSWORD}</code>), then press <strong>Sign in</strong>. Everyone shares this
@@ -114,7 +116,7 @@ export function SignInPage() {
       </ul>
       <form onSubmit={(e) => void submit(e)} className="form">
         <label>
-          Email
+          {t("Email")}
           <input
             type="email"
             autoComplete="username"
@@ -124,7 +126,7 @@ export function SignInPage() {
           />
         </label>
         <label>
-          Password
+          {t("Password")}
           <input
             type="password"
             autoComplete="current-password"
@@ -148,7 +150,7 @@ export function SignInPage() {
           </p>
         )}
         <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? t("Signing in…") : t("Sign in")}
         </button>
       </form>
     </section>

@@ -155,7 +155,7 @@ export function TripsPage() {
             <p className="muted">No dispatch note of {plan.date} is waiting for a trip.</p>
           )}
           {plan.routes.map((r) => (
-            <div key={r.vehicle} className="table-wrap">
+            <div key={r.vehicle} className="table-wrap" tabIndex={0}>
               <p>
                 <strong>{r.vehicle}</strong> · {r.cartons} of {r.capacity_cartons} cartons · {r.km}{" "}
                 km · <Num value={r.cost} label={`planned cost of the ${r.vehicle} trip`} /> ·{" "}
@@ -190,7 +190,7 @@ export function TripsPage() {
       {trips.length === 0 ? (
         <p className="muted">No trips yet.</p>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table className="lines">
             <thead>
               <tr>
@@ -293,7 +293,7 @@ export function TripsPage() {
       {serve.length === 0 ? (
         <p className="muted">No trips in the last 30 days.</p>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table className="lines">
             <thead>
               <tr>

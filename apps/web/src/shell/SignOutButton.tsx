@@ -1,3 +1,4 @@
+import { useT } from "../lib/i18n";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "../lib/sessionContext";
@@ -8,6 +9,7 @@ import { useOutbox } from "../sales/outboxContext";
  * offer "Send now" or "Delete them and sign out".
  */
 export function SignOutButton({ className = "btn btn-ghost" }: { className?: string }) {
+  const { t } = useT();
   const { signOut } = useSession();
   const outbox = useOutbox();
   const navigate = useNavigate();
@@ -34,7 +36,7 @@ export function SignOutButton({ className = "btn btn-ghost" }: { className?: str
         onClick={() => (outbox.unsentCount > 0 ? setAsking(true) : void finish())}
         disabled={busy}
       >
-        Sign out
+        {t("Sign out")}
       </button>
       {asking && (
         <div className="modal-backdrop">
