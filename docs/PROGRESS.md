@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Status: MP12 done (branch feat/mp12-planning, one commit per module; docs in the last) / MP13 next
+## Status: MP13 done (branch feat/mp13-traceability, one commit per module; docs in the last) / MP14 or MP15 next (the user decides)
 
 
 ## Benchmark scoreboard: 26/26
@@ -35,6 +35,45 @@
   red.
 
 Red items: none. Every row is green; later MPs must keep it that way.
+
+## Done in MP13 (trace and recall, batch passport, freshness radar, oil log and fill weights)
+- **Gate met:** **26/26** unchanged (no row belongs to MP13), oracle 10/10; `make integrity` OK (the DEMO history's
+  movements included); Playwright 7/7 (repeat-order time printed 370 ms).
+- **Five commits, one per module:** f230b09 trace and recall (T1–T3); 0edbb65 DEMO history, oil log and fill weights
+  (T6, T7); 08b219c passport, QR and scan to reorder (T4); 5ed6e59 freshness radar (T5); the last commit holds
+  ADR-0020 and the docs.
+- **Decisions T1–T8 (approved; [ADR-0020](adr/0020-traceability-recall-passport-freshness-and-food-safety.md)).**
+  **Deviation (T7):** the DEMO history runs from the DEMO opening day (2026-11-21) to today, not "the past 3 weeks":
+  the opening stock is dated that day, so an earlier history would issue and dispatch stock before it arrives.
+- **Backend:** `traceability` (domain: the "may contain" window, exposure, the draft notice, oil day, TPC, fill check,
+  selling rates and shelf estimates; service: search, trace, recall; food_safety.py; passport.py: HMAC tokens, QR,
+  public view, reorder; freshness.py: the radar and the brief's top alert); read helpers in ledger, procurement,
+  production, dispatch, sales, recipe; billing's passport hook on the printed invoice; `app/cli/demo_history.py`;
+  DEMO settings `fssai.ruco_threshold_l_per_day` 50, `fssai.tpc_limit_pct` 25,
+  `legal_metrology.short_fill_tolerance_g` {200: 9, 500: 15}, `freshness.alert_days` 15 (`setup_section5_food_safety`,
+  topped up by seed-demo); config `public_base_url`. No migration (`alembic check` clean).
+- **API:** `GET /api/trace/lots?q=`, `/lots/{lot}`, `/recall/{lot}?reason=`, `/oil?days=`, `/fill-weights?days=`,
+  `/passport/{lot}?customer_id=` (`report.read`); `GET /api/trace/freshness` (`customer.read`, a salesman sees own
+  customers); `GET /api/trace/reorder/{token}` (`order.create`); **public** `GET /api/public/passport/{token}` (no
+  login, 30 per IP per minute, pack-label facts only).
+- **Web:** Production → Trace and recall (search, backward / forward, recall simulator, printable notice, passport
+  label QR), Production → Oil and fill weights, the public `/passport/:token` page (outside the shell, "Ask for more"
+  via the share sheet or WhatsApp), `/sales/reorder/:token`, Salesman → Freshness and the chip on Today, the Morning
+  brief's “Visit …” action, the owner tour step (still 12 steps).
+- **Checks run:** backend **890 passed (was 815)**, ruff / format clean, mypy --strict clean, import-linter 2/2, `alembic check`
+  clean; web **81 passed (was 66)**, typecheck / lint / build clean; float grep clean; live on :5180 as the DEMO owner: trace of
+  B-001 / B-002 and DEMO-FL-02 (B-002 and B-003 only), recall with Retailers A and C and the DEMO notice, the passport
+  label QR and the public page, the invoice's passport QRs, oil (B-003 TPC 26% "discard") and fill weights (B-003 one
+  sample at 190 g, below 191 g; giveaway ₹61.91 on B-001, ₹144.43 on B-002), Freshness (Retailer D 80 packets, not
+  enough history; nothing within 15 days), the brief.
+- **New tests:** `traceability/tests/test_domain.py` (16, with a Hypothesis property: the window never misses a lot
+  used, whatever order the sacks are taken in, with returns and same-instant moves), `tests/db/test_traceability.py`
+  (5: the store runs empty between batches, B-001 on the NIT replay, search and 403/404/422),
+  `tests/db/test_food_safety.py` (5: history once and integrity green, oil, fill, missing settings),
+  `tests/db/test_passport.py` (5: public facts only, forged / altered / foreign tokens, rate limit, reorder only for
+  the customer's salesman, the invoice's QRs), `tests/db/test_freshness.py` (4: flags ten days before best-before,
+  the brief's "Visit", salesman filter, missing setting); web `trace.test.tsx` (4), `foodSafety.test.tsx` (2),
+  `passport.test.tsx` (5), `freshness.test.tsx` (4).
 
 ## Done in MP12 (material runway, shortage attribution, batch planner, Owner Morning Brief)
 - **Gate met:** **26/26** (rows 23 and 24 green; no green row turned red), oracle 10/10; `make integrity` OK;
@@ -659,6 +698,9 @@ Three defects found and fixed, each with a test:
     the projection (ADR-0009). Same serialisation; proven by the parallel-approval test.
   - a movement that would eat into active reservations is refused, adjustments included
   - the benchmark replay posts at ₹0.00 as a labelled stand-in (approved; replaced by valued postings in MP05)
+- MP13: [ADR-0020](adr/0020-traceability-recall-passport-freshness-and-food-safety.md): T1–T8 (trace, the "may
+  contain" window, recall simulator, signed passport tokens and QR, scan to reorder, freshness radar, oil and fill
+  weights, DEMO history from the opening day).
 - MP12: [ADR-0019](adr/0019-planning-runway-planner-and-morning-brief.md): L1–L8 (runway, attribution, planning
   settings, the CP-SAT planner, drafts only, the Morning Brief, screens, layering).
 - MP11: [ADR-0018](adr/0018-reports-gst-close-and-evidence.md): K1–K9 (report engine, reports, GST export and law 4,
@@ -721,12 +763,25 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   migration together with `erd.mmd`.
 - **No supplier or item management routes yet:** suppliers and items come from the seeds. Adding them through the UI
   needs routes (MP09 / MP17) and a permission decision (there is no `supplier.manage` yet).
-- **Raw-material expiry is recorded, not enforced:** supplier lot dates are stored, but raw stock is lot-less (D4),
-  so FEFO for raw materials waits for MP13.
+- **Raw-material expiry is recorded, not enforced:** supplier lot dates are stored, but raw stock is lot-less (D4).
+  MP13 traces supplier lots by the conservative "may contain" window instead of tracking them (ADR-0020 T2); FEFO
+  for raw materials would need lot-tracked raw stock.
+- **Supplier-lot recalls can over-name batches** while a store is never emptied (the window closes only when the
+  item's store balance reaches zero). Conservative, never short.
+- **The freshness radar is an estimate** from order rhythm, not a shelf count; one-order customers are flagged on the
+  whole delivery. The DEMO pack shelf life is 90 days, so the DEMO history flags nothing today (the tests show the
+  flag at a later date).
+- **Passport tokens cannot be revoked one by one** (signed, not stored); rotating `AAHAR_AUTH_SECRET` voids them all.
+  The public route's rate limit is per process; MP17 needs a shared limiter, and `AAHAR_PUBLIC_BASE_URL` set to the
+  hosted URL so printed QRs point there.
+- **RUCO 50 L/day, TPC 25% and the short-fill tolerances are DEMO settings;** verify with FSSAI guidance and a Legal
+  Metrology officer.
 - **No stock-posting route:** posting happens inside receipts (MP05), runs (MP06) and dispatches (MP10). No HTTP
   route moves stock without its source document.
 - **Fill-weight samples are per run** (`fill_weight_samples` has no pack-line column), so they are accepted only for
-  single-pack-line runs. A migration adding `run_pack_line_id` lifts this (MP13, or when the tablet UI needs it).
+  single-pack-line runs; MP13 reads them as recorded (no new write route). A migration adding `run_pack_line_id`
+  lifts this when the tablet UI needs it.
+- **Oil sessions and fill samples are entered only at batch completion** (MP06); MP13 adds no separate entry screen.
 - **Quantity per good unit must be exact at 6 dp:** a carton of 24 (1/24) is refused. The seeds use 20 and 10 per
   carton. A per-carton driver would lift it (MP17 if needed).
 - **Run reversal not built:** `run.reverse` is in the matrix, but no route or service reverses a completed run yet.
@@ -749,7 +804,8 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
 - **"Available vs pending" and the actions show item codes** ("murukku 200g"), not catalogue names.
 - **ADMIN cannot create orders** (`order.create` is SALESMAN and OWNER): phoned-in orders are entered by the owner or
   the salesman for now.
-- **Credit notes are value-only:** returned goods (stock back, food safety) are MP13.
+- **Credit notes are value-only:** returned goods (stock back) are not built; the recall simulator lists who holds
+  affected packets but records no return.
 - **GSTR-1 export is for review only** (portal-shaped JSON, never filed); amendments (tables 9A/9C) and e-invoicing
   are out of scope.
 - **Reports run synchronously;** very large ranges may be slow (the stock ledger caps at 2,000 movements per view).
@@ -784,21 +840,21 @@ Never cut: MP00–MP12, Judge Mode, MP17, MP18.
   (`.gitattributes` enforces LF on commit).
 
 ## Exact next step
-Build MP13 from the **approved plan below** (approved by the user on 2026-11-26 as recommended, all five modules, the
-radar included). Commit one module at a time (the user's standing request since MP11). Stop after MP13; do not start
-MP14 or MP15.
+MP13 is done; **stop here**. The user chooses what comes next: MP14 (transport, light, first on the cut line) or MP15
+(Tamil / English, accessibility, Judge Mode). Do not start either without the user's go-ahead. Read the chosen MP in
+docs/MASTER_PACK.md, show the plan, wait for approval, then branch from `feat/mp13-traceability`.
 
-Before starting:
-- Branch `feat/mp13-traceability` from `feat/mp12-planning`.
+Working notes that still hold:
 - One frontend and one backend in Docker (compose services `frontend` and `backend`): http://localhost:5180 and
   http://localhost:8180 (`/docs`). After a dependency change rebuild the backend image
   (`docker compose build backend && docker compose up -d backend`).
 - Everything runs in Docker; never two pytest runs at once; host Python is cp1252 / CRLF; long heredocs break the Bash
   tool, so write scripts with the editor tools. Benchmark: `MSYS_NO_PATHCONV=1 docker compose run --rm -T backend
-  python /workspace/benchmark/runner.py` (must stay 26/26).
+  python /workspace/benchmark/runner.py` (must stay 26/26). Never run Prettier over all of `src`: it reflows
+  `apps/web/src/test-fixtures/b001.json` (restore it with `git checkout` if it happens).
 - Supabase: the user has a Supabase account connected; it fits the hosted demo (MP17). Nothing was created there.
 
-### The MP13 plan as approved (to build)
+### Record: the MP13 plan as approved (implemented above)
 Facts found while planning: supplier lot numbers are on receipt lines and in `lots` (source `purchase_receipt`), FG
 lots carry best-before, dispatch lines carry `lot_id` (FEFO), runs carry snapshots and `operator_id`, and
 `oil_sessions` / `fill_weight_samples` are written at batch completion (MP06). The DEMO factory has no runs, receipts or

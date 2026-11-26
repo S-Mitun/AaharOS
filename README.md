@@ -68,6 +68,16 @@ impact first; tap ⓘ on any amount to see how it is worked out. **Production �
 each material allows (the ones that run out first are marked), what to make next and what to buy. Its buttons create
 a **draft** batch or a **draft** purchase order only; nothing is posted until a person does it.
 
+**Then trace a batch:** `make seed-demo` adds a short DEMO history (supplier lots, batches B-001 to B-003, orders from
+three retailers). **Production → Trace and recall** → pick **B-002**: where it came from (recipe and pack versions,
+operator, each material issue and the supplier lots it *may contain*) and where every packet went (dispatch, invoice,
+customer, still in store). Pick the flour lot **DEMO-FL-02** → **Simulate recall**: the batches it may be in, every
+retailer holding those packets with their invoices, and a printable draft notice marked DEMO (nothing is sent). The
+**Batch passport** QR opens a public page with only what is printed on the pack; the QR on a printed invoice also lets
+the retailer **Ask for more**, which hands their salesman a link to a pre-filled order. **Production → Oil and fill
+weights** shows frying oil per day against the RUCO threshold, oil to discard, and the giveaway in rupees. In the
+salesman app, **Freshness** estimates what may still be on each shelf and flags packets near their best-before.
+
 ## Test logins
 
 `make seed-demo` creates the DEMO organization `DEMO-FACTORY` with one login per role. Every password is
@@ -78,7 +88,7 @@ Set your own before exposing the app anywhere.
 |---|---|---|
 | Salesman | `salesman.a@aaharos-demo.invalid`, `salesman.b@aaharos-demo.invalid` | Take orders; sees only assigned customers and own orders |
 | Admin | `admin@aaharos-demo.invalid` | Approve orders, invoice, dispatch, payments, price lists, month close |
-| Production | `production@aaharos-demo.invalid` | Receipts, recipes, runs, run costs, draft batches and purchase orders |
+| Production | `production@aaharos-demo.invalid` | Receipts, recipes, runs, run costs, draft batches and purchase orders, trace and recall, oil and fill weights |
 | Auditor | `auditor@aaharos-demo.invalid` | Read-only: every mutation returns 403 |
 | Owner | `owner@aaharos-demo.invalid` | Everything, including staff and reopening a closed month |
 
@@ -95,7 +105,7 @@ tablet and desktop from one codebase and supports offline order capture with no 
 ## Repository map
 | Path | What |
 |---|---|
-| `apps/web` | React + TypeScript PWA, one app for every role: Start here, guided tour, salesman app (MP08), Where profit leaks |
+| `apps/web` | React + TypeScript PWA, one app for every role: Start here, guided tour, salesman app (MP08), Where profit leaks, trace and recall (MP13) |
 | `e2e` | Playwright scenarios (`make e2e`) |
 | `backend/app` | FastAPI modular monolith: `core/` kernel + 21 modules in 7 layers |
 | `benchmark/` | NIT oracle, 26 assertions, oracle-integrity checks, scoreboard runner |
