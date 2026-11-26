@@ -592,7 +592,7 @@ def _stale_info(session: Session, order: SalesOrder, versions: list[PriceListVer
         "current_prices": {}
         if in_force is None
         else {str(k): str(v) for k, v in _list_prices(session, in_force.id).items()},
-        "note": "The phone showed an older price list. The admin decides which price applies when approving (MP09).",
+        "note": "The phone showed an older price list. The admin decides which price applies when approving.",
     }
 
 
@@ -790,7 +790,7 @@ def _outstanding(session: Session, customer_id: uuid.UUID) -> Explained:
     return Explained(
         value=Decimal("0.00"),
         unit="INR",
-        formula="no invoices exist until MP10",
+        formula="no invoices yet",
         method="Outstanding",
     )
 

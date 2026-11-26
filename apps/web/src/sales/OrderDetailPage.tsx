@@ -121,7 +121,7 @@ export function OrderDetailPage() {
             </li>
           ))}
         {(!order || order.status === "SUBMITTED") && (
-          <li className="todo">Approval by the factory admin (order inbox, MP09)</li>
+          <li className="todo">Approval by the factory admin</li>
         )}
       </ol>
 

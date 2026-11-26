@@ -58,12 +58,12 @@ DEFAULT_DEMO_PASSWORD = "change-me-demo"  # noqa: S105 - the documented DEMO def
 
 # (email, display name, role, environment variable holding the password)
 DEMO_USERS = (
-    ("salesman.a@aaharos-demo.invalid", "Salesman A (DEMO)", "SALESMAN", "DEMO_PASSWORD_SALESMAN"),
-    ("salesman.b@aaharos-demo.invalid", "Salesman B (DEMO)", "SALESMAN", "DEMO_PASSWORD_SALESMAN"),
-    ("admin@aaharos-demo.invalid", "Factory Admin (DEMO)", "ADMIN", "DEMO_PASSWORD_ADMIN"),
-    ("production@aaharos-demo.invalid", "Production Supervisor (DEMO)", "PRODUCTION", "DEMO_PASSWORD_PRODUCTION"),
-    ("auditor@aaharos-demo.invalid", "Auditor (DEMO)", "AUDITOR", "DEMO_PASSWORD_AUDITOR"),
-    ("owner@aaharos-demo.invalid", "Owner (DEMO)", "OWNER", "DEMO_PASSWORD_OWNER"),
+    ("salesman.a@aaharos.demo", "Salesman A (DEMO)", "SALESMAN", "DEMO_PASSWORD_SALESMAN"),
+    ("salesman.b@aaharos.demo", "Salesman B (DEMO)", "SALESMAN", "DEMO_PASSWORD_SALESMAN"),
+    ("admin@aaharos.demo", "Factory Admin (DEMO)", "ADMIN", "DEMO_PASSWORD_ADMIN"),
+    ("production@aaharos.demo", "Production Supervisor (DEMO)", "PRODUCTION", "DEMO_PASSWORD_PRODUCTION"),
+    ("auditor@aaharos.demo", "Auditor (DEMO)", "AUDITOR", "DEMO_PASSWORD_AUDITOR"),
+    ("owner@aaharos.demo", "Owner (DEMO)", "OWNER", "DEMO_PASSWORD_OWNER"),
 )
 
 
@@ -79,6 +79,16 @@ def seed(session: Session) -> list[tuple[str, str]]:
     seeded: list[tuple[str, str]] = []
     for email, name, role, env in DEMO_USERS:
         password = os.environ.get(env) or DEFAULT_DEMO_PASSWORD
+        # The DEMO logins moved from @aaharos-demo.invalid to @aaharos.demo (Supabase Auth refuses .invalid):
+        # rename the old row once, so the user keeps its id, memberships and audit history.
+        old = email.replace("@aaharos.demo", "@aaharos-demo.invalid")
+        session.execute(
+            text(
+                "UPDATE users SET email = :new WHERE lower(email) = lower(:old)"
+                " AND NOT EXISTS (SELECT 1 FROM users WHERE lower(email) = lower(:new))"
+            ),
+            {"new": email, "old": old},
+        )
         user_id = session.execute(
             text(
                 "INSERT INTO users (email, display_name, password_hash) VALUES (:e, :n, :h)"
@@ -109,7 +119,7 @@ def seed(session: Session) -> list[tuple[str, str]]:
 
 
 # salesman email -> customer code (MP03 row filter: each salesman sees only these)
-ASSIGNMENTS = (("salesman.a@aaharos-demo.invalid", "RET-A"), ("salesman.b@aaharos-demo.invalid", "DIST-B"))
+ASSIGNMENTS = (("salesman.a@aaharos.demo", "RET-A"), ("salesman.b@aaharos.demo", "DIST-B"))
 
 
 def seed_master_data(app_session: Session, org_id: uuid.UUID, user_ids: dict[str, uuid.UUID]) -> bool:
@@ -249,10 +259,10 @@ def main() -> int:
     else:
         print("  master data already present: left unchanged")
     if transport_added or trips:
-        print(f"  transport (MP14): {len(transport_added)} settings/vehicles/locations added")
+        print(f"  transport: {len(transport_added)} settings/vehicles/locations added")
         print(f"  trips: {', '.join(trips) or '-'}")
     if history:
-        print("  DEMO history (MP13): " + "; ".join(history))
+        print("  DEMO history: " + "; ".join(history))
     else:
         print("  DEMO history already present: left unchanged")
     return 0

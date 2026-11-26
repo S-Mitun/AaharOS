@@ -142,7 +142,10 @@ def login(
     organization_code: str | None,
     ip: str | None,
     user_agent: str | None,
+    verified_by_supabase: bool = False,
 ) -> IssuedTokens:
+    """Open a session for an email + password (local mode), or for an email Supabase Auth has already verified
+    (hosted mode: the password was checked by Supabase, so none is checked here)."""
     email_lower = email.strip().lower()
     _check_rate_limit(session, email_lower, ip)
 
@@ -155,7 +158,9 @@ def login(
         {"email": email_lower},
     ).all()
     first = rows[0] if rows else None
-    password_ok = verify_password(None if first is None else first.password_hash, password)  # always hashes
+    password_ok = verified_by_supabase or verify_password(
+        None if first is None else first.password_hash, password
+    )  # local mode always hashes, so a wrong email takes as long as a wrong password
     memberships = [r for r in rows if r.organization_id is not None and r.membership_active]
     if organization_code:
         memberships = [r for r in memberships if r.organization_code == organization_code]
@@ -177,7 +182,7 @@ def login(
     session.add(LoginAttempt(email_lower=email_lower, ip=ip, succeeded=True))
     org_scope(session, org_id, user_id)
 
-    if needs_rehash(first.password_hash):
+    if not verified_by_supabase and needs_rehash(first.password_hash):
         session.execute(update(User).where(User.id == user_id).values(password_hash=hash_password(password)))
 
     auth_session = AuthSession(
@@ -521,10 +526,11 @@ def create_scratch_tenant(
 
 
 def create_first_owner(
-    session: Session, *, organization_id: uuid.UUID, email: str, display_name: str, password: str
+    session: Session, *, organization_id: uuid.UUID, email: str, display_name: str, password: str | None
 ) -> uuid.UUID:
-    """Self sign-up (deployment): the first OWNER of a fresh sandbox organization. The caller commits."""
-    if len(password) < MIN_PASSWORD_LENGTH:
+    """Self sign-up (deployment): the first OWNER of a fresh sandbox organization. The caller commits. With Supabase
+    sign-in the password lives at Supabase Auth, so `password` is None and no hash is stored here."""
+    if password is not None and len(password) < MIN_PASSWORD_LENGTH:
         raise DomainError("weak_password", f"password must be at least {MIN_PASSWORD_LENGTH} characters")
     user_id = uuid.uuid4()
     try:
@@ -534,7 +540,7 @@ def create_first_owner(
                     id=user_id,
                     email=email.strip(),
                     display_name=display_name.strip(),
-                    password_hash=hash_password(password),
+                    password_hash=None if password is None else hash_password(password),
                 )
             )
             session.execute(

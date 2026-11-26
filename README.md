@@ -9,44 +9,68 @@ and what to do *next*, for a small South Indian snack factory. Every number on e
 the stock movement or document that produced it. Built for the NIT Tiruchirappalli Centre for Digital Infrastructure
 internship task. All companies, people, GSTINs and licence numbers are fictional (**DEMO**).
 
-**Live demo:** https://aaharos-demo.onrender.com (one address: the guided tour, the shared DEMO factory and your own
-factory). Free hosting: after a quiet spell the first visit takes about a minute to wake the server.
+## Open the app
+**https://aaharos-demo.onrender.com** is the whole product: the guided tour, the shared DEMO factory and your own
+factory, on one address. Nothing to install. Free hosting: after a quiet spell the first visit takes about a minute
+to wake the server.
 
-## How to use it (the guided tour comes first)
-1. Open the site → **Start the guided tour**. Twelve short steps in NIT's order, each saying who does it, where to
-   click, what to type and the number you should see. **Take me there** opens the screen; tap a DEMO login on the
-   sign-in page (shared password `change-me-demo`) to act as that role.
-2. When every step has been opened, **Finish the tour** offers to **Create your own factory** (a private copy with
-   NIT's starting stock, recipe and prices; you are its Owner) or **Sign in to my account**. Own accounts open only
-   after the tour.
-3. **Restart tour** is in the top bar on every page, any number of times. **Judge Mode** shows the 26-row scoreboard
-   and lets the DEMO admin or owner replay NIT's nine steps on a fresh benchmark factory. **தமிழ்** switches the
-   app's frame to Tamil (needs fluent review).
+1. **Take the guided tour (first, for everyone).** Twelve short steps in NIT's order: who does it, where to click,
+   what to type and the number you should see. **Take me there** opens the real screen; tap a DEMO login on the
+   sign-in page to act as that person.
+2. **Create your own factory.** When the tour is done, **Finish the tour** offers **Create your own factory**: your
+   email and a password, and you become the Owner of a private factory that starts with NIT's stock, recipe and
+   prices. From then on **Sign in** takes you straight to it.
+3. **Restart tour** is in the top bar on every page, any number of times, also inside your own factory.
+   **Judge Mode** shows the 26-row scoreboard and replays NIT's nine steps on a fresh benchmark factory.
+   **தமிழ்** switches the app's frame to Tamil.
 
-## Run it locally (Docker; 4 commands)
-Needs Docker and `make` (Windows: `winget install ezwinports.make`). No `.env` is needed for a local run (DEMO
-defaults); copy `.env.example` to `.env` to change passwords.
+### DEMO logins (shared factory, password `change-me-demo`)
+| Person | Email | Lands on | Can do |
+|---|---|---|---|
+| Salesman A / B | `salesman.a@aaharos.demo` / `salesman.b@aaharos.demo` | Today | Take orders on the phone, offline too; own customers only |
+| Factory admin | `admin@aaharos.demo` | Order inbox | Approve, invoice, dispatch, payments, trips, month close |
+| Production supervisor | `production@aaharos.demo` | Batch planner | Purchases, batch card, run costs, trace, oil and fill weights |
+| Owner | `owner@aaharos.demo` | Morning brief | Everything, including staff, settings and reopening a month |
+| Auditor | `auditor@aaharos.demo` | Where profit leaks | Read everything; every change is refused |
+
+The DEMO factory is shared by every visitor, so it fills up with their orders. Your own factory is private.
+
+## How it fits together
 ```
-make up          # postgres :5442, backend :8180 (/docs), frontend :5180
-make migrate     # the schema and its guards
-make seed-demo   # the DEMO factory: six logins, master data, opening stock, a short history, transport set-up
-make benchmark   # NIT's nine steps replayed on a fresh benchmark factory: the 26-row scoreboard
+ Browser (phone · tablet · desktop PWA)
+   │  1. sign in / sign up / sign out ───────────────► Supabase Auth (email + password, OAuth 2 password grant)
+   │  2. Supabase access token ──► POST /api/auth/exchange
+   ▼
+ https://aaharos-demo.onrender.com  — one Render web service, one container
+   ├─ the built React app (same origin, so no CORS, strict CSP)
+   └─ FastAPI: checks the token with Supabase once, opens its own httpOnly session cookie;
+      every request then runs as the row-level-security role of the signed-in factory
+   ▼
+ Supabase PostgreSQL 16 (session pooler)
+   ledger · valuation · recipes · production · sales · GST · audit chain · settings
+   one schema, every factory separated by row-level security
 ```
-Then open http://localhost:5180. More: `make test` (backend), `make web-test`, `make e2e` (Playwright),
-`make integrity` (the four conservation laws), `make sim` / `make ml-eval` (synthetic analytics), `make backup` /
-`make restore-check`.
+- **Sign-in** is Supabase Auth: the browser signs in at Supabase, the app verifies that token with Supabase and opens
+  its own session; **Sign out** ends both. The app stores no passwords for hosted accounts.
+- **On every start** the server migrates the schema, refreshes the permanent DEMO factory and its logins, and (in the
+  background) replays NIT's benchmark for the home-page scoreboard.
+- Modular monolith: `identity, catalog, uom, ledger, valuation, procurement, recipe, production, costing, sales, tax,
+  billing, dispatch, collections, planning, traceability, reports, audit, transport, analytics`. Each module has
+  routes, use cases and pure domain logic tested without a database. Details: [docs/architecture/overview.md](docs/architecture/overview.md).
 
-| Login (password `change-me-demo` locally) | Lands on | Can do |
-|---|---|---|
-| Salesman A / B `salesman.a@aaharos-demo.invalid` | Today | Orders on the phone, offline too; own customers only |
-| Factory admin `admin@aaharos-demo.invalid` | Order inbox | Approve, invoice, dispatch, payments, trips, month close |
-| Production `production@aaharos-demo.invalid` | Batch planner | Purchases, batch card, run costs, trace, oil and fill weights |
-| Owner `owner@aaharos-demo.invalid` | Morning brief | Everything, including staff and reopening a month |
-| Auditor `auditor@aaharos-demo.invalid` | Where profit leaks | Read everything; every write returns 403 |
+## The four conservation laws (checked by the database and by tests)
+1. **Quantity:** every stock journal's lines sum to zero per item. Balances are projections of the ledger.
+2. **Value:** rupees into WIP or finished goods = rupees out of raw stock + run costs; variances are explicit lines.
+3. **Mass:** recipe input mass = good output + scrap + recorded loss; any gap is shown, never hidden.
+4. **Tax:** invoice tax lines = GST summary = GSTR-1-shaped export.
 
-## Benchmark: NIT Section 5 (real output of `make benchmark`, 2026-11-26)
-**26 / 26 green**, oracle integrity 10 / 10. The oracle is `benchmark/expected_results.yaml` (inputs and NIT's
-expected values are guarded by a checksum test).
+Money is `Decimal` / `NUMERIC` (never float), rounded once at posting to paise. Posted documents are immutable and
+corrected by reversals or credit notes. Every privileged change writes a hash-chained audit row. Tax rates, HSN,
+GSTIN, FSSAI and thresholds are effective-dated settings the Owner can change.
+
+## Benchmark: NIT Section 5
+**26 / 26 green**, oracle integrity 10 / 10, live on the home page and in Judge Mode. The oracle is
+`benchmark/expected_results.yaml` (NIT's inputs and expected values are guarded by a checksum test).
 
 | # | Check | Result | # | Check | Result |
 |---|---|---|---|---|---|
@@ -65,53 +89,52 @@ expected values are guarded by a checksum test).
 | 13 | B: 120 asked, 88 available, 32 short | green | 26 | Integrity: four laws, audit chain, rebuild | green |
 
 **Cost method:** weighted average cost (WAC) posts; FIFO (₹30.90/packet) and last price (₹31.54) are shown beside it,
-never posted. Cost per packet divides by good packets (188), not the expected 200. **Overheads** are not absorbed
-into lots (direct cost only; ADR-0014 F7). **Assumptions A1-A6** (opening finished packets at standard ₹28.85, the
-standard card at opening rates, FEFO lots, labour and gas direct to the run, the carton as packing and packaging,
-both customers GST-registered): [docs/assumptions.md](docs/assumptions.md).
+never posted. Cost per packet divides by good packets (188), not the expected 200. Monthly overheads are not added to
+batches (direct cost only). Assumptions A1-A6: [docs/assumptions.md](docs/assumptions.md).
 
-## What NIT asked for, and what is built
-| Tier | Feature | Status |
+## What the problem statement asked for, and where it is in the app
+| Tier | Feature | Where |
 |---|---|---|
-| Must | Salesman order (mobile, offline outbox, repeat order) | built (MP08) |
-| Must | Approval against available-to-promise, part-approve and backorder | built (MP09) |
-| Must | GST invoice (CGST / SGST or IGST), printable, FEFO dispatch, payments and outstanding | built (MP10) |
-| Must | Purchases at WAC, BOM issue, production run, finished goods, variances | built (MP05-MP06, MP15 screens) |
-| Must | Run cost, cost per packet, where profit leaks (waterfall) | built (MP07) |
-| Must | Reports, GST summary and GSTR-1-shaped export, month close, audit trail | built (MP11, MP03) |
-| Should | Batch planner (CP-SAT), material runway, shortage attribution, Morning brief | built (MP12) |
-| Should | Trace a lot, recall simulator, batch passport QR, freshness radar, oil and fill weights | built (MP13) |
-| Stretch | Trips (CVRP), cost-to-serve, Deal Desk floor, CO₂ estimate | built, light (MP14) |
-| Stretch | Tamil / English, accessibility checks, Judge Mode | built (MP15; Tamil covers the app's frame) |
-| Stretch | Synthetic factory simulator and analytics vs baselines | built (MP16; synthetic only, no UI) |
-| Mock | E-way bill and IRP payloads, UPI QR on invoices | mock adapters, labelled DEMO; nothing is sent |
+| Must | Salesman order on the phone, offline outbox, repeat order | Salesman → Today |
+| Must | Approval against available to promise, part-approve, backorder | Admin → Order inbox |
+| Must | GST invoice (CGST / SGST or IGST), printable; FEFO dispatch; payments and outstanding | Admin → Invoices, Dispatch, Payments |
+| Must | Purchases at WAC, issue per recipe, production run, good packets, damaged, waste, variances | Production → Purchases, Batch card |
+| Must | Run cost, cost per good packet, where profit leaks (waterfall) | Production → Run costs; Owner → Where profit leaks |
+| Must | Reports, GST summary, GSTR-1-shaped export, month close, audit trail | Auditor → Reports |
+| Should | Batch planner, material runway, shortage reasons, Morning brief | Owner → Morning brief; Production → Batch planner |
+| Should | Trace a batch, recall simulator, batch passport QR, freshness radar, oil and fill weights | Production → Trace and recall, Oil and fill weights |
+| Stretch | Trips, cost-to-serve, Deal Desk price floor, CO₂ estimate | Admin → Trips |
+| Stretch | Tamil / English, accessibility checks, Judge Mode, guided tour | Top bar; /judge; /guide |
+| Stretch | Changeable settings and GST rates (effective-dated) | Owner → Settings |
+| Mock | E-way bill and IRP payloads, UPI QR on invoices | Labelled DEMO; nothing is sent |
 
-## Tests (real results, 2026-11-27)
-| Suite | Command | Result |
-|---|---|---|
-| Backend unit + PostgreSQL | `make test` | 976 passed |
-| Web | `make web-test` | 93 passed |
-| Browser (Playwright: salesman, journey, production, axe accessibility) | `make e2e` | 11 passed |
-| Benchmark | `make benchmark` | 26/26, oracle 10/10 |
-| Conservation laws | `make integrity` | OK |
-| Analytics (synthetic, planted truths) | `make ml-eval` | 5 passed; report in [analytics/REPORT.md](analytics/REPORT.md) |
+## Tests
+| Suite | Result |
+|---|---|
+| Backend unit + PostgreSQL (`make test`) | 986 passed |
+| Web (`make web-test`) | 96 passed |
+| Browser, Playwright: salesman, full journey, production, axe accessibility (`make e2e`) | 11 passed |
+| Benchmark (`make benchmark`) | 26 / 26, oracle 10 / 10 |
+| Conservation laws (`make integrity`) | OK |
+| Analytics on a synthetic factory, planted truths (`make ml-eval`) | 5 passed; [analytics/REPORT.md](analytics/REPORT.md) |
 
 ## Stack (and why)
-PostgreSQL gives exact NUMERIC arithmetic, real transactions and constraint triggers, so the ledger's correctness is
-enforced by the database, not only by app code. FastAPI with Pydantic and Python `Decimal` keep money and tax logic
-typed and testable, and Python gives direct access to OR-Tools for the planner and trips. A React PWA covers phone,
-tablet and desktop from one codebase and supports offline order capture without an app store.
+PostgreSQL gives exact NUMERIC arithmetic, real transactions, constraint triggers and row-level security, so the
+ledger's correctness is enforced by the database, not only by app code. FastAPI with Pydantic and Python `Decimal`
+keep money and tax logic typed and testable, and Python gives direct access to OR-Tools for the planner and trips. A
+React PWA covers phone, tablet and desktop from one codebase and supports offline order capture without an app store.
+Supabase provides the managed database and the sign-in service on a free tier; Render runs the single container.
 
 ## Known gaps (honest)
 Real GST filing, IRP and e-way bill calls are mocks; HSN, rates, GSTIN, FSSAI, RUCO, TPC and Legal Metrology figures
-are DEMO settings to verify with a chartered accountant and the regulators. Tamil covers the frame of the app, not the
-screen bodies. Analytics run on synthetic data only and have no screen. The supplier-lot recall can over-name batches
-(conservative by design). Trips use straight-line distance × a road factor. Starlette 0.41 stays until a FastAPI
-upgrade is tested. Free hosting sleeps when idle. Full list: [docs/PROGRESS.md](docs/PROGRESS.md#known-gaps--risks).
+are DEMO settings to verify with a chartered accountant and the regulators. Tamil covers the frame of the app, not
+every screen body. Analytics run on synthetic data and have no screen. The supplier-lot recall can over-name batches
+(conservative by design). Trips use straight-line distance × a road factor. Free hosting sleeps when idle. Full
+list: [docs/PROGRESS.md](docs/PROGRESS.md#known-gaps--risks).
 
 ## Documentation
 - [Design note (2 pages)](docs/design-note.md) · [Demo script (8 minutes)](docs/demo-script.md) ·
   [Impact](docs/impact.md) · [Judge readiness](docs/judge-readiness.md)
-- [Architecture](docs/architecture/overview.md) · [Decisions (ADRs 0000-0022)](docs/adr/) ·
-  [Assumptions](docs/assumptions.md) · [Security](docs/security.md) · [Deploy](docs/deploy.md) ·
+- [Architecture](docs/architecture/overview.md) · [Decisions (ADRs)](docs/adr/) · [Assumptions](docs/assumptions.md) ·
+  [Security](docs/security.md) · [Hosting](docs/deploy.md) · [Developer setup](docs/development.md) ·
   [Requirements traceability](docs/requirements-traceability.md) · [Progress](docs/PROGRESS.md)

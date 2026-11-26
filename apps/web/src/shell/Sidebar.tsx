@@ -35,7 +35,6 @@ export function Sidebar({ me, onNavigate }: { me: Me | null; onNavigate?: () => 
                       {s.icon}
                     </span>
                     <span className="side-label">{t(s.label)}</span>
-                    {!s.built && <span className="side-soon">{s.mp}</span>}
                   </NavLink>
                 </li>
               ))}

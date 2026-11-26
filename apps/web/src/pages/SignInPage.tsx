@@ -1,7 +1,7 @@
 import { useT } from "../lib/i18n";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { DEMO_EMAIL_DOMAIN, tourCompleted } from "../guide/memory";
+import { isDemoEmail, tourCompleted } from "../guide/memory";
 import { homeFor } from "../guide/screens";
 import { ApiError } from "../lib/api";
 import { useSession } from "../lib/sessionContext";
@@ -13,24 +13,24 @@ export const DEMO_PASSWORD = "change-me-demo";
 const DEMO_LOGINS = [
   {
     role: "Salesman A",
-    email: "salesman.a@aaharos-demo.invalid",
+    email: "salesman.a@aaharos.demo",
     does: "Takes orders on the phone",
   },
   {
     role: "Salesman B",
-    email: "salesman.b@aaharos-demo.invalid",
+    email: "salesman.b@aaharos.demo",
     does: "Takes orders on the phone",
   },
   {
     role: "Factory admin",
-    email: "admin@aaharos-demo.invalid",
+    email: "admin@aaharos.demo",
     does: "Approves, invoices, dispatches",
   },
-  { role: "Production", email: "production@aaharos-demo.invalid", does: "Purchases and batches" },
-  { role: "Owner", email: "owner@aaharos-demo.invalid", does: "Sees where profit leaks" },
+  { role: "Production", email: "production@aaharos.demo", does: "Purchases and batches" },
+  { role: "Owner", email: "owner@aaharos.demo", does: "Sees where profit leaks" },
   {
     role: "Auditor",
-    email: "auditor@aaharos-demo.invalid",
+    email: "auditor@aaharos.demo",
     does: "Reads everything, changes nothing",
   },
 ];
@@ -51,7 +51,7 @@ export function SignInPage() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!email.trim().toLowerCase().endsWith(DEMO_EMAIL_DOMAIN) && !tourCompleted()) {
+    if (!isDemoEmail(email) && !tourCompleted()) {
       setError(
         "Your own account opens after the guided tour. Use a DEMO login above to follow it, then sign in here.",
       );

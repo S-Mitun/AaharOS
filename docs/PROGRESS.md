@@ -36,6 +36,19 @@
 
 Red items: none. Every row is green; later MPs must keep it that way.
 
+## Final pass (2026-11-27: Supabase sign-in, Settings screen, no build notes in the UI, README for the hosted app)
+- **Supabase Auth** is the sign-in service on the hosted app ([ADR-0023](adr/0023-supabase-auth-token-exchange.md)):
+  the browser signs in / up / out at Supabase, `POST /api/auth/exchange` verifies the token and opens the app's own
+  session; `/api/auth/login` is refused in that mode; sign-up takes the Supabase token. The six DEMO logins moved to
+  `@aaharos.demo` (Supabase refuses `.invalid`; the seed renames old rows) and exist in Supabase pre-confirmed.
+  Tests: `tests/db/test_supabase_auth.py` (Supabase's answer simulated).
+- **Owner → Settings** screen: every changeable setting with today's value, change from a date, GST rates with
+  "add a rate"; read-only without `settings.manage`. `GET /api/settings` lists them with labels.
+- **UI copy:** no build-stage notes left (home role cards link to their screens; no "Coming" pages; costing, sales
+  and outstanding notes reworded).
+- **README** rewritten for the hosted app (one address, how sign-in works, architecture); local commands moved to
+  [development.md](development.md).
+
 ## Done in MP19 (red-team review, drills, judge readiness)
 - [judge-readiness.md](judge-readiness.md): fresh clone (builds in 95 s from committed files only), benchmark 26/26,
   the hunts (one accepted UI preview, one justified float), 11 attack drills each mapped to a test that ran, the

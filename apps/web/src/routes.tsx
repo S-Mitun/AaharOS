@@ -15,6 +15,7 @@ import { LeaksIndexPage, LeaksPage } from "./pages/LeaksPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { BriefPage } from "./owner/BriefPage";
 import { PlannerPage } from "./owner/PlannerPage";
+import { SettingsPage } from "./owner/SettingsPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { FoodSafetyPage } from "./trace/FoodSafetyPage";
@@ -32,10 +33,9 @@ import { SalesLayout } from "./sales/SalesLayout";
 import { SummaryPage } from "./sales/SummaryPage";
 import { TodayPage } from "./sales/TodayPage";
 import { AppShell } from "./shell/AppShell";
-import { ComingPage } from "./shell/ComingPage";
 import { Gate } from "./shell/Gate";
 
-/** The page of every built screen in the registry (screens.ts). A screen not built yet gets the "Coming" page. */
+/** The page of every built screen in the registry (screens.ts).  */
 const BUILT: Record<string, ReactNode> = {
   home: <HomePage />,
   guide: <GuidePage />,
@@ -96,6 +96,11 @@ const BUILT: Record<string, ReactNode> = {
       <TripsPage />
     </Gate>
   ),
+  settings: (
+    <Gate permission="report.read" what="settings">
+      <SettingsPage />
+    </Gate>
+  ),
   foodSafety: (
     <Gate permission="report.read" what="the oil and fill-weight records">
       <FoodSafetyPage />
@@ -116,7 +121,7 @@ function screenRoutes(): RouteObject[] {
     .filter(([id]) => !SALES_ROUTES.has(id))
     .map(([id, screen]) => ({
       path: screen.route,
-      element: screen.built ? BUILT[id] : <ComingPage screen={screen} />,
+      element: BUILT[id],
     }));
 }
 

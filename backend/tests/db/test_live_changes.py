@@ -80,3 +80,11 @@ def test_only_a_manager_changes_settings_through_the_api(api_app: Any, staff: St
     read = owner.get("/api/settings/freshness.alert_days", params={"on": tomorrow}).json()
     assert read["value"] == "15"
     assert TestClient(api_app).get("/api/settings/freshness.alert_days").status_code == 401
+
+
+def test_the_settings_screen_lists_every_changeable_setting_with_a_label(api_app: Any, staff: Staff) -> None:
+    from app.modules.tax.api import CHANGEABLE_SETTINGS
+
+    listed = login_client(api_app, staff.emails["AUDITOR"]).get("/api/settings").json()["settings"]
+    assert {s["key"] for s in listed} == CHANGEABLE_SETTINGS
+    assert all(s["label"] and s["unit"] for s in listed)

@@ -4,6 +4,7 @@ import { homeFor } from "../guide/screens";
 import { stepsLeft, tourCompleted } from "../guide/memory";
 import { STEPS } from "../guide/steps";
 import { ApiError, apiPost } from "../lib/api";
+import { authConfig, savePendingFactory, supabaseSignUp } from "../lib/supabaseAuth";
 import { useSession } from "../lib/sessionContext";
 
 /**
@@ -25,15 +26,25 @@ export function SignUpPage() {
     setBusy(true);
     setError(null);
     try {
+      const cfg = await authConfig();
+      const account =
+        cfg.mode === "supabase"
+          ? { access_token: await supabaseSignUp(cfg, email.trim(), password) } // the account lives at Supabase
+          : { email: email.trim(), password };
       await apiPost("/api/signup", {
         factory_name: factory.trim(),
         display_name: name.trim(),
-        email: email.trim(),
-        password,
+        ...account,
       });
       const who = await signIn(email.trim(), password);
       navigate(homeFor(who.role), { replace: true });
     } catch (err) {
+      if (err instanceof ApiError && err.code === "email_not_confirmed")
+        savePendingFactory({
+          email: email.trim(),
+          factory_name: factory.trim(),
+          display_name: name.trim(),
+        });
       setError(
         err instanceof ApiError ? err.message : "Could not reach the factory server. Try again.",
       );

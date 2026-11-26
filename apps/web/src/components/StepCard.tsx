@@ -21,7 +21,7 @@ function ProofStatus({ assertions }: { assertions: number[] }) {
       {green === rows.length ? (
         <StatusChip tone="ok">{`All ${rows.length} passing`}</StatusChip>
       ) : (
-        <StatusChip tone="todo">{`${green} of ${rows.length} built so far`}</StatusChip>
+        <StatusChip tone="bad">{`${rows.length - green} of ${rows.length} not passing`}</StatusChip>
       )}
     </p>
   );
@@ -55,13 +55,9 @@ export function StepCard({ step, compact = false }: { step: GuideStep; compact?:
           <span className="meta-label">Where</span>
           <span>
             {screen.name}{" "}
-            {screen.built ? (
-              <Link to={screen.route} className="link-strong">
-                {t("Take me there")} →
-              </Link>
-            ) : (
-              <StatusChip tone="todo">{`Coming in ${screen.mp}`}</StatusChip>
-            )}
+            <Link to={screen.route} className="link-strong">
+              {t("Take me there")} →
+            </Link>
           </span>
         </div>
       </div>

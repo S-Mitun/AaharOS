@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
         HardeningMiddleware,
         allowed_origins=[*settings.cors_origins, settings.public_base_url],
         secure=settings.cookie_secure,
+        connect_extra=settings.supabase_url if settings.auth_mode == "supabase" else "",
     )
     app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(

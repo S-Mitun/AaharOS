@@ -88,6 +88,27 @@ CHANGEABLE_SETTINGS = frozenset(
 )
 
 
+# What each changeable setting means, in the words the Settings screen shows (same keys as above, in screen order).
+SETTING_LABELS: dict[str, tuple[str, str]] = {
+    "variance_tolerance_pct": ("Variance flag above", "%"),
+    "freshness.alert_days": ("Freshness alert after", "days"),
+    "fssai.ruco_threshold_l_per_day": ("Used-oil (RUCO) threshold", "L/day"),
+    "fssai.tpc_limit_pct": ("Frying oil TPC limit", "%"),
+    "planning.attribution_days": ("Shortage look-back", "days"),
+    "planning.batches_per_day": ("Batches per day", "batches"),
+    "gst.b2cl_threshold": ("GSTR-1 B2CL threshold", "INR"),
+    "eway.threshold_interstate": ("E-way bill threshold, interstate", "INR"),
+    "eway.threshold_intrastate": ("E-way bill threshold, within the state", "INR"),
+    "bank.stock_margin_pct": ("Bank margin on stock", "%"),
+    "bank.debtors_margin_pct": ("Bank margin on debtors", "%"),
+    "transport.road_factor": ("Road distance factor", "times straight line"),
+    "transport.fuel_inr_per_l": ("Diesel price", "INR/L"),
+    "transport.co2_kg_per_km": ("CO₂ per km", "kg/km"),
+    "transport.credit_cost_pct_pa": ("Cost of credit", "% a year"),
+    "transport.backhaul_detour_km": ("Backhaul detour allowed", "km"),
+}
+
+
 class SettingBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -98,6 +119,21 @@ class SettingBody(BaseModel):
 def _known(key: str) -> None:
     if key not in CHANGEABLE_SETTINGS:
         raise NotFoundError("setting_not_changeable", f"{key} is not a setting that can be changed here")
+
+
+@router.get("/settings")
+def list_settings(
+    _principal: Annotated[Principal, Depends(require("report.read"))], session: DbSession
+) -> dict[str, Any]:
+    """Every changeable setting with the value in force today (None when the factory has not set it)."""
+    today = date.today()
+    return {
+        "on": today.isoformat(),
+        "settings": [
+            {"key": key, "label": label, "unit": unit, "value": effective_settings.value_on(session, key, today)}
+            for key, (label, unit) in SETTING_LABELS.items()
+        ],
+    }
 
 
 @router.get("/settings/{key}")

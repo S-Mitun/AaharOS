@@ -47,8 +47,7 @@ function rowStatus(check: Check, rows: ScoreRow[] | null) {
   if (mine.some((r) => r.status === "FAIL")) return <StatusChip tone="bad">Failing</StatusChip>;
   if (mine.length > 0 && mine.every((r) => r.status === "GREEN"))
     return <StatusChip tone="ok">Passing</StatusChip>;
-  const mp = mine.find((r) => r.status === "RED")?.owner_mp;
-  return <StatusChip tone="todo">{mp ? `Coming in ${mp}` : "Not built yet"}</StatusChip>;
+  return <StatusChip tone="info">Not run yet</StatusChip>;
 }
 
 function ChecksTable() {
@@ -108,31 +107,31 @@ const ROLES = [
     role: "Salesman",
     device: "Phone",
     job: "Place an order for a shop in under 30 seconds, even offline.",
-    mp: "MP08",
+    route: "/sales",
   },
   {
     role: "Factory admin",
     device: "Desktop",
     job: "Approve orders without overselling, raise GST invoices, dispatch, collect.",
-    mp: "MP09",
+    route: "/admin/orders",
   },
   {
     role: "Production supervisor",
     device: "Tablet",
     job: "Record a batch like the paper batch sheet: planned vs actual.",
-    mp: "MP06",
+    route: "/production/batch/new",
   },
   {
     role: "Owner",
     device: "Any",
     job: "See today's 3 actions and where profit leaks, in rupees.",
-    mp: "MP12",
+    route: "/owner",
   },
   {
     role: "Auditor",
     device: "Desktop, read-only",
     job: "Download the month's reports and trace any number to its source.",
-    mp: "MP11",
+    route: "/auditor/reports",
   },
 ];
 
@@ -236,7 +235,9 @@ export function HomePage() {
               <h3>{r.role}</h3>
               <p className="muted small">{r.device}</p>
               <p>{r.job}</p>
-              <StatusChip tone="todo">{`Screen coming in ${r.mp}`}</StatusChip>
+              <Link to={r.route} className="link-strong">
+                Open the {r.role.toLowerCase()} screen →
+              </Link>
             </article>
           ))}
         </div>

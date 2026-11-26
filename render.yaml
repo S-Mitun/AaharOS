@@ -19,6 +19,12 @@ services:
         value: "true"
       - key: AAHAR_AUTH_SECRET
         generateValue: true
+      - key: AAHAR_AUTH_MODE
+        value: supabase
+      - key: AAHAR_SUPABASE_URL
+        value: https://cwuxidcicgrtbbjusxtr.supabase.co
+      - key: AAHAR_SUPABASE_KEY  # the publishable (public) key: browsers use it to call Supabase Auth
+        value: sb_publishable_cixUG9mS9CNVN-gnnWjzEg_VM2ijC0F
       - key: AAHAR_DATABASE_URL
         sync: false
       - key: AAHAR_MIGRATION_DATABASE_URL

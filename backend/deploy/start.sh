@@ -12,6 +12,7 @@ cd /srv/backend
 export AAHAR_PUBLIC_BASE_URL="${AAHAR_PUBLIC_BASE_URL:-${RENDER_EXTERNAL_URL:-http://localhost:8000}}"
 alembic upgrade head
 python -m app.cli.seed_demo
+python -m app.cli.supabase_users  # hosted sign-in: the DEMO logins exist in Supabase Auth
 if [ "${AAHAR_BENCHMARK_ON_START:-1}" = "1" ]; then
   (sleep 20 && python /srv/benchmark/runner.py > /tmp/benchmark.log 2>&1) &
 fi

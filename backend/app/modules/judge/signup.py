@@ -47,7 +47,7 @@ class SignedUp:
     email: str
 
 
-def sign_up(session: Session, *, factory_name: str, display_name: str, email: str, password: str) -> SignedUp:
+def sign_up(session: Session, *, factory_name: str, display_name: str, email: str, password: str | None) -> SignedUp:
     """Create the sandbox factory and its owner in one transaction (the caller commits)."""
     if not get_settings().signups_open:
         raise DomainError("signups_closed", "new accounts are not open on this server")

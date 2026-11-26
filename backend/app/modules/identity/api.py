@@ -8,11 +8,13 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response, status
+from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_session
-from app.modules.identity import service
+from app.core.errors import AuthenticationError
+from app.modules.identity import service, supabase_auth
 from app.modules.identity.domain import ACCESS_COOKIE, REFRESH_COOKIE
 from app.modules.identity.schemas import CreatedResponse, CreateMemberRequest, LoginRequest
 from app.modules.identity.service import IssuedTokens, Principal, require, require_login
@@ -27,6 +29,8 @@ DbSession = Annotated[Session, Depends(get_session)]
 PUBLIC_ROUTES = frozenset(
     {
         ("POST", "/api/auth/login"),
+        ("GET", "/api/auth/config"),  # which sign-in this server uses (public values only)
+        ("POST", "/api/auth/exchange"),  # a Supabase access token for this app's session
         ("POST", "/api/auth/refresh"),
         ("POST", "/api/auth/logout"),
     }
@@ -60,8 +64,43 @@ def _clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(REFRESH_COOKIE, path="/api/auth")
 
 
+@auth_router.get("/config")
+def auth_config() -> dict[str, Any]:
+    """Public: how to sign in here. In Supabase mode the browser signs in at Supabase Auth, then calls /exchange."""
+    s = get_settings()
+    if supabase_auth.enabled():
+        return {"mode": "supabase", "supabase_url": s.supabase_url, "supabase_key": s.supabase_key}
+    return {"mode": "local"}
+
+
+class ExchangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    access_token: Annotated[str, StringConstraints(min_length=20, max_length=4000)]
+    organization_code: Annotated[str, StringConstraints(max_length=64)] | None = None
+
+
+@auth_router.post("/exchange")
+def exchange(body: ExchangeRequest, request: Request, response: Response, session: DbSession) -> dict[str, Any]:
+    """Supabase mode: Supabase Auth has checked the password; open this app's session for the verified email."""
+    email = supabase_auth.verified_email(body.access_token)
+    tokens = service.login(
+        session,
+        email=email,
+        password="",
+        organization_code=body.organization_code,
+        ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        verified_by_supabase=True,
+    )
+    _set_auth_cookies(response, tokens)
+    return service.describe(session, tokens.principal)
+
+
 @auth_router.post("/login")
 def login(body: LoginRequest, request: Request, response: Response, session: DbSession) -> dict[str, Any]:
+    if supabase_auth.enabled():
+        raise AuthenticationError("use_supabase_sign_in", "sign in with your email and password on the sign-in page")
     tokens = service.login(
         session,
         email=body.email,

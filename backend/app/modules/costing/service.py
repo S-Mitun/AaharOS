@@ -218,7 +218,7 @@ class RunCosting:
             "waterfall": None if self.waterfall is None else self.waterfall.to_json(),
             "waterfall_unavailable": self.waterfall_reason,
             "sensitivity": self.sensitivity,
-            "note": "Direct (marginal) cost: monthly overheads are not absorbed into lots (ADR-0014, F7).",
+            "note": "Direct cost only: monthly overheads (rent, salaries) are not added to batches.",
         }
 
 

@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     web_dist: Path | None = None
     # Deployment: visitors may create their own sandbox factory (POST /api/signup).
     signups_open: bool = True
+    # Sign-in: "local" (password checked here; development and tests) or "supabase" (Supabase Auth is the identity
+    # server; the hosted demo). The URL and publishable key are public values the browser also uses.
+    auth_mode: str = "local"
+    supabase_url: str = ""
+    supabase_key: str = ""
     # MP15: Judge Mode may replay the benchmark from the web (POST /api/judge/run, benchmark.run).
     judge_mode: bool = True
 

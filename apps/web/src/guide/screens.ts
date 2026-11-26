@@ -231,6 +231,18 @@ export const SCREENS: Record<string, Screen> = {
       "Registers, stock, production, ageing, GST, month-end close and the evidence pack.",
     permission: "report.read",
   },
+  settings: {
+    name: "Owner → Settings",
+    label: "Settings",
+    route: "/owner/settings",
+    mp: "MP19",
+    built: true,
+    group: "Owner",
+    icon: "⚙",
+    description:
+      "Thresholds, prices and GST rates. A change applies from a date; the past never changes.",
+    permission: "report.read",
+  },
   judge: {
     name: "Judge Mode",
     label: "Judge Mode",

@@ -12,8 +12,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_session
-from app.core.errors import NotFoundError
+from app.core.errors import DomainError, NotFoundError
 from app.core.oracle import load_oracle, to_jsonable
+from app.modules.identity import supabase_auth
 from app.modules.identity.service import Principal, require
 from app.modules.judge import judge_mode, signup
 
@@ -74,20 +75,25 @@ class SignUpBody(BaseModel):
 
     factory_name: Annotated[str, StringConstraints(min_length=2, max_length=80)]
     display_name: Annotated[str, StringConstraints(min_length=2, max_length=80)]
-    email: Email
-    password: Annotated[str, StringConstraints(min_length=10, max_length=200)]
+    email: Email | None = None
+    password: Annotated[str, StringConstraints(min_length=10, max_length=200)] | None = None
+    access_token: Annotated[str, StringConstraints(min_length=20, max_length=4000)] | None = None  # Supabase mode
 
 
 @signup_router.post("/signup", status_code=status.HTTP_201_CREATED)
 def sign_up(body: SignUpBody, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Public: create your own sandbox factory (Section 5 data, opening stock) with you as its owner. Sign in next."""
     signup.check_rate(request.client.host if request.client else None)
+    if supabase_auth.enabled():  # Supabase Auth has the account and its password; the email comes from its token
+        if not body.access_token:
+            raise DomainError("access_token_required", "sign up at the sign-in server first")
+        email, password = supabase_auth.verified_email(body.access_token), None
+    else:
+        if not body.email or not body.password:
+            raise DomainError("email_and_password_required", "give an email and a password of at least 10 characters")
+        email, password = body.email, body.password
     made = signup.sign_up(
-        session,
-        factory_name=body.factory_name,
-        display_name=body.display_name,
-        email=body.email,
-        password=body.password,
+        session, factory_name=body.factory_name, display_name=body.display_name, email=email, password=password
     )
     session.commit()
     return {"organization_code": made.organization_code, "email": made.email, "role": "OWNER"}

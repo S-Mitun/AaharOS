@@ -48,6 +48,7 @@ test("the owner's screens have no serious accessibility violation", async ({ pag
     ["/production/food-safety", /Oil and fill weights/],
     ["/admin/trips", /Trips and cost-to-serve/],
     ["/auditor/reports", /Reports/],
+    ["/owner/settings", /^Settings$/],
     ["/sales", /Today/],
   ] as const) {
     await expectAccessible(page, path, heading);

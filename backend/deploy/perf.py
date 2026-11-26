@@ -24,7 +24,7 @@ PATHS = (
 def main() -> int:
     base = sys.argv[1] if len(sys.argv) > 1 else "http://backend:8000"
     with httpx.Client(base_url=base, timeout=60) as c:
-        r = c.post("/api/auth/login", json={"email": "owner@aaharos-demo.invalid", "password": "change-me-demo"})
+        r = c.post("/api/auth/login", json={"email": "owner@aaharos.demo", "password": "change-me-demo"})
         r.raise_for_status()
         print(f"{'path':40} {'p50 ms':>8} {'p95 ms':>8}")
         for path in PATHS:

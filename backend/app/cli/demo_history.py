@@ -41,10 +41,10 @@ POUCH_G: Final = D("4.5")  # DEMO tare of one 200 g pouch (gross - net)
 NEW_RETAILERS: Final = (("RET-C", "DEMO Retailer C", "SALESMAN_A", 2), ("RET-D", "DEMO Retailer D", "SALESMAN_B", 2))
 SALESMAN_OF: Final = {"RET-A": "SALESMAN_A", "RET-C": "SALESMAN_A", "RET-D": "SALESMAN_B"}
 USER_EMAILS: Final = {
-    "PRODUCTION": "production@aaharos-demo.invalid",
-    "ADMIN": "admin@aaharos-demo.invalid",
-    "SALESMAN_A": "salesman.a@aaharos-demo.invalid",
-    "SALESMAN_B": "salesman.b@aaharos-demo.invalid",
+    "PRODUCTION": "production@aaharos.demo",
+    "ADMIN": "admin@aaharos.demo",
+    "SALESMAN_A": "salesman.a@aaharos.demo",
+    "SALESMAN_B": "salesman.b@aaharos.demo",
 }
 
 # day offset, [(item, qty, unit, rate, supplier lot or None)]

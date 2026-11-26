@@ -63,4 +63,7 @@ export function restartTour(): void {
   write(LAST_STEP_KEY, STEPS[0]!.id);
 }
 
-export const DEMO_EMAIL_DOMAIN = "@aaharos-demo.invalid";
+/** The shared DEMO logins (the tour uses them, so they are never behind the tour gate). Test logins use the second. */
+export const DEMO_EMAIL_DOMAINS = ["@aaharos.demo", "@aaharos-demo.invalid"];
+export const isDemoEmail = (email: string) =>
+  DEMO_EMAIL_DOMAINS.some((d) => email.trim().toLowerCase().endsWith(d));

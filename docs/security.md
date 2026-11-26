@@ -81,6 +81,12 @@ their own orders. This is applied in the sales service through `Principal.sees_o
 - **Auditor:** gets 403 on every mutating route.
 - **Mutating routes:** every POST/PUT/PATCH/DELETE route must require a mutating permission.
 
+## Hosted sign-in: Supabase Auth (ADR-0023)
+On the hosted demo, Supabase Auth checks the email and password; the app never sees the password. The browser sends
+the Supabase access token once to `POST /api/auth/exchange`; the server verifies it with Supabase, requires a
+confirmed email, and opens the session below. Sign-out ends both sessions. Roles, organizations and row-level
+security stay in the app. Password sign-in here (`/api/auth/login`) is refused in this mode.
+
 ## Sessions and tokens (ADR-0010)
 
 | | Access token | Refresh token |
@@ -137,8 +143,9 @@ their own orders. This is applied in the sales service through `Principal.sees_o
 
 ## DEMO logins
 
-`make seed-demo` creates the LIVE DEMO organization `DEMO-FACTORY` and six logins. The passwords come from `.env`
-(`DEMO_PASSWORD_<ROLE>`; the default `change-me-demo` is for local use only). See the README for the list.
+`make seed-demo` creates the LIVE DEMO organization `DEMO-FACTORY` and six logins (`@aaharos.demo`). The passwords
+come from `.env` (`DEMO_PASSWORD_<ROLE>`, default `change-me-demo`). On the hosted demo the same six exist in Supabase
+Auth, pre-confirmed, with the shared DEMO password shown on the sign-in page; they reach the shared DEMO factory only.
 
 ## What the salesman's phone stores, and when it is wiped (MP08, ADR-0015 G6)
 

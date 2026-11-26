@@ -36,10 +36,12 @@ def _origin(url: str) -> str:
 
 
 class HardeningMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: object, *, allowed_origins: list[str], secure: bool) -> None:
+    def __init__(self, app: object, *, allowed_origins: list[str], secure: bool, connect_extra: str = "") -> None:
         super().__init__(app)  # type: ignore[arg-type]
         self.allowed = {_origin(o) for o in allowed_origins if o}
         self.secure = secure
+        # the browser also talks to Supabase Auth when it is the sign-in server
+        self.csp = WEB_CSP.replace("connect-src 'self'", f"connect-src 'self' {connect_extra}".rstrip())
 
     def _same_site(self, request: Request, origin: str) -> bool:
         if origin.lower() in self.allowed:
@@ -83,7 +85,7 @@ class HardeningMiddleware(BaseHTTPMiddleware):
         if self.secure:
             h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         if not request.url.path.startswith("/api/") and h.get("content-type", "").startswith("text/html"):
-            h.setdefault("Content-Security-Policy", WEB_CSP)
+            h.setdefault("Content-Security-Policy", self.csp)
         log.info(
             json.dumps(
                 {
