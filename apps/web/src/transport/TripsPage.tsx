@@ -149,7 +149,7 @@ export function TripsPage() {
       {plan && (
         <>
           <p className="muted small">
-            {plan.note} Routing: {plan.routing}.
+            {plan.note} Distances: {plan.routing.replace(/^mock/, "estimated")}.
           </p>
           {plan.routes.length === 0 && plan.unplanned.length === 0 && (
             <p className="muted">No dispatch note of {plan.date} is waiting for a trip.</p>

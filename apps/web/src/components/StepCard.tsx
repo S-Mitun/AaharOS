@@ -1,34 +1,15 @@
 import { useT } from "../lib/i18n";
 import { Link } from "react-router-dom";
 import { screenFor } from "../guide/screens";
+import { STEPS_TA } from "../guide/stepsTa";
 import type { GuideStep } from "../guide/types";
 import { fillTemplate } from "../lib/format";
 import { useGuideData } from "../lib/guideStore";
 import { ExpectList } from "./ExpectList";
-import { StatusChip } from "./StatusChip";
-
-function ProofStatus({ assertions }: { assertions: number[] }) {
-  const { scoreboard } = useGuideData();
-  if (assertions.length === 0) return null;
-  if (scoreboard.state !== "ok" || !scoreboard.data.available) {
-    return <p className="muted small">Benchmark rows {assertions.join(", ")} check this step.</p>;
-  }
-  const rows = scoreboard.data.rows.filter((r) => assertions.includes(r.n));
-  const green = rows.filter((r) => r.status === "GREEN").length;
-  return (
-    <p className="proof">
-      <span className="muted small">Checked by benchmark rows {assertions.join(", ")}: </span>
-      {green === rows.length ? (
-        <StatusChip tone="ok">{`All ${rows.length} passing`}</StatusChip>
-      ) : (
-        <StatusChip tone="bad">{`${rows.length - green} of ${rows.length} not passing`}</StatusChip>
-      )}
-    </p>
-  );
-}
 
 export function StepCard({ step, compact = false }: { step: GuideStep; compact?: boolean }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const ta = lang === "ta" ? STEPS_TA[step.id] : undefined;
   const { oracle } = useGuideData();
   const payload = oracle.state === "ok" ? oracle.data : undefined;
   const screen = screenFor(step.screen);
@@ -40,15 +21,14 @@ export function StepCard({ step, compact = false }: { step: GuideStep; compact?:
       aria-labelledby={`step-${step.id}`}
     >
       <header className="step-head">
-        {step.nitStep ? <span className="step-badge">NIT step {step.nitStep}</span> : null}
-        <h2 id={`step-${step.id}`}>{step.title}</h2>
+        <h2 id={`step-${step.id}`}>{ta?.title ?? step.title}</h2>
       </header>
 
       <div className="step-meta">
         <div>
           <span className="meta-label">Who</span>
           <span>
-            <strong>{step.who.role}</strong> · {step.who.login}
+            <strong>{ta?.role ?? step.who.role}</strong> · {ta?.login ?? step.who.login}
           </span>
         </div>
         <div>
@@ -65,7 +45,7 @@ export function StepCard({ step, compact = false }: { step: GuideStep; compact?:
       <section>
         <h3>What to do</h3>
         <ol className="actions">
-          {step.actions.map((a) => (
+          {(ta?.actions ?? step.actions).map((a) => (
             <li key={a}>{fill(a)}</li>
           ))}
         </ol>
@@ -79,10 +59,9 @@ export function StepCard({ step, compact = false }: { step: GuideStep; compact?:
       {!compact && (
         <section className="why">
           <h3>Why it matters</h3>
-          <p>{step.why}</p>
+          <p>{ta?.why ?? step.why}</p>
         </section>
       )}
-      <ProofStatus assertions={step.assertions} />
     </article>
   );
 }

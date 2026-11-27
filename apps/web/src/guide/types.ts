@@ -35,15 +35,7 @@ export interface GuideStep {
 }
 
 /** Sidebar groups, in order (G9). */
-export const GROUPS = [
-  "Guide",
-  "Salesman",
-  "Admin",
-  "Production",
-  "Owner",
-  "Auditor",
-  "Judge",
-] as const;
+export const GROUPS = ["Guide", "Salesman", "Admin", "Production", "Owner", "Auditor"] as const;
 export type Group = (typeof GROUPS)[number];
 
 export interface Screen {

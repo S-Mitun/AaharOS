@@ -136,14 +136,14 @@ describe("guided tour and landing page", () => {
     );
   });
 
-  it("landing page shows NIT checks from the oracle and opens the Guide panel", async () => {
+  it("landing page is a product page (no test tables) and opens the Guide panel", async () => {
     const user = userEvent.setup();
     renderAt("/");
-    const table = screen.getByRole("table");
     expect(
-      await within(table).findByText("₹7,500.00 / ₹187.50 / ₹187.50 / ₹7,875.00"),
+      screen.getByRole("heading", { name: "Every gram traced. Every rupee explained." }),
     ).toBeInTheDocument();
-    expect(within(table).getByText("120 kg")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText(/NIT|benchmark|oracle/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Guide/ }));
     const panel = screen.getByRole("dialog", { name: "Testing guide" });

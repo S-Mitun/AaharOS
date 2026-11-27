@@ -47,7 +47,7 @@ export function ReportTable({ report }: { report: ReportData }) {
         {report.organization} · generated {new Date(report.generated_at).toLocaleString()}
         {Object.keys(report.filters).length > 0 &&
           ` · ${Object.entries(report.filters)
-            .map(([k, v]) => `${k} ${v}`)
+            .map(([k, v]) => `${k.replace("as_of", "as on").replace(/_/g, " ")} ${v}`)
             .join(", ")}`}
       </p>
       {report.notes.map((n) => (

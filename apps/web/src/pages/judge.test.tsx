@@ -64,22 +64,22 @@ const open = () =>
     </MemoryRouter>,
   );
 
-describe("Judge Mode (MP15)", () => {
+describe("the sample-day check", () => {
   it("shows the scoreboard to anyone, with each row linked to its tour step", async () => {
     serve(null);
     open();
-    expect(await screen.findByText("26 of 26 green")).toBeInTheDocument();
+    expect(await screen.findByText("26 of 26 correct")).toBeInTheDocument();
     expect(screen.getByText("Flour closing")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Sign in as the DEMO Factory admin/ }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Run the benchmark now" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run the check now" })).not.toBeInTheDocument();
   });
 
   it("lets the DEMO admin run the replay again", async () => {
     const posts = serve(ADMIN);
     open();
-    await userEvent.click(await screen.findByRole("button", { name: "Run the benchmark now" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Run the check now" }));
     await waitFor(() => expect(posts).toEqual(["/api/judge/run"]));
   });
 });

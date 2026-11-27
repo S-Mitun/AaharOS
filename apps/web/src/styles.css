@@ -1264,3 +1264,102 @@ main {
 .judge-steps li {
   margin: 0.35rem 0;
 }
+
+/* How-to panel: docked on the right beside any screen, so a step can be read and done at the same time */
+.howto {
+  width: 340px;
+  flex: 0 0 340px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px 18px 24px;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+}
+.howto-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.howto h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+.howto h3 {
+  font-size: 0.98rem;
+  margin: 18px 0 6px;
+}
+.howto ol {
+  padding-left: 1.3em;
+  margin: 0;
+}
+.howto li {
+  margin: 0 0 8px;
+  line-height: 1.45;
+}
+.howto-btn.active {
+  background: var(--accent-soft);
+}
+@media (max-width: 900px) {
+  .howto {
+    position: fixed;
+    right: 0;
+    top: 56px;
+    bottom: 0;
+    width: min(92vw, 360px);
+    z-index: 30;
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.15);
+  }
+}
+
+/* Voice guide above the step card */
+.voice-guide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.voice-label {
+  font-size: 1.2rem;
+}
+.voice-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+.voice-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 760px) {
+  .howto-label,
+  .restart-label,
+  .topbar .who,
+  .brand-name {
+    display: none;
+  }
+  .topbar {
+    gap: 0.5rem;
+    padding: 0.5rem 10px;
+  }
+  .howto-btn {
+    min-width: 44px;
+    font-weight: 700;
+  }
+}

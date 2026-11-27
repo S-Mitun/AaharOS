@@ -98,10 +98,10 @@ describe("the shell", () => {
     expect(Object.entries(SCREENS).filter(([, s]) => !s.built)).toEqual([]);
   });
 
-  it("shows Judge Mode to a visitor without a login", async () => {
+  it("shows the sample-day check to a visitor without a login (old /judge links redirect)", async () => {
     serveSignedOut();
     renderAt("/judge");
-    expect(await screen.findByRole("heading", { name: "Judge Mode" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Sample-day check" })).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Sign in as the DEMO Factory admin/ }),
     ).toBeInTheDocument();

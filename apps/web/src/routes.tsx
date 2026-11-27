@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- a route table, not a hot-reloaded component module */
 import type { ReactNode } from "react";
-import type { RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 import { SCREENS } from "./guide/screens";
 import { GuidePage } from "./pages/GuidePage";
 import { CollectionsPage } from "./admin/CollectionsPage";
@@ -134,6 +134,7 @@ export const appRoutes: RouteObject[] = [
     children: [
       ...screenRoutes(),
       { path: "/guide/:stepId", element: <GuidePage /> },
+      { path: "/judge", element: <Navigate to="/check" replace /> },
       { path: "/leaks/:runId", element: <LeaksPage /> },
       { path: "/sign-in", element: <SignInPage /> },
       { path: "/sign-up", element: <SignUpPage /> },

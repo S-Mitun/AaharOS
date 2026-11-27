@@ -60,7 +60,7 @@ export function SignUpPage() {
       <h1>Create your own factory</h1>
       <p className="muted">
         Your own private copy, separate from the shared DEMO factory, with the same starting stock,
-        recipe and prices as NIT&apos;s exercise. You are its Owner and can use every screen. Use
+        recipe and prices as the guided tour. You are its Owner and can use every screen. Use
         fictional data only: this is a demo server.
       </p>
       <form onSubmit={(e) => void submit(e)} className="form">

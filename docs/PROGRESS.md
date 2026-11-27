@@ -36,6 +36,20 @@
 
 Red items: none. Every row is green; later MPs must keep it that way.
 
+## Tamil everywhere, voice guide, How-to panel, product wording (2026-11-27)
+- **Tamil on every screen:** `lib/ta.ts` (the Tamil table, harvested from every screen, plus patterns for sentences
+  with numbers) and `lib/domTranslate.ts` (while Tamil is on, every text node and label on the page is shown in
+  Tamil; English comes back on switching). The tour has its own Tamil text (`guide/stepsTa.ts`). Left in English: the
+  invoice's amount in words, names, codes and acronyms (GST, HSN, UPI). Needs a fluent speaker's review.
+- **Voice guide** on the tour (`guide/VoiceGuide.tsx`): Listen / Pause / Stop and "Read each step aloud"; plays a
+  recorded natural voice per step and language (`public/voice/{en,ta}/*.mp3`, made by `scripts/tour-voice/` from the
+  cards' own text; re-run it when the tour text changes), switching to Tamil the moment Tamil is chosen; falls back
+  to the browser's speech if a recording cannot load.
+- **How to** panel (top bar): the tour and own-factory step lists, docked beside any screen.
+- **Product wording:** the home page is a product page (no test tables or build status); Judge Mode became the
+  **Sample-day check** at `/check` (`/judge` redirects); no NIT / benchmark / oracle / "green" words on screens; the
+  footer no longer names the internship. [report.md](report.md) is the short report.
+
 ## Final pass (2026-11-27: Supabase sign-in, Settings screen, no build notes in the UI, README for the hosted app)
 - **Supabase Auth** is the sign-in service on the hosted app ([ADR-0023](adr/0023-supabase-auth-token-exchange.md)):
   the browser signs in / up / out at Supabase, `POST /api/auth/exchange` verifies the token and opens the app's own

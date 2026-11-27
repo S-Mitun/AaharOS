@@ -144,7 +144,12 @@ export function PlannerPage() {
           <p className="muted">
             Room for {plan.capacity} batches a day. The planner makes the most order value the
             materials and the day allow (
-            {plan.status === "OPTIMAL" ? "best plan found" : plan.status.toLowerCase()}).
+            {plan.status === "OPTIMAL"
+              ? "best plan found"
+              : plan.status === "NOTHING_TO_PLAN" || plan.status === "nothing_to_plan"
+                ? "nothing to plan today"
+                : plan.status.toLowerCase().replace(/_/g, " ")}
+            ).
           </p>
           <div className="table-wrap" tabIndex={0}>
             <table className="lines">

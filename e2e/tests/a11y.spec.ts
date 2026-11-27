@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * MP15 accessibility: axe (WCAG 2.1 A and AA rules) finds no serious or critical violation on the main screens, signed
- * out (the tour, sign-in, Judge Mode) and signed in (the owner's screens on the SIM tenant from seed_e2e).
+ * out (the tour, sign-in, the sample-day check) and signed in (the owner's screens on the SIM tenant from seed_e2e).
  */
 interface Tenant {
   emails: Record<"OWNER", string>;
@@ -28,7 +28,8 @@ test("signed-out screens have no serious accessibility violation", async ({ page
   await expectAccessible(page, "/guide", /Guided tour/);
   await expectAccessible(page, "/sign-in", /^Sign in$/);
   await expectAccessible(page, "/sign-up", /Take the guided tour first/);
-  await expectAccessible(page, "/judge", /Judge Mode/);
+  await expectAccessible(page, "/check", /Sample-day check/);
+  await expectAccessible(page, "/guide/purchase", /Guided tour/); // with the voice guide
 });
 
 test("the owner's screens have no serious accessibility violation", async ({ page }) => {

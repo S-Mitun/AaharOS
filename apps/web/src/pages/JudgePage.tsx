@@ -70,11 +70,11 @@ export function JudgePage() {
   const steps = STEPS.filter((s) => s.nitStep);
   return (
     <section className="admin-page judge">
-      <h1>Judge Mode</h1>
+      <h1>Sample-day check</h1>
       <p className="muted">
-        NIT&apos;s nine steps are replayed through the real services on a fresh benchmark factory,
-        then all 26 figures are compared with NIT's expected values (
-        <code>benchmark/expected_results.yaml</code>). The DEMO factory and your own factory are
+        One sample working day (a purchase, a batch, two orders, an invoice, a payment and the batch
+        costs) is replayed through the real system on a separate practice factory, and 26 figures
+        are checked against the values they must have. The DEMO factory and your own factory are
         never touched.
       </p>
       {error && (
@@ -85,7 +85,7 @@ export function JudgePage() {
 
       <div className="judge-run">
         {status?.running ? (
-          <StatusChip tone="info">{`replaying… ${status.seconds ?? 0} s`}</StatusChip>
+          <StatusChip tone="info">{`running… ${status.seconds ?? 0} s`}</StatusChip>
         ) : canRun ? (
           <button
             type="button"
@@ -93,7 +93,7 @@ export function JudgePage() {
             disabled={!status?.judge_mode}
             onClick={() => void run()}
           >
-            Run the benchmark now
+            Run the check now
           </button>
         ) : (
           <p className="muted">
@@ -103,17 +103,16 @@ export function JudgePage() {
         {board?.available && (
           <p>
             <StatusChip tone={board.green === board.total ? "ok" : "bad"}>
-              {`${board.green} of ${board.total} green`}
+              {`${board.green} of ${board.total} correct`}
             </StatusChip>{" "}
             <span className="muted small">
-              expected-values file intact ({board.oracle_integrity?.passed} checks) ·{" "}
-              {board.generated_at && new Date(board.generated_at).toLocaleString()}
+              checked {board.generated_at && new Date(board.generated_at).toLocaleString()}
             </span>
           </p>
         )}
       </div>
 
-      <h2>The nine steps</h2>
+      <h2>The day, step by step</h2>
       <ol className="judge-steps">
         {steps.map((s) => (
           <li key={s.id}>
@@ -126,7 +125,7 @@ export function JudgePage() {
         ))}
       </ol>
 
-      <h2>Scoreboard</h2>
+      <h2>Results</h2>
       {!board?.available ? (
         <p className="muted">{board?.reason ?? "Loading…"}</p>
       ) : (
@@ -148,14 +147,12 @@ export function JudgePage() {
                   <tr key={r.n}>
                     <td className="num">{r.n}</td>
                     <td>{r.title}</td>
-                    <td className="small">
-                      {Object.values(r.expected).join(" · ") || "see title"}
-                    </td>
+                    <td className="small">{Object.values(r.expected).join(" · ") || "—"}</td>
                     <td>
                       {r.status === "GREEN" ? (
-                        <StatusChip tone="ok">green</StatusChip>
+                        <StatusChip tone="ok">correct</StatusChip>
                       ) : (
-                        <StatusChip tone="bad">{r.status.toLowerCase()}</StatusChip>
+                        <StatusChip tone="bad">not correct</StatusChip>
                       )}
                       {r.detail && <span className="muted small"> {r.detail}</span>}
                     </td>

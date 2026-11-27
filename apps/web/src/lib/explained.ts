@@ -27,7 +27,7 @@ const SOURCE_LABEL: Record<string, string> = {
   standard_cost_card: "Standard cost card",
   inventory_balances: "Stock balance",
   purchase_receipt: "Purchase receipt",
-  oracle: "NIT expected values",
+  oracle: "expected values",
   invoice: "Invoice",
   payment: "Payment",
 };

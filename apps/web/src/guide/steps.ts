@@ -14,7 +14,7 @@ export const STEPS: GuideStep[] = [
     screen: "home",
     actions: [
       "You are in the app already: everything below happens on this site.",
-      "The DEMO logins share one factory with every visitor, so its stock moves with their work. For NIT's exact numbers, finish the tour and create your own factory (it starts from NIT's opening stock), or run Judge Mode.",
+      "The DEMO logins share one factory with every visitor, so its stock moves with their work. For the exact numbers shown here, finish the tour and create your own factory (it starts from the same opening stock), or run the Sample-day check.",
       "Keep this tour open. The Guide button (bottom right) brings you back to the right step from any screen.",
       "Every step tells you who does it, where to go, what to type, and the number you should see.",
       "Tap the ⓘ next to any figure in the app to see its formula and the record it came from.",
@@ -28,9 +28,9 @@ export const STEPS: GuideStep[] = [
         unit: "packets",
       },
       { label: "Variance tolerance", key: "config.variance_tolerance_percent", unit: "%" },
-      { label: "GST rate (exercise)", key: "config.gst_rate_percent", unit: "%" },
+      { label: "GST rate", key: "config.gst_rate_percent", unit: "%" },
     ],
-    why: "The factory starts from NIT's opening stock. Everything after this is entered once, at its source.",
+    why: "The factory starts from its opening stock. Everything after this is entered once, at its source.",
     assertions: [],
   },
   {
@@ -181,7 +181,7 @@ export const STEPS: GuideStep[] = [
       "Sign in as Salesman B: Today → DEMO Distributor B (Karnataka) → New order → {inputs.steps.6_order_B.qty} packets → Save order. The stock hint already warns it is short.",
       "As Factory admin: Order inbox → tap “Short” → DEMO Distributor B. The card shows available to promise and the shortage (tap ⓘ to see on hand − reserved).",
       "Three options, in plain words: “Send 88 now, backorder 32”, “Wait for the next batch”, or “Reject”. Approving all 120 is refused: stock can never go below zero.",
-      "For NIT, leave it undecided (or try an option): it is not invoiced. If you choose “Send now, backorder the rest”, the card adds a “Why short?” line: {aaharos_expected.shortage_attribution_B.caused_by_this_runs_yield_loss} of the short packets come from the batch's lost packets.",
+      "Leave it undecided for now (or try an option): it is not invoiced. If you choose “Send now, backorder the rest”, the card adds a “Why short?” line: {aaharos_expected.shortage_attribution_B.caused_by_this_runs_yield_loss} of the short packets come from the batch's lost packets.",
     ],
     expect: [
       { label: "Requested", key: "nit_expected.distributor_B.requested", unit: "packets" },
@@ -279,7 +279,7 @@ export const STEPS: GuideStep[] = [
         key: "aaharos_expected.material_runway_after_run.max_full_batches",
       },
       {
-        label: "Runs out first",
+        label: "Batches the pouches allow",
         key: "aaharos_expected.material_runway_after_run.pouch_200g",
       },
       { label: "Approving a plan", text: "creates a draft, never a posting" },
@@ -314,12 +314,12 @@ export const STEPS: GuideStep[] = [
     who: { role: "Visitor", login: "No login needed" },
     screen: "judge",
     actions: [
-      "Press Run NIT benchmark in Judge Mode.",
-      "It replays all nine steps on a separate demo copy and fills the scoreboard.",
-      "Each row links to the record that proves it.",
+      "Open the Sample-day check and press Run the check now (Factory admin or Owner).",
+      "It replays the whole day on a separate practice factory and checks 26 figures.",
+      "Each result links to the tour step that shows it.",
     ],
-    expect: [{ label: "Scoreboard", text: "every row green" }],
-    why: "You can check the whole benchmark yourself in under a minute.",
+    expect: [{ label: "Results", text: "26 of 26 correct" }],
+    why: "You can check the whole day yourself in under a minute.",
     assertions: [],
   },
 ];

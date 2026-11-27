@@ -1,72 +1,22 @@
 /* eslint-disable react-refresh/only-export-components -- a provider, its hook and the catalogue live together */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { startTamil, stopTamil } from "./domTranslate";
+import { TA } from "./ta";
 
 /**
- * Tamil / English (MP15). The English text is the key (gettext style): a string with no Tamil entry falls back to
- * English, so nothing is ever blank. Numbers, units, rupee amounts, item codes and document numbers are never
- * translated. The language is remembered on this device. Every Tamil string below NEEDS FLUENT REVIEW: it was
- * written for the DEMO and has not been checked by a fluent speaker (docs/i18n-gaps.md lists what is not covered).
+ * Tamil / English. The English text is the key (gettext style): a string with no Tamil entry falls back to English,
+ * so nothing is ever blank. While Tamil is on, the page translator (domTranslate.ts) shows every screen in Tamil.
+ * The language is remembered on this device.
  */
 export type Lang = "en" | "ta";
-
-const TA: Record<string, string> = {
-  // top bar and shell
-  "Sign in": "உள்நுழை",
-  "Sign out": "வெளியேறு",
-  "Restart tour": "சுற்றுலாவை மீண்டும் தொடங்கு",
-  Menu: "பட்டியல்",
-  "Skip to content": "உள்ளடக்கத்திற்குச் செல்",
-  // menu groups
-  Guide: "வழிகாட்டி",
-  Salesman: "விற்பனையாளர்",
-  Admin: "நிர்வாகம்",
-  Production: "உற்பத்தி",
-  Owner: "உரிமையாளர்",
-  Auditor: "தணிக்கையாளர்",
-  Judge: "நடுவர்",
-  you: "நீங்கள்",
-  // screen names
-  "Start here": "இங்கே தொடங்கு",
-  "Guided tour": "வழிகாட்டும் சுற்றுலா",
-  Today: "இன்று",
-  "New order": "புதிய ஆர்டர்",
-  "My orders": "என் ஆர்டர்கள்",
-  Summary: "சுருக்கம்",
-  Freshness: "புத்துணர்ச்சி",
-  "Order inbox": "ஆர்டர் பெட்டி",
-  "Invoices and dispatch": "விலைப்பட்டியல் மற்றும் அனுப்புதல்",
-  Collections: "வசூல்",
-  "Trips and cost-to-serve": "பயணங்கள் மற்றும் சேவைச் செலவு",
-  Purchases: "கொள்முதல்",
-  "Batch card": "தொகுப்பு அட்டை",
-  "Run costs": "தொகுப்புச் செலவுகள்",
-  "Batch planner": "தொகுப்புத் திட்டமிடல்",
-  "Trace and recall": "கண்டறிதல் மற்றும் திரும்பப் பெறுதல்",
-  "Oil and fill weights": "எண்ணெய் மற்றும் நிரப்பு எடை",
-  "Morning brief": "காலைச் சுருக்கம்",
-  "Where profit leaks": "லாபம் எங்கே கசிகிறது",
-  Reports: "அறிக்கைகள்",
-  "Judge Mode": "நடுவர் முறை",
-  // tour chrome
-  "← Back": "← பின்",
-  "Finish the tour": "சுற்றுலாவை முடி",
-  "Take me there": "அங்கே அழைத்துச் செல்",
-  "Start the guided tour →": "வழிகாட்டும் சுற்றுலாவைத் தொடங்கு →",
-  "You have finished the guided tour": "வழிகாட்டும் சுற்றுலாவை முடித்துவிட்டீர்கள்",
-  "Create your own factory": "உங்கள் சொந்தத் தொழிற்சாலையை உருவாக்கு",
-  "Sign in to my account": "என் கணக்கில் உள்நுழை",
-  "Restart the tour": "சுற்றுலாவை மீண்டும் தொடங்கு",
-  // home
-  "Every gram traced. Every rupee explained.":
-    "ஒவ்வொரு கிராமும் கண்டறியப்படும். ஒவ்வொரு ரூபாயும் விளக்கப்படும்.",
-  "See what gets checked": "என்ன சரிபார்க்கப்படுகிறது என்று பார்",
-  // sign-in
-  Email: "மின்னஞ்சல்",
-  Password: "கடவுச்சொல்",
-  "Signing in…": "உள்நுழைகிறது…",
-  "Signed in": "உள்நுழைந்துவிட்டீர்கள்",
-  "Go to my home screen": "என் முகப்புத் திரைக்குச் செல்",
-};
 
 const CATALOGUES: Record<Lang, Record<string, string>> = { en: {}, ta: TA };
 const KEY = "aaharos.lang";
@@ -103,6 +53,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
     document.documentElement.lang = next;
   }, []);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    if (lang === "ta") startTamil();
+    else stopTamil();
+  }, [lang]);
   const value = useMemo(
     () => ({ lang, setLang, t: (s: string) => translate(lang, s) }),
     [lang, setLang],
@@ -122,7 +77,7 @@ export function LanguageSwitch() {
       type="button"
       className="btn btn-ghost lang-switch"
       lang={lang === "en" ? "ta" : "en"}
-      title={lang === "en" ? "Tamil (needs fluent review)" : "English"}
+      title={lang === "en" ? "தமிழ்" : "English"}
       onClick={() => setLang(lang === "en" ? "ta" : "en")}
     >
       {lang === "en" ? "தமிழ்" : "English"}

@@ -5,6 +5,7 @@ import { restartTour } from "../guide/memory";
 import { STEPS } from "../guide/steps";
 import { GuideDrawer } from "../components/GuideDrawer";
 import { useSession } from "../lib/sessionContext";
+import { HowToPanel } from "./HowToPanel";
 import { Sidebar } from "./Sidebar";
 import { SignOutButton } from "./SignOutButton";
 
@@ -18,12 +19,13 @@ function RestartTourButton() {
     <button
       type="button"
       className="btn btn-ghost restart-tour"
+      aria-label={t("Restart tour")}
       onClick={() => {
         restartTour();
         navigate(`/guide/${STEPS[0]!.id}`);
       }}
     >
-      <span aria-hidden="true">↺</span> {t("Restart tour")}
+      <span aria-hidden="true">↺</span> <span className="restart-label">{t("Restart tour")}</span>
     </button>
   );
 }
@@ -33,6 +35,21 @@ export function AppShell() {
   const { me } = useSession();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [howTo, setHowTo] = useState(() => {
+    try {
+      return window.sessionStorage.getItem("aaharos.howto") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleHowTo = (open: boolean) => {
+    setHowTo(open);
+    try {
+      window.sessionStorage.setItem("aaharos.howto", open ? "1" : "0");
+    } catch {
+      /* storage blocked */
+    }
+  };
 
   useEffect(() => {
     setMenuOpen(false);
@@ -64,13 +81,22 @@ export function AppShell() {
           <span className="brand-mark" aria-hidden="true">
             ▲
           </span>
-          AaharOS
+          <span className="brand-name">AaharOS</span>
         </Link>
         <span className="demo-tag" title="All data is fictional">
           DEMO
         </span>
         <div className="topbar-right">
           <LanguageSwitch />
+          <button
+            type="button"
+            className={`btn btn-ghost howto-btn${howTo ? " active" : ""}`}
+            aria-expanded={howTo}
+            aria-label={t("How to")}
+            onClick={() => toggleHowTo(!howTo)}
+          >
+            <span aria-hidden="true">?</span> <span className="howto-label">{t("How to")}</span>
+          </button>
           <RestartTourButton />
           {me ? (
             <>
@@ -92,17 +118,18 @@ export function AppShell() {
           <Sidebar me={me} onNavigate={() => setMenuOpen(false)} />
         </aside>
         {menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
-        <div className="shell-main">
+        <div className={`shell-main${howTo ? " with-howto" : ""}`}>
           <main id="main">
             <Outlet />
           </main>
           <footer className="footer">
             <p>
-              Prototype for the NIT Tiruchirappalli CDI internship task. All companies, people,
-              GSTINs and licence numbers are fictional <strong>DEMO</strong> data.
+              All companies, people, GSTINs and licence numbers in this app are fictional{" "}
+              <strong>DEMO</strong> data.
             </p>
           </footer>
         </div>
+        {howTo && <HowToPanel onClose={() => toggleHowTo(false)} />}
       </div>
       <GuideDrawer />
     </div>

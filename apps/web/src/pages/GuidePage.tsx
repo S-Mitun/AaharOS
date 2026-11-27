@@ -4,11 +4,15 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { StepCard } from "../components/StepCard";
 import { markTourCompleted, rememberStep, restartTour, stepsLeft } from "../guide/memory";
 import { STEPS, stepIndex } from "../guide/steps";
+import { STEPS_TA } from "../guide/stepsTa";
+import { VoiceGuide } from "../guide/VoiceGuide";
 
 export function GuidePage() {
   const { stepId } = useParams();
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const titleOf = (s: (typeof STEPS)[number]) =>
+    (lang === "ta" ? STEPS_TA[s.id]?.title : null) ?? s.title;
   const index = stepIndex(stepId);
   const step = STEPS[index]!;
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -35,7 +39,9 @@ export function GuidePage() {
           {t("Guided tour")}
         </h1>
         <p className="progress-text" aria-live="polite">
-          Step {index + 1} of {STEPS.length}
+          {lang === "ta"
+            ? `படி ${index + 1} / ${STEPS.length}`
+            : `Step ${index + 1} of ${STEPS.length}`}
         </p>
         <div
           className="progress"
@@ -67,7 +73,7 @@ export function GuidePage() {
                   <span className="step-num" aria-hidden="true">
                     {i < index ? "✓" : i + 1}
                   </span>
-                  {s.title}
+                  {titleOf(s)}
                 </Link>
               </li>
             ))}
@@ -75,6 +81,7 @@ export function GuidePage() {
         </nav>
 
         <div className="guide-main">
+          <VoiceGuide stepId={step.id} />
           <StepCard step={step} />
           <div className="guide-nav">
             <button
@@ -91,7 +98,7 @@ export function GuidePage() {
                 className="btn btn-primary"
                 onClick={() => navigate(`/guide/${next.id}`)}
               >
-                Next: {next.title} →
+                {t("Next:")} {titleOf(next)} →
               </button>
             ) : (
               <button type="button" className="btn btn-primary" onClick={finish}>
@@ -108,7 +115,7 @@ export function GuidePage() {
               <ul>
                 {STEPS.filter((s) => finished.includes(s.id)).map((s) => (
                   <li key={s.id}>
-                    <Link to={`/guide/${s.id}`}>{s.title}</Link>
+                    <Link to={`/guide/${s.id}`}>{titleOf(s)}</Link>
                   </li>
                 ))}
               </ul>

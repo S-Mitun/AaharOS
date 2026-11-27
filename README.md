@@ -21,8 +21,11 @@ to wake the server.
    email and a password, and you become the Owner of a private factory that starts with NIT's stock, recipe and
    prices. From then on **Sign in** takes you straight to it.
 3. **Restart tour** is in the top bar on every page, any number of times, also inside your own factory.
-   **Judge Mode** shows the 26-row scoreboard and replays NIT's nine steps on a fresh benchmark factory.
-   **தமிழ்** switches the app's frame to Tamil.
+   **தமிழ்** switches every screen to Tamil; the tour's voice guide (**Listen to this step**) then speaks Tamil too.
+   **How to** opens both step-by-step guides in a panel beside any screen. The **Sample-day check** replays the
+   whole day on a practice factory and checks 26 figures in under a minute.
+
+A short report (what it is, why it is needed, the tour and own-factory steps): [docs/report.md](docs/report.md).
 
 ### DEMO logins (shared factory, password `change-me-demo`)
 | Person | Email | Lands on | Can do |
@@ -69,7 +72,7 @@ corrected by reversals or credit notes. Every privileged change writes a hash-ch
 GSTIN, FSSAI and thresholds are effective-dated settings the Owner can change.
 
 ## Benchmark: NIT Section 5
-**26 / 26 green**, oracle integrity 10 / 10, live on the home page and in Judge Mode. The oracle is
+**26 / 26 green**, oracle integrity 10 / 10, live in the app's Sample-day check. The oracle is
 `benchmark/expected_results.yaml` (NIT's inputs and expected values are guarded by a checksum test).
 
 | # | Check | Result | # | Check | Result |
@@ -104,7 +107,7 @@ batches (direct cost only). Assumptions A1-A6: [docs/assumptions.md](docs/assump
 | Should | Batch planner, material runway, shortage reasons, Morning brief | Owner → Morning brief; Production → Batch planner |
 | Should | Trace a batch, recall simulator, batch passport QR, freshness radar, oil and fill weights | Production → Trace and recall, Oil and fill weights |
 | Stretch | Trips, cost-to-serve, Deal Desk price floor, CO₂ estimate | Admin → Trips |
-| Stretch | Tamil / English, accessibility checks, Judge Mode, guided tour | Top bar; /judge; /guide |
+| Stretch | Tamil / English on every screen, voice guide (Tamil and English), accessibility checks, guided tour, sample-day check | Top bar; /guide; /check |
 | Stretch | Changeable settings and GST rates (effective-dated) | Owner → Settings |
 | Mock | E-way bill and IRP payloads, UPI QR on invoices | Labelled DEMO; nothing is sent |
 
@@ -127,13 +130,13 @@ Supabase provides the managed database and the sign-in service on a free tier; R
 
 ## Known gaps (honest)
 Real GST filing, IRP and e-way bill calls are mocks; HSN, rates, GSTIN, FSSAI, RUCO, TPC and Legal Metrology figures
-are DEMO settings to verify with a chartered accountant and the regulators. Tamil covers the frame of the app, not
-every screen body. Analytics run on synthetic data and have no screen. The supplier-lot recall can over-name batches
+are DEMO settings to verify with a chartered accountant and the regulators. Tamil text and the Tamil voice need a
+fluent speaker's review before real use; the invoice's amount-in-words line stays in English. Analytics run on synthetic data and have no screen. The supplier-lot recall can over-name batches
 (conservative by design). Trips use straight-line distance × a road factor. Free hosting sleeps when idle. Full
 list: [docs/PROGRESS.md](docs/PROGRESS.md#known-gaps--risks).
 
 ## Documentation
-- [Design note (2 pages)](docs/design-note.md) · [Demo script (8 minutes)](docs/demo-script.md) ·
+- [Report](docs/report.md) · [Design note (2 pages)](docs/design-note.md) · [Demo script (8 minutes)](docs/demo-script.md) ·
   [Impact](docs/impact.md) · [Judge readiness](docs/judge-readiness.md)
 - [Architecture](docs/architecture/overview.md) · [Decisions (ADRs)](docs/adr/) · [Assumptions](docs/assumptions.md) ·
   [Security](docs/security.md) · [Hosting](docs/deploy.md) · [Developer setup](docs/development.md) ·

@@ -24,7 +24,8 @@ export const SCREENS: Record<string, Screen> = {
     built: true,
     group: "Guide",
     icon: "➜",
-    description: "NIT's nine steps, one card each: who, where, what to type, what you should see.",
+    description:
+      "One working day, one card per step: who, where, what to type, what you should see.",
   },
   salesToday: {
     name: "Salesman app → Today",
@@ -244,15 +245,15 @@ export const SCREENS: Record<string, Screen> = {
     permission: "report.read",
   },
   judge: {
-    name: "Judge Mode",
-    label: "Judge Mode",
-    route: "/judge",
+    name: "Sample-day check",
+    label: "Sample-day check",
+    route: "/check",
     mp: "MP15",
     built: true,
-    group: "Judge",
-    icon: "⚖",
+    group: "Guide",
+    icon: "✓",
     description:
-      "Replay NIT's nine steps on a fresh factory and compare every figure with the oracle.",
+      "Replay one sample working day on a practice factory and check 26 figures in a minute.",
   },
 };
 
