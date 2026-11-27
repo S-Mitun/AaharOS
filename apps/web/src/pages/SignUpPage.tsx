@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { homeFor } from "../guide/screens";
 import { stepsLeft, tourCompleted } from "../guide/memory";
 import { STEPS } from "../guide/steps";
 import { ApiError, apiPost } from "../lib/api";
@@ -36,8 +35,8 @@ export function SignUpPage() {
         display_name: name.trim(),
         ...account,
       });
-      const who = await signIn(email.trim(), password);
-      navigate(homeFor(who.role), { replace: true });
+      await signIn(email.trim(), password);
+      navigate("/how-to#own-factory", { replace: true }); // the own-factory steps come first
     } catch (err) {
       if (err instanceof ApiError && err.code === "email_not_confirmed")
         savePendingFactory({

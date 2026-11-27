@@ -16,6 +16,17 @@ export const SCREENS: Record<string, Screen> = {
     icon: "⌂",
     description: "What AaharOS is, in one page.",
   },
+  instructions: {
+    name: "Instructions",
+    label: "Instructions",
+    route: "/how-to",
+    mp: "MP19",
+    built: true,
+    group: "Guide",
+    icon: "☰",
+    description:
+      "Step-by-step: the guided tour, your own factory, and where the voice guide is. Listen in English or Tamil.",
+  },
   guide: {
     name: "Guided tour",
     label: "Guided tour",

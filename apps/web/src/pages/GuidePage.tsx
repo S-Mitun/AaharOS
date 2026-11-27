@@ -135,6 +135,9 @@ export function GuidePage() {
                 <Link to="/sign-in" className="btn">
                   {t("Sign in to my account")}
                 </Link>
+                <Link to="/how-to#own-factory" className="btn">
+                  {t("Instructions (step by step)")}
+                </Link>
                 <button
                   type="button"
                   className="btn btn-ghost"

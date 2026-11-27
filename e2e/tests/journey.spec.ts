@@ -28,7 +28,12 @@ test("a new visitor takes the tour, then works in their own factory", async ({ p
   await page.getByLabel("Email").fill(email);
   await page.getByLabel(/^Password/).fill("journey-pass-1");
   await page.getByRole("button", { name: "Create my factory" }).click();
-  await expect(page.getByRole("heading", { name: "Morning brief" })).toBeVisible({ timeout: 30_000 });
+  // a new factory opens on its step-by-step instructions first, then the Morning brief is one click away
+  await expect(page.getByRole("heading", { name: "Your own factory, step by step" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole("link", { name: "Open my Morning brief →" }).click();
+  await expect(page.getByRole("heading", { name: "Morning brief" })).toBeVisible();
   const me = (await (await page.request.get("/api/auth/me")).json()) as {
     role: string;
     organization: { name: string };

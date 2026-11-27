@@ -2,12 +2,13 @@
 
 Run in a throwaway container (needs network):
   docker run --rm -v "$PWD:/w" -w /w python:3.12-slim sh -c "pip install -q edge-tts==7.3.1 && python scripts/tour-voice/make_audio.py"
-Writes apps/web/public/voice/{en,ta}/{step}.mp3. Re-run whenever the tour text in steps.ts / stepsTa.ts changes.
+Writes apps/web/public/voice/{en,ta}/{step}.mp3 (name tracks as arguments to record only those). Re-run whenever the tour text in steps.ts / stepsTa.ts changes.
 """
 
 import asyncio
 import json
 import re
+import sys
 from pathlib import Path
 
 import edge_tts
@@ -42,6 +43,8 @@ async def main() -> None:
     for lang, steps in scripts.items():
         (OUT / lang).mkdir(parents=True, exist_ok=True)
         for step, text in steps.items():
+            if sys.argv[1:] and step not in sys.argv[1:]:  # only the tracks named on the command line
+                continue
             target = OUT / lang / f"{step}.mp3"
             await edge_tts.Communicate(spoken(text, lang), VOICES[lang], rate="+0%").save(str(target))
             print(f"{lang}/{step}.mp3 {target.stat().st_size // 1024} KB")

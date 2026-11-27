@@ -84,10 +84,19 @@ export function HomePage() {
           <Link to="/guide" className="btn btn-primary btn-lg">
             {t("Start the guided tour →")}
           </Link>
+          <Link to="/how-to" className="btn btn-lg">
+            {t("Instructions (step by step)")}
+          </Link>
           <Link to="/sign-in" className="btn btn-lg">
             Sign in
           </Link>
         </div>
+        <p className="hero-voice">
+          <span aria-hidden="true">🔊</span>{" "}
+          {t(
+            "Voice guide: every tour step and both instruction lists can be heard in English or Tamil (press தமிழ் at the top).",
+          )}
+        </p>
       </section>
 
       <section aria-labelledby="how-h">

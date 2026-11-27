@@ -9,6 +9,7 @@ import { InvoicePage } from "./admin/InvoicePage";
 import { InvoicesPage } from "./admin/InvoicesPage";
 import { OrderCardPage } from "./admin/OrderCardPage";
 import { HomePage } from "./pages/HomePage";
+import { HowToPage } from "./pages/HowToPage";
 import { JudgePage } from "./pages/JudgePage";
 import { ReportsPage } from "./reports/ReportsPage";
 import { LeaksIndexPage, LeaksPage } from "./pages/LeaksPage";
@@ -39,6 +40,7 @@ import { Gate } from "./shell/Gate";
 const BUILT: Record<string, ReactNode> = {
   home: <HomePage />,
   guide: <GuidePage />,
+  instructions: <HowToPage />,
   profitLeaks: <LeaksIndexPage />,
   judge: <JudgePage />,
   orderInbox: (

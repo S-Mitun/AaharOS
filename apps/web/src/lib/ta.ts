@@ -270,6 +270,44 @@ export const TA: Record<string, string> = {
   false: "இல்லை",
   true: "ஆம்",
   "not required": "தேவையில்லை",
+  // ---------- instructions page ----------
+  Instructions: "வழிமுறைகள்",
+  "Instructions (step by step)": "வழிமுறைகள் (படிப்படியாக)",
+  Listen: "கேள்",
+  "Step-by-step: the guided tour, your own factory, and where the voice guide is. Listen in English or Tamil.":
+    "படிப்படியாக: வழிகாட்டும் சுற்றுலா, உங்கள் சொந்தத் தொழிற்சாலை, குரல் வழிகாட்டி எங்கே உள்ளது. ஆங்கிலத்திலோ தமிழிலோ கேளுங்கள்.",
+  "AaharOS runs a small snack factory from order to audit: salesmen take orders on the phone, the admin approves, invoices and dispatches, production records every batch and its cost, the owner sees where profit leaks, and the auditor downloads the month. Every number can be traced to the record it came from.":
+    "AaharOS ஒரு சிறிய சிற்றுண்டித் தொழிற்சாலையை ஆர்டர் முதல் தணிக்கை வரை இயக்குகிறது: விற்பனையாளர்கள் தொலைபேசியில் ஆர்டர் எடுக்கிறார்கள், நிர்வாகி ஒப்புதல் அளித்து, விலைப்பட்டியல் இட்டு, அனுப்புகிறார், உற்பத்திப் பிரிவு ஒவ்வொரு தொகுப்பையும் அதன் செலவையும் பதிவு செய்கிறது, உரிமையாளர் லாபம் எங்கே கசிகிறது என்று பார்க்கிறார், தணிக்கையாளர் மாதக் கணக்கைப் பதிவிறக்குகிறார். ஒவ்வொரு எண்ணையும் அது வந்த பதிவு வரை கண்டறியலாம்.",
+  "Everyone follows the same two routines: first the guided tour (on the shared DEMO factory), then your own factory. Both are below, step by step.":
+    "அனைவரும் ஒரே இரண்டு வழிமுறைகளைப் பின்பற்றுகிறார்கள்: முதலில் வழிகாட்டும் சுற்றுலா (பகிரப்பட்ட DEMO தொழிற்சாலையில்), பிறகு உங்கள் சொந்தத் தொழிற்சாலை. இரண்டும் கீழே படிப்படியாக உள்ளன.",
+  "Why it is needed": "இது ஏன் தேவை",
+  "Keep these steps beside the screen": "இந்தப் படிகளைத் திரைக்கு அருகில் வைத்திரு",
+  "Open the full instructions →": "முழு வழிமுறைகளைத் திற →",
+  "Open my Morning brief →": "என் காலைச் சுருக்கத்தைத் திற →",
+  "Where is the voice guide?": "குரல் வழிகாட்டி எங்கே உள்ளது?",
+  "Open the tour with the voice guide →": "குரல் வழிகாட்டியுடன் சுற்றுலாவைத் திற →",
+  "Voice guide: every tour step and both instruction lists can be heard in English or Tamil (press தமிழ் at the top).":
+    "குரல் வழிகாட்டி: ஒவ்வொரு சுற்றுலாப் படியையும் இரண்டு வழிமுறைப் பட்டியல்களையும் ஆங்கிலத்திலோ தமிழிலோ கேட்கலாம் (மேலே தமிழ் அழுத்துங்கள்).",
+  "Open the Guided tour (menu → Guide → Guided tour, or Start the guided tour on the home page).":
+    "வழிகாட்டும் சுற்றுலாவைத் திறங்கள் (பட்டியல் → வழிகாட்டி → வழிகாட்டும் சுற்றுலா, அல்லது முகப்புப் பக்கத்தில் வழிகாட்டும் சுற்றுலாவைத் தொடங்கு).",
+  "Above every step card is the voice bar: press 🔊 Listen to this step to hear it, Pause or Stop at any time.":
+    "ஒவ்வொரு படி அட்டைக்கும் மேலே குரல் பட்டை உள்ளது: கேட்க 🔊 இந்தப் படியைக் கேள் அழுத்துங்கள், எப்போது வேண்டுமானாலும் இடைநிறுத்து அல்லது நிறுத்து.",
+  "Tick Read each step aloud and every step is read as you move with Next.":
+    "ஒவ்வொரு படியையும் உரக்க வாசி என்பதைத் தேர்ந்தெடுத்தால், அடுத்து அழுத்தும்போது ஒவ்வொரு படியும் வாசிக்கப்படும்.",
+  "Press தமிழ் in the top bar: the text and the voice change to Tamil at once. Press English to go back.":
+    "மேல் பட்டியில் தமிழ் அழுத்துங்கள்: உரையும் குரலும் உடனே தமிழுக்கு மாறும். திரும்ப English அழுத்துங்கள்.",
+  "On this Instructions page, 🔊 Listen reads each routine aloud as well.":
+    "இந்த வழிமுறைகள் பக்கத்திலும், 🔊 கேள் ஒவ்வொரு வழிமுறையையும் உரக்க வாசிக்கும்.",
+  "Stock is never guessed: every gram moves through a double-entry stock ledger and can never go below zero.":
+    "இருப்பு ஒருபோதும் ஊகிக்கப்படுவதில்லை: ஒவ்வொரு கிராமும் இரட்டைப் பதிவு இருப்புப் பேரேட்டின் வழியே நகர்கிறது, பூஜ்யத்துக்குக் கீழே போகவே முடியாது.",
+  "Cost is explained: each batch's cost per good packet comes from real material, labour and gas, and the gap against standard is shown step by step.":
+    "செலவு விளக்கப்படுகிறது: ஒவ்வொரு தொகுப்பின் நல்ல பாக்கெட் செலவும் உண்மையான பொருள், கூலி மற்றும் எரிவாயுவிலிருந்து வருகிறது, தரநிலையுடனான இடைவெளி படிப்படியாகக் காட்டப்படுகிறது.",
+  "Tax is consistent: invoice tax lines, the GST summary and the GSTR-1 file are the same numbers.":
+    "வரி ஒரே மாதிரியாக இருக்கிறது: விலைப்பட்டியல் வரி வரிகள், GST சுருக்கம், GSTR-1 கோப்பு மூன்றும் ஒரே எண்கள்.",
+  "Every number can be checked: tap ⓘ beside any figure to see its formula and source record.":
+    "ஒவ்வொரு எண்ணையும் சரிபார்க்கலாம்: அதன் சூத்திரத்தையும் மூலப் பதிவையும் பார்க்க எந்த எண்ணுக்கும் அருகில் ⓘ தட்டுங்கள்.",
+  "People are not slowed down: orders work offline on a phone, approval is one tap, month end is a download.":
+    "மக்களின் வேலை தாமதமாவதில்லை: ஆர்டர்கள் இணையம் இல்லாமலும் தொலைபேசியில் வேலை செய்யும், ஒப்புதல் ஒரே தட்டல், மாத இறுதி ஒரு பதிவிறக்கம்.",
   // ---------- voice guide ----------
   // tour finish panel and voice note
   "Almost there.": "கிட்டத்தட்ட முடிந்தது.",

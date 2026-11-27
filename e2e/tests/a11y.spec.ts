@@ -29,6 +29,7 @@ test("signed-out screens have no serious accessibility violation", async ({ page
   await expectAccessible(page, "/sign-in", /^Sign in$/);
   await expectAccessible(page, "/sign-up", /Take the guided tour first/);
   await expectAccessible(page, "/check", /Sample-day check/);
+  await expectAccessible(page, "/how-to", /^Instructions$/);
   await expectAccessible(page, "/guide/purchase", /Guided tour/); // with the voice guide
 });
 

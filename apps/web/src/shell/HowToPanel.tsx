@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useT } from "../lib/i18n";
 
 /**
@@ -26,6 +27,32 @@ export const FACTORY_STEPS = [
   "Press Restart tour at any time to go over a step again.",
 ];
 
+export const VOICE_STEPS = [
+  "Open the Guided tour (menu → Guide → Guided tour, or Start the guided tour on the home page).",
+  "Above every step card is the voice bar: press 🔊 Listen to this step to hear it, Pause or Stop at any time.",
+  "Tick Read each step aloud and every step is read as you move with Next.",
+  "Press தமிழ் in the top bar: the text and the voice change to Tamil at once. Press English to go back.",
+  "On this Instructions page, 🔊 Listen reads each routine aloud as well.",
+];
+
+export const WHY = [
+  "Stock is never guessed: every gram moves through a double-entry stock ledger and can never go below zero.",
+  "Cost is explained: each batch's cost per good packet comes from real material, labour and gas, and the gap against standard is shown step by step.",
+  "Tax is consistent: invoice tax lines, the GST summary and the GSTR-1 file are the same numbers.",
+  "Every number can be checked: tap ⓘ beside any figure to see its formula and source record.",
+  "People are not slowed down: orders work offline on a phone, approval is one tap, month end is a download.",
+];
+
+const EVENT = "aaharos:howto-panel";
+/** Open the steps panel beside the current screen (the shell listens). */
+export function openHowToPanel() {
+  window.dispatchEvent(new Event(EVENT));
+}
+export function onOpenHowToPanel(handler: () => void): () => void {
+  window.addEventListener(EVENT, handler);
+  return () => window.removeEventListener(EVENT, handler);
+}
+
 export function HowToPanel({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   return (
@@ -42,6 +69,11 @@ export function HowToPanel({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <p className="muted small">{t("Keep this panel open and work on the screen beside it.")}</p>
+      <p>
+        <Link to="/how-to" className="link-strong">
+          {t("Open the full instructions →")}
+        </Link>
+      </p>
       <h3>{t("Guided tour, step by step")}</h3>
       <ol>
         {TOUR_STEPS.map((s) => (

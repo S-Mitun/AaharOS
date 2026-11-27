@@ -5,7 +5,7 @@ import { restartTour } from "../guide/memory";
 import { STEPS } from "../guide/steps";
 import { GuideDrawer } from "../components/GuideDrawer";
 import { useSession } from "../lib/sessionContext";
-import { HowToPanel } from "./HowToPanel";
+import { HowToPanel, onOpenHowToPanel } from "./HowToPanel";
 import { Sidebar } from "./Sidebar";
 import { SignOutButton } from "./SignOutButton";
 
@@ -34,6 +34,7 @@ export function AppShell() {
   const { t } = useT();
   const { me } = useSession();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [howTo, setHowTo] = useState(() => {
     try {
@@ -55,6 +56,7 @@ export function AppShell() {
     setMenuOpen(false);
     document.documentElement.scrollTop = 0; // a new screen starts at its top
   }, [pathname]);
+  useEffect(() => onOpenHowToPanel(() => toggleHowTo(true)));
   useEffect(() => {
     if (!menuOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
@@ -90,12 +92,12 @@ export function AppShell() {
           <LanguageSwitch />
           <button
             type="button"
-            className={`btn btn-ghost howto-btn${howTo ? " active" : ""}`}
-            aria-expanded={howTo}
-            aria-label={t("How to")}
-            onClick={() => toggleHowTo(!howTo)}
+            className={`btn btn-ghost howto-btn${pathname === "/how-to" ? " active" : ""}`}
+            aria-label={t("Instructions")}
+            onClick={() => navigate("/how-to")}
           >
-            <span aria-hidden="true">?</span> <span className="howto-label">{t("How to")}</span>
+            <span aria-hidden="true">?</span>{" "}
+            <span className="howto-label">{t("Instructions")}</span>
           </button>
           <RestartTourButton />
           {me ? (
