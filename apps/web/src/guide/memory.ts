@@ -58,8 +58,26 @@ export function markTourCompleted(): void {
 }
 
 /** Start the tour again from step 1 (any number of times). Finishing it once keeps own accounts open. */
+/** Steps the visitor has marked "I have done this step": the next step opens only after that. */
+const STEPS_DONE_KEY = "aaharos.guide.steps-done";
+export function doneSteps(): string[] {
+  try {
+    return JSON.parse(read(STEPS_DONE_KEY) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+export function markStepDone(id: string, done: boolean): string[] {
+  const next = new Set(doneSteps());
+  if (done) next.add(id);
+  else next.delete(id);
+  write(STEPS_DONE_KEY, JSON.stringify([...next]));
+  return [...next];
+}
+
 export function restartTour(): void {
   write(VISITED_KEY, "[]");
+  write(STEPS_DONE_KEY, "[]");
   write(LAST_STEP_KEY, STEPS[0]!.id);
 }
 

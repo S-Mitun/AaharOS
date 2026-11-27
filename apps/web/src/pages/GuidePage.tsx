@@ -2,7 +2,14 @@ import { useT } from "../lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { StepCard } from "../components/StepCard";
-import { markTourCompleted, rememberStep, restartTour, stepsLeft } from "../guide/memory";
+import {
+  doneSteps,
+  markStepDone,
+  markTourCompleted,
+  rememberStep,
+  restartTour,
+  stepsLeft,
+} from "../guide/memory";
 import { STEPS, stepIndex } from "../guide/steps";
 import { STEPS_TA } from "../guide/stepsTa";
 import { VoiceGuide } from "../guide/VoiceGuide";
@@ -22,6 +29,14 @@ export function GuidePage() {
     headingRef.current?.focus();
   }, [step.id]);
 
+  const [done, setDone] = useState<string[]>(doneSteps);
+  const isDone = done.includes(step.id);
+  // A step opens only when every step before it is done (the list on the left cannot skip ahead either).
+  const firstOpen = STEPS.findIndex((s) => !done.includes(s.id));
+  const reachable = (i: number) => firstOpen < 0 || i <= firstOpen;
+  useEffect(() => {
+    if (!reachable(index)) navigate(`/guide/${STEPS[firstOpen]!.id}`, { replace: true });
+  });
   const prev = STEPS[index - 1];
   const next = STEPS[index + 1];
   const [finished, setFinished] = useState<string[] | null>(null); // null: not asked yet; []: done; else steps left
@@ -63,18 +78,27 @@ export function GuidePage() {
           <ol>
             {STEPS.map((s, i) => (
               <li key={s.id}>
-                <Link
-                  to={`/guide/${s.id}`}
-                  className={
-                    i === index ? "step-link current" : i < index ? "step-link done" : "step-link"
-                  }
-                  aria-current={i === index ? "step" : undefined}
-                >
-                  <span className="step-num" aria-hidden="true">
-                    {i < index ? "✓" : i + 1}
+                {!reachable(i) ? (
+                  <span className="step-link locked" aria-disabled="true">
+                    <span className="step-num" aria-hidden="true">
+                      🔒
+                    </span>
+                    {titleOf(s)}
                   </span>
-                  {titleOf(s)}
-                </Link>
+                ) : (
+                  <Link
+                    to={`/guide/${s.id}`}
+                    className={
+                      i === index ? "step-link current" : i < index ? "step-link done" : "step-link"
+                    }
+                    aria-current={i === index ? "step" : undefined}
+                  >
+                    <span className="step-num" aria-hidden="true">
+                      {i < index ? "✓" : i + 1}
+                    </span>
+                    {titleOf(s)}
+                  </Link>
+                )}
               </li>
             ))}
           </ol>
@@ -83,6 +107,19 @@ export function GuidePage() {
         <div className="guide-main">
           <VoiceGuide stepId={step.id} />
           <StepCard step={step} />
+          <label className={`step-done${isDone ? " checked" : ""}`}>
+            <input
+              type="checkbox"
+              checked={isDone}
+              onChange={(e) => setDone(markStepDone(step.id, e.target.checked))}
+            />{" "}
+            {t("I have done this step")}
+          </label>
+          {!isDone && (
+            <p className="muted small">
+              {t("Do the step on the screen, tick the box, then press Next.")}
+            </p>
+          )}
           <div className="guide-nav">
             <button
               type="button"
@@ -96,12 +133,13 @@ export function GuidePage() {
               <button
                 type="button"
                 className="btn btn-primary"
+                disabled={!isDone}
                 onClick={() => navigate(`/guide/${next.id}`)}
               >
                 {t("Next:")} {titleOf(next)} →
               </button>
             ) : (
-              <button type="button" className="btn btn-primary" onClick={finish}>
+              <button type="button" className="btn btn-primary" disabled={!isDone} onClick={finish}>
                 {t("Finish the tour")}
               </button>
             )}
@@ -143,6 +181,7 @@ export function GuidePage() {
                   className="btn btn-ghost"
                   onClick={() => {
                     restartTour();
+                    setDone([]);
                     setFinished(null);
                     navigate(`/guide/${STEPS[0]!.id}`);
                   }}

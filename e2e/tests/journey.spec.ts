@@ -15,9 +15,11 @@ test("a new visitor takes the tour, then works in their own factory", async ({ p
   const total = Number((await page.getByText(/^Step 1 of \d+$/).textContent())?.split(" of ")[1]);
   for (let step = 2; step <= total; step++) {
     // the keyboard path (focus + Enter), as a keyboard user walks the tour; the page re-lays out after each step
+    await page.getByLabel("I have done this step").check();
     await page.getByRole("button", { name: /^Next:/ }).press("Enter");
     await expect(page.getByText(`Step ${step} of ${total}`)).toBeVisible();
   }
+  await page.getByLabel("I have done this step").check();
   await page.getByRole("button", { name: "Finish the tour" }).press("Enter");
   await expect(page.getByRole("heading", { name: "You have finished the guided tour" })).toBeVisible();
   await page.getByRole("link", { name: "Create your own factory" }).click();

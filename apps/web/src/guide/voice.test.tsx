@@ -21,6 +21,8 @@ class FakeAudio {
 
 beforeEach(() => {
   window.localStorage.clear();
+  window.localStorage.setItem("aaharos.voice.auto", "0"); // this test presses Listen itself
+  window.localStorage.setItem("aaharos.guide.steps-done", '["start"]');
   played.length = 0;
   vi.stubGlobal("Audio", FakeAudio);
   vi.stubGlobal(

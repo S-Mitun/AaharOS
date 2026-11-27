@@ -52,6 +52,7 @@ describe("the guided tour comes first (deployment)", () => {
   it("finishes only when every step was opened, then offers an own account", async () => {
     serveSignedOut();
     const last = STEPS[STEPS.length - 1]!;
+    window.localStorage.setItem("aaharos.guide.steps-done", JSON.stringify(STEPS.map((s) => s.id)));
     open(`/guide/${last.id}`);
     await userEvent.click(await screen.findByRole("button", { name: "Finish the tour" }));
     expect(await screen.findByText(/Open every step once/)).toBeInTheDocument();

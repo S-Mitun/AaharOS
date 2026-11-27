@@ -5,6 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { parse } from "yaml";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { STEPS as ALL_STEPS } from "./steps";
+
+const allStepsDone = () =>
+  window.localStorage.setItem(
+    "aaharos.guide.steps-done",
+    JSON.stringify(ALL_STEPS.map((s) => s.id)),
+  );
 import { App } from "../App";
 import { fillTemplate, formatValue, lookup, placeholders } from "../lib/format";
 import { NIT_CHECKS } from "./checks";
@@ -113,15 +120,19 @@ describe("guided tour and landing page", () => {
     const user = userEvent.setup();
     renderAt("/guide");
     expect(screen.getByText("Step 1 of 12")).toBeInTheDocument();
-
+    // Next stays locked until the step is ticked done
+    expect(screen.getByRole("button", { name: /Next: Buy flour/ })).toBeDisabled();
+    await user.click(screen.getByLabelText("I have done this step"));
     await user.click(screen.getByRole("button", { name: /Next: Buy flour/ }));
     expect(screen.getByText("Step 2 of 12")).toBeInTheDocument();
     expect(await screen.findByText("₹43.125 / kg")).toBeInTheDocument();
 
     for (let i = 3; i <= 12; i++) {
+      await user.click(screen.getByLabelText("I have done this step"));
       await user.click(screen.getByRole("button", { name: /^Next:/ }));
       expect(screen.getByText(`Step ${i} of 12`)).toBeInTheDocument();
     }
+    await user.click(screen.getByLabelText("I have done this step"));
     await user.click(screen.getByRole("button", { name: "Finish the tour" }));
     expect(
       await screen.findByRole("heading", { name: "You have finished the guided tour" }),
@@ -129,6 +140,7 @@ describe("guided tour and landing page", () => {
   });
 
   it("links each step to its built screen (MP15: purchases, batch card, run costs)", async () => {
+    allStepsDone();
     renderAt("/guide/purchase");
     expect(await screen.findByRole("link", { name: /Take me there/ })).toHaveAttribute(
       "href",

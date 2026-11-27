@@ -61,7 +61,7 @@ export function VoiceGuide({ stepId }: { stepId: string }) {
   const [paused, setPaused] = useState(false);
   const [auto, setAuto] = useState(() => {
     try {
-      return window.localStorage.getItem(AUTO_KEY) === "1";
+      return window.localStorage.getItem(AUTO_KEY) !== "0";
     } catch {
       return false;
     }
