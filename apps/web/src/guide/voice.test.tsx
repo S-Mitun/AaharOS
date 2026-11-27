@@ -48,3 +48,19 @@ describe("the voice guide", () => {
     expect(screen.getByRole("heading", { name: "மாவு வாங்குதல்" })).toBeInTheDocument();
   });
 });
+
+describe("the sound switch in the top bar", () => {
+  it("turns the voice off everywhere and back on", async () => {
+    window.localStorage.setItem("aaharos.voice.auto", "1");
+    render(
+      <MemoryRouter initialEntries={["/guide/purchase"]}>
+        <App />
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Sound on (turn off)" }));
+    expect(window.localStorage.getItem("aaharos.voice.auto")).toBe("0");
+    expect(screen.getByLabelText("Read each step aloud")).not.toBeChecked();
+    await userEvent.click(screen.getByRole("button", { name: "Sound off (turn on)" }));
+    expect(screen.getByLabelText("Read each step aloud")).toBeChecked();
+  });
+});

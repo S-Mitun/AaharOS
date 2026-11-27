@@ -1349,6 +1349,7 @@ main {
 }
 @media (max-width: 760px) {
   .howto-label,
+  .sound-label,
   .restart-label,
   .topbar .who,
   .brand-name {
@@ -1435,4 +1436,8 @@ main {
 .step-link.locked {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.sound-btn.on {
+  color: var(--accent-strong);
 }

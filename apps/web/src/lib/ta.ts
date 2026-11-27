@@ -309,6 +309,10 @@ export const TA: Record<string, string> = {
   "People are not slowed down: orders work offline on a phone, approval is one tap, month end is a download.":
     "மக்களின் வேலை தாமதமாவதில்லை: ஆர்டர்கள் இணையம் இல்லாமலும் தொலைபேசியில் வேலை செய்யும், ஒப்புதல் ஒரே தட்டல், மாத இறுதி ஒரு பதிவிறக்கம்.",
   // ---------- voice guide ----------
+  "Sound on": "ஒலி இயக்கத்தில்",
+  "Sound off": "ஒலி அணைப்பில்",
+  "Sound on (turn off)": "ஒலி இயக்கத்தில் (அணைக்க)",
+  "Sound off (turn on)": "ஒலி அணைப்பில் (இயக்க)",
   "I have done this step": "இந்தப் படியை முடித்துவிட்டேன்",
   "Do the step on the screen, tick the box, then press Next.":
     "திரையில் இந்தப் படியைச் செய்து, பெட்டியைத் தேர்ந்தெடுத்து, பிறகு அடுத்து அழுத்துங்கள்.",

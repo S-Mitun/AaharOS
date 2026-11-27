@@ -6,6 +6,7 @@ import { STEPS } from "../guide/steps";
 import { GuideDrawer } from "../components/GuideDrawer";
 import { useSession } from "../lib/sessionContext";
 import { HowToPanel, onOpenHowToPanel } from "./HowToPanel";
+import { onSoundChange, setSound, soundOn } from "../guide/sound";
 import { Sidebar } from "./Sidebar";
 import { SignOutButton } from "./SignOutButton";
 
@@ -36,6 +37,8 @@ export function AppShell() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sound, setSoundState] = useState(soundOn);
+  useEffect(() => onSoundChange(setSoundState), []);
   const [howTo, setHowTo] = useState(() => {
     try {
       return window.sessionStorage.getItem("aaharos.howto") === "1";
@@ -90,6 +93,17 @@ export function AppShell() {
         </span>
         <div className="topbar-right">
           <LanguageSwitch />
+          <button
+            type="button"
+            className={`btn btn-ghost sound-btn${sound ? " on" : ""}`}
+            aria-pressed={sound}
+            aria-label={sound ? t("Sound on (turn off)") : t("Sound off (turn on)")}
+            title={sound ? t("Sound on (turn off)") : t("Sound off (turn on)")}
+            onClick={() => setSound(!sound)}
+          >
+            <span aria-hidden="true">{sound ? "🔊" : "🔇"}</span>{" "}
+            <span className="sound-label">{sound ? t("Sound on") : t("Sound off")}</span>
+          </button>
           <button
             type="button"
             className={`btn btn-ghost howto-btn${pathname === "/how-to" ? " active" : ""}`}

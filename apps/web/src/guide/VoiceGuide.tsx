@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "../lib/i18n";
+import { onSoundChange, setSound, soundOn } from "./sound";
 
 /**
  * The voice guide for the tour: plays the recorded voice of the current step in the chosen language (a natural Tamil
@@ -7,7 +8,6 @@ import { useT } from "../lib/i18n";
  * chosen it switches to Tamil at once. If a recording cannot be played it falls back to the browser's own speech.
  * "Read each step aloud" keeps it reading as you move through the tour.
  */
-const AUTO_KEY = "aaharos.voice.auto";
 const synth = (): SpeechSynthesis | null =>
   typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis : null;
 
@@ -59,13 +59,7 @@ export function VoiceGuide({ stepId }: { stepId: string }) {
   const supported = typeof Audio !== "undefined" || !!synth();
   const [speaking, setSpeaking] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [auto, setAuto] = useState(() => {
-    try {
-      return window.localStorage.getItem(AUTO_KEY) !== "0";
-    } catch {
-      return false;
-    }
-  });
+  const [auto, setAuto] = useState(soundOn);
   const [noTamilVoice, setNoTamilVoice] = useState(false);
   const run = useRef(0);
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -146,6 +140,15 @@ export function VoiceGuide({ stepId }: { stepId: string }) {
     };
   }, []);
   useEffect(() => () => audio.current?.pause(), []);
+  // the top bar's sound switch
+  useEffect(
+    () =>
+      onSoundChange((on) => {
+        setAuto(on);
+        if (!on) stop();
+      }),
+    [stop],
+  );
 
   if (!supported)
     return <p className="muted small">{t("Voice is not available in this browser.")}</p>;
@@ -194,12 +197,8 @@ export function VoiceGuide({ stepId }: { stepId: string }) {
           type="checkbox"
           checked={auto}
           onChange={(e) => {
+            setSound(e.target.checked);
             setAuto(e.target.checked);
-            try {
-              window.localStorage.setItem(AUTO_KEY, e.target.checked ? "1" : "0");
-            } catch {
-              /* storage blocked */
-            }
             if (!e.target.checked) stop();
           }}
         />{" "}

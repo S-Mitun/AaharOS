@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../lib/i18n";
+import { onSoundChange, setSound, soundOn } from "./sound";
 
 /**
  * 🔊 Listen: plays a recorded voice track (/voice/{en|ta}/{track}.mp3) in the language on screen. If the language is
@@ -17,6 +18,7 @@ export function ListenButton({ track, label }: { track: string; label?: string }
   };
 
   const play = (l: string) => {
+    if (!soundOn()) setSound(true); // pressing Listen turns the sound back on
     audio.current?.pause();
     const a = new Audio(`/voice/${l}/${track}.mp3`);
     audio.current = a;
@@ -35,6 +37,11 @@ export function ListenButton({ track, label }: { track: string; label?: string }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a language change restarts the voice
   }, [lang]);
   useEffect(() => () => audio.current?.pause(), []);
+  useEffect(() =>
+    onSoundChange((on) => {
+      if (!on) stop();
+    }),
+  );
 
   return playing ? (
     <button type="button" className="btn listen-btn" onClick={stop}>
