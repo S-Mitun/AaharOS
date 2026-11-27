@@ -37,11 +37,13 @@ and the number you should see.
 
 1. Open the app and press **Start the guided tour** (or **Restart tour** in the top bar, at any time).
 2. Read the step card: **who** does it, **where** (**Take me there** opens the screen), **what to do**, **what you should see**.
-3. To hear it, press **Listen to this step**, or tick **Read each step aloud**. Press **தமிழ்** for Tamil text and a Tamil voice.
+3. The voice guide reads the step aloud by itself at normal speed and ends with "tick *I have done this step*, then
+   press Next". Press **தமிழ்** for Tamil text and a Tamil voice; Pause, Stop or **Listen to this step** at any time.
 4. Sign in as the person the card names: on the sign-in page one tap on a DEMO login fills it in.
 5. Do the step on the screen and compare your numbers with **What you should see**. Tap ⓘ on any number to see where it came from.
-6. Press the **Guide** button (bottom right) to come back to the same step, then press **Next**.
-7. Repeat for all 12 steps. On the last step press **Finish the tour**.
+6. Press the **Guide** button (bottom right) to come back to the same step, tick **I have done this step**, then
+   press **Next**. Next stays locked until the step is ticked, and the step list cannot skip ahead.
+7. Repeat for all 12 steps. On the last step tick it and press **Finish the tour**.
 8. Choose **Create your own factory**, or **Sign in to my account**.
 
 The twelve steps: before you start → buy flour → start a batch → record what it made → Salesman A's order → approve,
