@@ -42,3 +42,5 @@ backups/
 # demo video recordings (large; upload them, don't commit)
 demo-video/
 e2e/video/out/
+e2e/video/clips/
+e2e/video/AaharOS-demo.mp4
