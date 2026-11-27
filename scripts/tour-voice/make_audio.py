@@ -43,7 +43,7 @@ async def main() -> None:
         (OUT / lang).mkdir(parents=True, exist_ok=True)
         for step, text in steps.items():
             target = OUT / lang / f"{step}.mp3"
-            await edge_tts.Communicate(spoken(text, lang), VOICES[lang], rate="-5%").save(str(target))
+            await edge_tts.Communicate(spoken(text, lang), VOICES[lang], rate="+0%").save(str(target))
             print(f"{lang}/{step}.mp3 {target.stat().st_size // 1024} KB")
 
 

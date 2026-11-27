@@ -95,7 +95,7 @@ export function VoiceGuide({ stepId }: { stepId: string }) {
       const u = new SpeechSynthesisUtterance(line);
       u.lang = lang === "ta" ? "ta-IN" : "en-IN";
       if (voice) u.voice = voice;
-      u.rate = lang === "ta" ? 0.95 : 1;
+      u.rate = 1;
       if (i === lines.length - 1)
         u.onend = () => {
           if (run.current === mine) setSpeaking(false);
