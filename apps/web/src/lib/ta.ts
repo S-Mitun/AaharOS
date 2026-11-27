@@ -587,6 +587,13 @@ export const TA: Record<string, string> = {
   "The packets are held for this customer at once.":
     "பாக்கெட்டுகள் உடனே இந்த வாடிக்கையாளருக்கு ஒதுக்கப்படும்.",
   "Approve all": "அனைத்தையும் ஒப்புக்கொள்",
+  "Edit an order line": "ஆர்டர் வரியைத் திருத்து",
+  "Change the packets or the price before you decide. The reason is kept in the order's history and the audit trail.":
+    "முடிவு செய்வதற்கு முன் பாக்கெட்டுகளையோ விலையையோ மாற்றுங்கள். காரணம் ஆர்டர் வரலாற்றிலும் தணிக்கைப் பதிவிலும் சேமிக்கப்படும்.",
+  "New packets": "புதிய பாக்கெட்டுகள்",
+  "New price ex-tax (₹)": "புதிய விலை வரிக்கு முன் (₹)",
+  "Save the change": "மாற்றத்தைச் சேமி",
+  "Reason for the change": "மாற்றத்துக்கான காரணம்",
   "Send what is available now": "இப்போது கிடைப்பதை அனுப்பு",
   "Wait for the next batch": "அடுத்த தொகுப்புக்குக் காத்திரு",
   Reject: "நிராகரி",
@@ -717,6 +724,7 @@ export const TA: Record<string, string> = {
   "Add costs": "செலவுகளைச் சேர்",
   "Mark costs final": "செலவுகளை இறுதி எனக் குறி",
   "Per good packet": "ஒரு நல்ல பாக்கெட்டுக்கு",
+  "Margin per packet": "ஒரு பாக்கெட்டின் லாப வரம்பு",
   "Costs added. The cost per packet below now includes them.":
     "செலவுகள் சேர்க்கப்பட்டன. கீழே உள்ள ஒரு பாக்கெட்டின் செலவில் அவை இப்போது அடங்கும்.",
   "Costs are final for this batch.": "இந்தத் தொகுப்பின் செலவுகள் இறுதியானவை.",
@@ -1048,6 +1056,10 @@ export const PATTERNS: [RegExp, (...m: string[]) => string][] = [
   [
     /^Only (\d[\d,]*) available today \(partial\)$/,
     (_, x) => `இன்று ${x} மட்டுமே கிடைக்கும் (பகுதி)`,
+  ],
+  [
+    /^Selling price (₹[\d,.]+) ex-tax · ([\d.]+)% of the price$/,
+    (_, p, m) => `விற்பனை விலை ${p} வரிக்கு முன் · விலையில் ${m}%`,
   ],
   [/^Stop (\d+)$/, (_, x) => `நிறுத்தம் ${x}`],
   [/^Decide (\d+) waiting orders?$/, (_, x) => `காத்திருக்கும் ${x} ஆர்டரை முடிவு செய்யுங்கள்`],

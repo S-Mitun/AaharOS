@@ -186,6 +186,36 @@ describe("the order inbox (MP09)", () => {
     expect(screen.getByText(/the shortage would have been 20/)).toBeInTheDocument();
   });
 
+  it("lets the admin edit a line's packets and price, with a reason, before deciding", async () => {
+    const posts = serve();
+    const user = userEvent.setup();
+    renderAt("/admin/orders/o-b");
+    await screen.findByRole("heading", { name: "Edit an order line" });
+    await user.selectOptions(screen.getByLabelText("Product"), "DEMO murukku 200g");
+    const qty = screen.getByLabelText("New packets");
+    await user.clear(qty);
+    await user.type(qty, "88");
+    const price = screen.getByLabelText("New price ex-tax (₹)");
+    await user.clear(price);
+    await user.type(price, "48.50");
+    expect(screen.getByRole("button", { name: "Save the change" })).toBeDisabled(); // a reason is required
+    await user.type(
+      screen.getByLabelText("Reason for the change"),
+      "Customer agreed to take what is in stock",
+    );
+    await user.click(screen.getByRole("button", { name: "Save the change" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({
+      url: "/api/orders/o-b/amend",
+      body: {
+        line_no: 1,
+        reason: "Customer agreed to take what is in stock",
+        qty: "88",
+        price_ex_tax: "48.50",
+      },
+    });
+  });
+
   it("asks which price applies when the price list changed while the phone was offline", async () => {
     serve({
       ...B_CARD,

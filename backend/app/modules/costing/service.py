@@ -11,7 +11,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import func, insert, select
@@ -19,6 +19,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.core.errors import DomainError, NotFoundError
+from app.core.explained import Explained, ExplainedInput, SourceRef
 from app.core.money import round_money
 from app.core.pg_errors import domain_error_from_db
 from app.modules.audit import service as audit
@@ -29,6 +30,7 @@ from app.modules.costing.models import StandardCostCard, StandardCostLine
 from app.modules.production import service as production
 from app.modules.production.domain import PackStd, RecipeStd, RunCostingFacts
 from app.modules.recipe import service as recipes
+from app.modules.sales import service as sales
 from app.modules.uom.domain import normalise
 from app.modules.valuation import service as valuation
 
@@ -197,6 +199,7 @@ class RunCosting:
     waterfall: Waterfall | None
     waterfall_reason: str | None
     sensitivity: dict[str, dict[str, Any]]
+    margin: Explained | None = None
 
     def to_json(self) -> dict[str, Any]:
         f = self.facts
@@ -218,6 +221,7 @@ class RunCosting:
             "waterfall": None if self.waterfall is None else self.waterfall.to_json(),
             "waterfall_unavailable": self.waterfall_reason,
             "sensitivity": self.sensitivity,
+            "margin": None if self.margin is None else self.margin.to_json(),
             "note": "Direct cost only: monthly overheads (rent, salaries) are not added to batches.",
         }
 
@@ -263,4 +267,30 @@ def run_costing(session: Session, run_id: uuid.UUID) -> RunCosting:
     good = sum((p.good_units for p in facts.packs), 0) if len(facts.packs) == 1 else 0
     unit = facts.packs[0].pack.fg_stock_uom
     sensitivity = domain.sensitivity(cost.total.value, good, _method_values(session, facts), unit)
-    return RunCosting(facts, cost, waterfall, reason, sensitivity)
+    return RunCosting(facts, cost, waterfall, reason, sensitivity, _margin(session, facts, cost))
+
+
+def _margin(session: Session, facts: RunCostingFacts, cost: RunCost) -> Explained | None:
+    """Margin per good packet against the general list's ex-tax selling price on the run date (one pack line)."""
+    if len(facts.packs) != 1 or cost.per_good_unit is None:
+        return None
+    price = sales.general_price(session, facts.packs[0].pack.fg_item_id, facts.run_date)
+    if price is None or price <= 0:
+        return None
+    per = cost.per_good_unit.value
+    unit = facts.packs[0].pack.fg_stock_uom
+    return Explained(
+        value=round_money(price - per),
+        unit=f"INR/{unit}",
+        formula="selling price ex-tax - cost per good packet",
+        inputs=(
+            ExplainedInput("selling price ex-tax (general price list)", price, f"INR/{unit}"),
+            ExplainedInput(
+                "cost per good packet", round_money(per), f"INR/{unit}", SourceRef("production_run", str(facts.run_id))
+            ),
+            ExplainedInput(
+                "margin %", (100 * (price - per) / price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), "%"
+            ),
+        ),
+        method=cost.per_good_unit.method,
+    )

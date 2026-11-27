@@ -335,6 +335,14 @@ def price_list_in_force(
     return domain.price_list_in_force(_versions(session), customer_id, on, known_at)
 
 
+def general_price(session: Session, item_id: uuid.UUID, on: date) -> Decimal | None:
+    """The item's ex-tax price on the general price list in force on `on` (no customer-specific list)."""
+    version = domain.price_list_in_force(_versions(session), uuid.UUID(int=0), on)
+    if version is None:
+        return None
+    return _list_prices(session, version.id).get(item_id)
+
+
 # ---------- the salesman's catalog (G2, G7) ----------
 
 

@@ -254,6 +254,8 @@ def test_costs_through_the_api(api_app: Any, owner_engine: Engine, app_engine: E
     assert (got["cost"]["total"]["value"], got["cost"]["per_good_unit_display"]) == ("5855.00", "31.14")
     assert got["waterfall"]["total"]["value"] == "431.20" and got["waterfall"]["components"][0]["kind"] == "YIELD"
     assert got["sensitivity"]["FIFO"]["per_good_unit_display"] == "30.90"
+    margin = got["margin"]  # against the general list's Rs 50.00 ex-tax: 50.00 - 31.143617 = 18.86, 37.71 %
+    assert margin["value"] == "18.86" and margin["inputs"][2]["value"] == "37.71"
     assert len(auditor.get("/api/standard-cost-cards").json()["cards"]) == 1
 
     floor = login_client(api_app, emails["PRODUCTION"])

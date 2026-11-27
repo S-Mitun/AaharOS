@@ -22,6 +22,7 @@ interface Costing {
     total: Explained;
     per_good_unit: Explained | null;
   };
+  margin?: Explained | null;
 }
 
 /**
@@ -146,6 +147,17 @@ export function RunCostsPage() {
               <StatusChip tone="todo">provisional</StatusChip>
             )}
           </div>
+          {costing.margin && (
+            <div className="brief-card">
+              <h2>Margin per packet</h2>
+              <Num className="big" value={costing.margin} label="margin per good packet" />
+              <p className="muted small">
+                {`Selling price ₹${costing.margin.inputs[0]?.value ?? ""} ex-tax · ${
+                  costing.margin.inputs[2]?.value ?? ""
+                }% of the price`}
+              </p>
+            </div>
+          )}
         </div>
       )}
       {runId && !final && (

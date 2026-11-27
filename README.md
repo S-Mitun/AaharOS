@@ -56,6 +56,19 @@ A short written report (what it is, why it is needed, both routines, results): [
 
 The DEMO factory is shared by every visitor, so it fills up with their orders. Your own factory is private.
 
+## Run it yourself (one command set, Docker)
+Needs Docker Desktop and `make` (Windows: `winget install ezwinports.make`). No `.env` is needed for a local run.
+```
+git clone https://github.com/S-Mitun/AaharOS.git && cd AaharOS
+make up            # database, backend (http://localhost:8180/docs) and web app (http://localhost:5180)
+make migrate       # create the schema and its guards
+make seed-demo     # the DEMO factory: six logins, section 5 master data, opening stock
+make benchmark     # replay the section 5 scenario on a fresh factory and print the 26 checks
+```
+Open http://localhost:5180 and sign in with any DEMO login below (password `change-me-demo`). Checks: `make test`
+(backend), `make web-test`, `make e2e` (browser), `make integrity` (the four conservation laws). `make seed-benchmark`
+loads only the section 5 master data into a new factory. More: [docs/development.md](docs/development.md).
+
 ## How it fits together
 ```
  Browser (phone · tablet · desktop PWA)
@@ -111,17 +124,18 @@ GSTIN, FSSAI and thresholds are effective-dated settings the Owner can change.
 | 13 | B: 120 asked, 88 available, 32 short | green | 26 | Integrity: four laws, audit chain, rebuild | green |
 
 **Cost method:** weighted average cost (WAC) posts; FIFO (₹30.90/packet) and last price (₹31.54) are shown beside it,
-never posted. Cost per packet divides by good packets (188), not the expected 200. Monthly overheads are not added to
+never posted. Cost per packet divides by good packets (188), not the expected 200. **Margin:** ₹50.00 − ₹31.14 =
+**₹18.86 a packet (37.71% of the selling price)**, shown on Run costs. Monthly overheads are not added to
 batches (direct cost only). Assumptions A1-A6: [docs/assumptions.md](docs/assumptions.md).
 
 ## What the problem statement asked for, and where it is in the app
 | Tier | Feature | Where |
 |---|---|---|
 | Must | Salesman order on the phone, offline outbox, repeat order | Salesman → Today |
-| Must | Approval against available to promise, part-approve, backorder | Admin → Order inbox |
+| Must | Approval against available to promise, edit a line's packets or price (with a reason), part-approve, backorder, reject | Admin → Order inbox |
 | Must | GST invoice (CGST / SGST or IGST), printable; FEFO dispatch; payments and outstanding | Admin → Invoices, Dispatch, Payments |
 | Must | Purchases at WAC, issue per recipe, production run, good packets, damaged, waste, variances | Production → Purchases, Batch card |
-| Must | Run cost, cost per good packet, where profit leaks (waterfall) | Production → Run costs; Owner → Where profit leaks |
+| Must | Run cost, cost per good packet, margin against the selling price, where profit leaks (waterfall) | Production → Run costs; Owner → Where profit leaks |
 | Must | Reports, GST summary, GSTR-1-shaped export, month close, audit trail | Auditor → Reports |
 | Should | Batch planner, material runway, shortage reasons, Morning brief | Owner → Morning brief; Production → Batch planner |
 | Should | Trace a batch, recall simulator, batch passport QR, freshness radar, oil and fill weights | Production → Trace and recall, Oil and fill weights |

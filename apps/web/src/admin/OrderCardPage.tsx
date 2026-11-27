@@ -39,6 +39,7 @@ export function OrderCardPage() {
   const [creditReason, setCreditReason] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
+  const [edit, setEdit] = useState({ line: "", qty: "", price: "", reason: "" });
 
   useEffect(() => {
     let live = true;
@@ -260,6 +261,84 @@ export function OrderCardPage() {
               <input value={creditReason} onChange={(e) => setCreditReason(e.target.value)} />
             </label>
           )}
+
+          <h2>Edit an order line</h2>
+          <p className="muted small">
+            Change the packets or the price before you decide. The reason is kept in the
+            order&apos;s history and the audit trail.
+          </p>
+          <div className="actions-row">
+            <label className="field">
+              Product
+              <select
+                value={edit.line}
+                onChange={(e) => {
+                  const l = card.card_lines.find((x) => String(x.line_no) === e.target.value);
+                  setEdit({
+                    ...edit,
+                    line: e.target.value,
+                    qty: l ? String(Number(l.requested)) : "",
+                    price: l ? (l.price_final ?? l.price_captured) : "",
+                  });
+                }}
+              >
+                <option value="">Choose…</option>
+                {card.card_lines.map((l) => (
+                  <option key={l.line_no} value={String(l.line_no)}>
+                    {l.item_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              New packets
+              <input
+                inputMode="numeric"
+                value={edit.qty}
+                onChange={(e) => setEdit({ ...edit, qty: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              New price ex-tax (₹)
+              <input
+                inputMode="decimal"
+                value={edit.price}
+                onChange={(e) => setEdit({ ...edit, price: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              Reason for the change
+              <input
+                value={edit.reason}
+                onChange={(e) => setEdit({ ...edit, reason: e.target.value })}
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            className="btn"
+            disabled={
+              busy ||
+              !edit.line ||
+              edit.reason.trim().length < 3 ||
+              !/^\d{1,7}$/.test(edit.qty) ||
+              !/^\d+(\.\d{1,2})?$/.test(edit.price)
+            }
+            onClick={() => {
+              const l = card.card_lines.find((x) => String(x.line_no) === edit.line)!;
+              const body: Record<string, unknown> = {
+                line_no: l.line_no,
+                reason: edit.reason.trim(),
+              };
+              if (Number(edit.qty) !== Number(l.requested)) body.qty = edit.qty;
+              if (Number(edit.price) !== Number(l.price_final ?? l.price_captured))
+                body.price_ex_tax = edit.price;
+              void act("amend", body);
+              setEdit({ line: "", qty: "", price: "", reason: "" });
+            }}
+          >
+            Save the change
+          </button>
 
           <h2>Decide</h2>
           {!short ? (
