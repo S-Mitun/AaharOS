@@ -9,6 +9,14 @@ and what to do *next*, for a small South Indian snack factory. Every number on e
 the stock movement or document that produced it. Built for the NIT Tiruchirappalli Centre for Digital Infrastructure
 internship task. All companies, people, GSTINs and licence numbers are fictional (**DEMO**).
 
+## Links
+| What | Link |
+|---|---|
+| Live app | https://aaharos-demo.onrender.com |
+| Demo video (6 min, narrated: the guided tour, then a new factory's full day) | https://aaharos-demo.onrender.com/demo/AaharOS-demo.mp4 |
+| Repository | https://github.com/S-Mitun/AaharOS |
+| Test logins | [DEMO logins below](#demo-logins-shared-factory-password-change-me-demo) (password `change-me-demo`) |
+
 ## Open the app
 **https://aaharos-demo.onrender.com** is the whole product: the instructions, the voice-guided tour, the shared DEMO
 factory and your own factory, on one address. Nothing to install. Free hosting: after a quiet spell the first visit
